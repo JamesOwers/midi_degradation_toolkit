@@ -13,7 +13,7 @@ pip install ./  # use pip install -e ./ for dev mode if you want to edit files
 
 To generate an `ACME` dataset simply install the package i.e. `pip install mdtk` (or as above).
 
-* By default this will download a small test dataset found in `~/.mdtk`
+* By default this will download a small test dataset found in `./data`
 * Pytorch datasets for use with pytorch dataloaders are located in `mdtk.pytorch_datasets`
 * To install more pre-configured datasets, or change this directory data are downloaded to, see the documentation for 
 `./scripts/gen_acme_dataset.py`
