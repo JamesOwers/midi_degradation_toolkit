@@ -1,4 +1,4 @@
-# mdtk - The MIDI Degredataion Toolkit
+# mdtk - The MIDI Degradataion Toolkit
 Tools to generate datasets of Altered and Corrupted MIDI Excerpts - `ACME` datasets.
 
 ## Install
