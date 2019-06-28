@@ -15,9 +15,18 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/JamesOwers/midi_degradation_toolkit",
     packages=setuptools.find_packages(),
+    install_requires=[
+        'numpy',
+        'pandas',
+        'matplotlib',
+        'pretty_midi'
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: Unix",
     ],
+    dependency_links=['https://github.com/craffel/pretty-midi/tarball/'
+                      'master#egg=0.2.8'],
+    zip_safe=False
 )
