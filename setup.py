@@ -13,6 +13,7 @@ setuptools.setup(
                 "MIDI Excerpts (ACME datasets)",
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
+    keywords='MIDI ACME melody music dataset',
     url="https://github.com/JamesOwers/midi_degradation_toolkit",
     packages=setuptools.find_packages(),
     install_requires=[
@@ -22,11 +23,15 @@ setuptools.setup(
         'pretty_midi'
     ],
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Development Status :: 1 - Planning",
+        "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: MIT License",
-        "Operating System :: Unix",
+        "Operating System :: Unix",  #TODO: make win friendly
+        "Topic :: Multimedia :: Sound/Audio :: MIDI"
     ],
     dependency_links=['https://github.com/craffel/pretty-midi/tarball/'
                       'master#egg=0.2.8'],
-    zip_safe=False
+    zip_safe=False,
+    setup_requires=["pytest-runner"],
+    tests_require=["pytest"]
 )
