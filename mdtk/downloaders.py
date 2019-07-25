@@ -98,7 +98,7 @@ def extract_zip(zip_path, out_path, overwrite=None, verbose=True):
                   category=UserWarning)
             return extracted_path
         elif overwrite is False:
-            raise FileExistsError('{path} already exists')
+            raise FileExistsError(f'{path} already exists')
     
     with zipfile.ZipFile(zip_path, 'r') as zz:
         zz.extractall(path=out_path)
@@ -114,14 +114,15 @@ def copy_file(filepath, output_path, overwrite=None):
         elif overwrite is None:
             return
         elif overwrite is False:
-            raise FileExistsError('{path} already exists')
-    
+            raise FileExistsError(f'{path} already exists')
+    else:
+        shutil.copy(filepath, output_path)
 
 
 # Classes =====================================================================
 class DataDownloader:
     """Base class for data downloaders"""
-    def __init__(self, cache_path=DEFAULT_CACHE_PATH, clean=False):
+    def __init__(self, cache_path=DEFAULT_CACHE_PATH):
         self.dataset_name = self.__class__.__name__
         self.download_urls = []
         self.midi_paths = []
@@ -135,10 +136,10 @@ class DataDownloader:
     
     def clear_cache(self):
         path = os.path.join(self.cache_path, self.dataset_name)
-        warnings.warn(f'Deleting existing directory: {path}')
+#        warnings.warn(f'Deleting existing directory: {path}')
         shutil.rmtree(path)
-        self.downloaded = False
-        self.extracted = False
+#        self.downloaded = False
+#        self.extracted = False
     
     
     def download_midi(self, output_path, cache_path=None):
@@ -164,9 +165,11 @@ class PPDDSept2018Monophonic(DataDownloader):
     ----------
     https://www.music-ir.org/mirex/wiki/2019:Patterns_for_Prediction
     """
+    # TODO: add 'sample_size', to allow only a small random sample of the
+    #       total midi files to be copied to the output
     def __init__(self, cache_path=DEFAULT_CACHE_PATH,
                  sizes=['small', 'medium', 'large'], clean=False):
-        super.__init__(cache_path=cache_path)
+        super().__init__(cache_path = cache_path)
         self.dataset_name = self.__class__.__name__
         base_url = ('http://tomcollinsresearch.net/research/data/mirex/'
                          'ppdd/ppdd-sep2018')
@@ -174,7 +177,6 @@ class PPDDSept2018Monophonic(DataDownloader):
                 os.path.join(base_url, f'PPDD-Sep2018_sym_mono_{size}.zip')
                 for size in sizes
             ]
-        make_directory(cache_path, overwrite=None)
         # location of midi files relative to each unzipped directory
 #        self.midi_paths = ['prime_midi', 'cont_true_midi']
         self.midi_paths = ['prime_midi']
