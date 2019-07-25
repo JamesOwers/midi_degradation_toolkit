@@ -1,14 +1,53 @@
-import numpy as np
 import os
+import shutil
+import urllib
 from glob import glob
+import numpy as np
 
-from mdtk.downloaders import PPDDSept2018Monophonic
+from mdtk.downloaders import PPDDSept2018Monophonic, make_directory
 from mdtk.data_structures import Composition
 
 
 DOWNLOADERS = [PPDDSept2018Monophonic]
+USER_HOME = os.path.expanduser('~')
+TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
 
 
+def test_make_directory():
+    make_directory(TEST_CACHE_PATH, overwrite=True)
+    
+
+def test_links_exist():
+    for Downloader in DOWNLOADERS:
+        downloader = Downloader(cache_path=TEST_CACHE_PATH)
+        for url in downloader.download_urls:
+            with urllib.request.urlopen(url) as response:
+                code = response.getcode()
+            assert code == 200
+            
+
+def test_PPDDSept2018Monophonic_download_midi():
+    downloader = PPDDSept2018Monophonic(cache_path=TEST_CACHE_PATH,
+                                        sizes=['small', 'medium'])
+    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name,
+                               'midi')
+    downloader.download_midi(output_path)
+    assert len(os.listdir(output_path)) == 1100
+    
+
+# cleanup
+def test_cleanup():
+    for Downloader in DOWNLOADERS:
+        downloader = Downloader(cache_path=TEST_CACHE_PATH)
+        downloader.clear_cache()
+        cache_dir = os.path.join(TEST_CACHE_PATH, downloader.dataset_name)
+        assert not os.path.exists(cache_dir)
+    assert os.path.exists(TEST_CACHE_PATH)
+    assert len(os.listdir(TEST_CACHE_PATH)) == 0
+    shutil.rmtree(TEST_CACHE_PATH)
+#    
+    
+    
 #def test_working_dir():
 #    cwd = os.getcwd()
 #    assert (os.path.basename(cwd) == 'melody_gen' and
