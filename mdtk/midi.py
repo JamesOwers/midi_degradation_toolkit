@@ -1,11 +1,40 @@
 """Code to interact with MIDI files, including parsing and converting them
 to csvs."""
 
+import os
+import glob
 import pandas as pd
 
 import pretty_midi
 
 
+
+
+def midi_dir_to_csv(midi_dir_path, csv_dir_path):
+    """
+    Convert an entire directory of MIDI files into csvs in another directory.
+    This searches the given MIDI path for any files with the extension 'mid'.
+    It will create any necessary directories for the csv files, and will
+    create one csv per MIDI file, where the 'mid' extension is replaced with
+    'csv'.
+    
+    Parameters
+    ----------
+    midi_dir_path : string
+        The path of a directory which contains any number of MIDI files with
+        extension 'mid'. The directory is not searched recursively, and any
+        files with a different extension are ignored.
+        
+    csv_dir_path : string
+        The path of the directory to write out each csv to. If it does not
+        exist, it will be created.
+    """
+    os.makedirs(csv_dir_path, exist_ok=True)
+    
+    for midi_path in glob.glob(midi_dir_path + os.path.sep + '*.mid'):
+        csv_path = csv_dir_path + os.path.sep + os.path.basename(midi_path[:-3]
+                                                                 + 'csv')
+        midi_to_csv(midi_path, csv_path)
 
 
 
