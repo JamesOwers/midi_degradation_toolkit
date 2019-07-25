@@ -5,6 +5,7 @@ new class which extends DataDownloader, and write an accompanying test in
 ./tests/test_downloads.py
 """
 import os
+import shutil
 import urllib
 
 
@@ -39,9 +40,22 @@ class DataDownloader:
     
     
     @staticmethod
-    def download_file(source, dest):
+    def download_file(source, dest, verbose=True, overwrite=None):
         """Get a file from a url and save it locally"""
-        urllib.urlretrieve(source, dest)
+        if verbose:
+            print(f'Downloading {source} to {dest}')
+        if os.path.exists(dest):
+            if overwrite is None:
+                print(f'WARNING: {dest} already exists, not downloading')
+                return
+            if not overwrite:
+                raise OSError(f'{dest} already exists')
+        try:
+            urllib.request.urlretrieve(source, dest)
+        except urllib.error.HTTPError as e:
+            print(f'Url {source} does not exist')
+            raise e
+            
         
     
     def download_midi(self, output_loc=None, cache_loc=None):
@@ -76,21 +90,43 @@ class PPDDSept2018Monophonic(DataDownloader):
     """
     def __init__(self, cache_loc=DEFAULT_CACHE_LOC, 
                  midi_output_loc=None, csv_output_loc=None):
+        self.dataset_name = self.__class__.__name__
         base_url = ('http://tomcollinsresearch.net/research/data/mirex/'
                          'ppdd/ppdd-sep2018')
         sizes = ['small', 'medium', 'large']
-        self.download_urls = [f'{base_url}/PPDD-Sep2018_sym_mono_{size}.zip'
+        self.download_urls = [os.path.join(base_url, 
+                                           f'PPDD-Sep2018_sym_mono_{size}.zip')
                               for size in sizes]
-        self.midi_locations = []
-        self.csv_locations = []
         self.cache_loc = cache_loc
+        if not os.path.exists(cache_loc):
+            # TODO: handle overwriting?
+            os.mkdir(cache_loc)
         self.output_loc = {'midi': midi_output_loc, 'csv': csv_output_loc}
     
     
-    def download_and_extract_zips(self):
-        cache_loc = self.cache_loc
-        for url in download_urls:
-            
+    def download_and_extract_zips(self, cache_loc=None, overwrite=None):
+        cache_loc = self.cache_loc if cache_loc is None else cache_loc
+        base_path = os.path.join(cache_loc, self.dataset_name)
+        try:
+            os.mkdir(base_path)
+        except FileExistsError as e:
+            if overwrite is True:
+                print(f'Deleting existing directory: {base_path}')
+                shutil.rmtree(base_path)
+                os.mkdir(base_path)
+            elif overwrite is None:
+                print(f'WARNING: {base_path} already exists, writing files '
+                       'within here only if they do not already exist.')
+            elif overwrite is False:
+                raise e
+            else:
+                raise ValueError('overwrite should be boolean or None, not '
+                                 f'"{overwrite}"')
+        for url in self.download_urls:
+            filename = os.path.basename(url)
+            self.download_file(url, os.path.join(base_path, filename),
+                               overwrite=overwrite)
+        
     
     
     
