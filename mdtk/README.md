@@ -14,4 +14,4 @@
                           dataloaders
 
 
-![package schematic](https://www.dropbox.com/s/mivwngxrmqpnbnd/ACME.pdf?dl=0)
+![package schematic](https://www.dropbox.com/s/mivwngxrmqpnbnd/ACME.pdf?raw=1)
