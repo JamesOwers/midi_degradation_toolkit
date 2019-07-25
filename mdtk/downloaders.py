@@ -105,35 +105,32 @@ def extract_zip(zip_path, out_path, overwrite=None, verbose=True):
     return extracted_path
 
 
+def copy_file(filepath, output_path, overwrite=None):
+    """Convenience function to copy a file from filepath to output_path."""
+    path = os.path.join(output_path, os.path.basename(filepath))
+    if os.path.exists(path):     
+        if overwrite is True:
+            shutil.copy(filepath, output_path)
+        elif overwrite is None:
+            return
+        elif overwrite is False:
+            raise FileExistsError('{path} already exists')
+    
 
+
+# Classes =====================================================================
 class DataDownloader:
     """Base class for data downloaders"""
-    def __init__(self, cache_path=DEFAULT_CACHE_PATH, 
-                 midi_output_path=None, csv_output_path=None):
+    def __init__(self, cache_path=DEFAULT_CACHE_PATH, clean=False):
         self.dataset_name = self.__class__.__name__
         self.download_urls = []
         self.midi_paths = []
         self.csv_paths = []
-        self.downloaded = False
-        self.extracted = False
+#        self.downloaded = False
+#        self.extracted = False
         self.cache_path = cache_path
-        self.output_path = {'midi': midi_output_path, 'csv': csv_output_path}
-        
-    
-    def get_output_and_cache_paths(self, data_type, output_path=None,
-                                   cache_path=None):
-        """Convenience method to allow methods to take the class specified
-        output and cache pathations, or pathations specified in the method
-        call arguments."""
-        if output_path is None:
-            output_path = self.output_path[data_type]
-            if output_path is None:
-                raise ValueError('You need to state the output_path on either '
-                                 'the method call as an argument, or when '
-                                 'instantiating the class')
-        if cache_path is None:
-            cache_path = self.cache_path
-        return output_path, cache_path
+        self.midi_output_path = None
+        self.csv_output_path = None
 
     
     def clear_cache(self):
@@ -144,24 +141,16 @@ class DataDownloader:
         self.extracted = False
     
     
-    def download_midi(self, output_path=None, cache_path=None):
+    def download_midi(self, output_path, cache_path=None):
         """Downloads the MIDI data to output_path"""
-        output_path, cache_path = self.get_output_and_cache_path(
-                'midi',
-                output_path,
-                cache_path
-            )
+        cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError('In order to download MIDI, you must '
                                   'implement the download_midi method.')
         
     
-    def download_csv(self, output_path=None, cache_path=None):
+    def download_csv(self, output_path, cache_path=None):
         """Downloads the csv data to output_path"""
-        output_path, cache_path = self.get_output_and_cache_path(
-                'csv',
-                output_path,
-                cache_path
-            )
+        cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError('In order to download CSV, you must '
                                   'implement the download_midi method.')
         
@@ -175,64 +164,53 @@ class PPDDSept2018Monophonic(DataDownloader):
     ----------
     https://www.music-ir.org/mirex/wiki/2019:Patterns_for_Prediction
     """
-    def __init__(self, cache_path=DEFAULT_CACHE_PATH, 
-                 midi_output_path=None, csv_output_path=None,
-                 sizes=['small', 'medium', 'large'],
-                 clean=False):
+    def __init__(self, cache_path=DEFAULT_CACHE_PATH,
+                 sizes=['small', 'medium', 'large'], clean=False):
+        super.__init__(cache_path=cache_path)
         self.dataset_name = self.__class__.__name__
         base_url = ('http://tomcollinsresearch.net/research/data/mirex/'
                          'ppdd/ppdd-sep2018')
-        self.download_urls = [os.path.join(base_url, 
-                                           f'PPDD-Sep2018_sym_mono_{size}.zip')
-                              for size in sizes]
-        self.cache_path = cache_path
+        self.download_urls = [
+                os.path.join(base_url, f'PPDD-Sep2018_sym_mono_{size}.zip')
+                for size in sizes
+            ]
         make_directory(cache_path, overwrite=None)
         # location of midi files relative to each unzipped directory
 #        self.midi_paths = ['prime_midi', 'cont_true_midi']
         self.midi_paths = ['prime_midi']
-        self.output_path = {'midi': midi_output_path, 'csv': csv_output_path}
-        self.downloaded = False
-        self.extracted = False
         self.clean = clean
         
     
-    def download_midi(self, output_path=None, cache_path=None, overwrite=None):
+    def download_midi(self, output_path, cache_path=None, overwrite=None):
         # Cleaning paths, and setting up cache dir ============================
-        output_path, cache_path = self.get_output_and_cache_paths(
-                'midi',
-                output_path=output_path,
-                cache_path=cache_path
-            )
+        cache_path = self.cache_path if cache_path is None else cache_path
         base_path = os.path.join(cache_path, self.dataset_name)
         make_directory(base_path, overwrite)
         make_directory(output_path, overwrite)
         
         # Downloading the data ================================================
-        if (not self.downloaded) or overwrite is not False:
-            zip_paths = []
-            for url in self.download_urls:
-                filename = os.path.basename(url)
-                zip_path = os.path.join(base_path, filename)
-                zip_paths += [zip_path]
-                download_file(url, zip_path, overwrite=overwrite)
-            self.downloaded = True
+        zip_paths = []
+        for url in self.download_urls:
+            filename = os.path.basename(url)
+            zip_path = os.path.join(base_path, filename)
+            zip_paths += [zip_path]
+            download_file(url, zip_path, overwrite=overwrite)
         
         # Extracting data from zip files ======================================
         extracted_paths = []
-        if (not self.extracted) or overwrite is not False:
-            for zip_path in zip_paths:
-                path = extract_zip(zip_path, base_path, overwrite=overwrite)
-                extracted_paths += [path]
-            self.extracted = True
+        for zip_path in zip_paths:
+            path = extract_zip(zip_path, base_path, overwrite=overwrite)
+            extracted_paths += [path]
         
         # Copying midi files to output_path ===================================
         for path in extracted_paths:
-            midi_paths = [glob.glob(os.path.join(path, mp, '*')) for mp
+            midi_paths = [glob.glob(os.path.join(path, mp, '*.mid')) for mp
                           in self.midi_paths]
             midi_paths = [pp for sublist in midi_paths for pp in sublist]
             for filepath in tqdm(midi_paths, 
                                  desc=f"Copying midi from {path}: "):
-                shutil.copy(filepath, output_path)
+                copy_file(filepath, output_path)
+        self.midi_output_path = output_path
         
         # Delete cache ========================================================
         if self.clean:
