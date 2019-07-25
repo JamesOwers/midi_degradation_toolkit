@@ -12,3 +12,6 @@
                           generates the dataset
 * `pytorch_datasets.py` - classes to use in conjunction with pytorch
                           dataloaders
+
+
+![package schematic](https://www.dropbox.com/s/mivwngxrmqpnbnd/ACME.pdf?dl=0)
