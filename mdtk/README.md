@@ -10,6 +10,9 @@
                           new dataset, add a new class to this file and simply
                           add the class name to the top level script which
                           generates the dataset
+* `midi.py`             - conversion of midi files into other formats
+   
+For later:
 * `pytorch_datasets.py` - classes to use in conjunction with pytorch
                           dataloaders
 
