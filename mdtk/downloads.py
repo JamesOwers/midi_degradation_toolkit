@@ -15,8 +15,8 @@ DEFAULT_CACHE_LOCATION = os.path.join(USER_HOME, '.mdtk_cache')
 
 class DataDownloader:
     """Base class for data downloaders"""
-    def __init__(cache_location=DEFAULT_CACHE_LOCATION, midi_output_loc=None,
-                 csv_output_loc=None):
+    def __init__(self, cache_location=DEFAULT_CACHE_LOCATION, 
+                 midi_output_loc=None, csv_output_loc=None):
         self.dataset_name = ''
         self.base_url = ''
         self.is_zipped = False
@@ -28,6 +28,9 @@ class DataDownloader:
     
     def get_output_and_cache_loc(self, data_type, output_loc=None,
                                  cache_loc=None):
+        """Convenience method to allow methods to take the class specified
+        output and cache locations, or locations specified in the method
+        call arguments."""
         if output_loc is None:
             output_loc = self.output_loc[data_type]
         if cache_loc is None:
@@ -36,6 +39,7 @@ class DataDownloader:
     
         
     def download_midi(self, output_loc=None, cache_loc=None):
+        """Downloads the MIDI data to output_loc"""
         output_loc, cache_loc = self.get_output_and_cache_loc(
                 'midi',
                 output_loc,
@@ -46,6 +50,7 @@ class DataDownloader:
         
     
     def download_csv(self, output_loc=None, cache_loc=None):
+        """Downloads the csv data to output_loc"""
         output_loc, cache_loc = self.get_output_and_cache_loc(
                 'csv',
                 output_loc,
@@ -63,4 +68,12 @@ class PPDDSept2018(DataDownloader):
     ----------
     https://www.music-ir.org/mirex/wiki/2019:Patterns_for_Prediction
     """
+    
+    
+    
+    
+    
+    
+    
+    
     
