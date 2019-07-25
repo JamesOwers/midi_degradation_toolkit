@@ -5,7 +5,7 @@
                           different data formats
 * `degradations.py`     - code to perform the degradations i.e. edits to the
                           midi data
-* `download.py`         - code to download each dataset and convert to the
+* `downloaders.py`      - code to download each dataset and convert to the
                           standard format. If you would like to contribute a
                           new dataset, add a new class to this file and simply
                           add the class name to the top level script which
