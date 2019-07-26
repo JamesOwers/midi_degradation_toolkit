@@ -29,11 +29,9 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path):
         The path of the directory to write out each csv to. If it does not
         exist, it will be created.
     """
-    os.makedirs(csv_dir_path, exist_ok=True)
-    
     for midi_path in glob.glob(midi_dir_path + os.path.sep + '*.mid'):
-        csv_path = csv_dir_path + os.path.sep + os.path.basename(midi_path[:-3]
-                                                                 + 'csv')
+        csv_path = (csv_dir_path + os.path.sep +
+                    os.path.basename(midi_path[:-3] + 'csv'))
         midi_to_csv(midi_path, csv_path)
 
 
@@ -48,7 +46,8 @@ def midi_to_csv(midi_path, csv_path):
         The filename of the MIDI file to parse.
         
     csv_path : string
-        The filename of the csv to write out to.
+        The filename of the csv to write out to. Any nested directories will be
+        created by df_to_csv(df, csv_path).
     """
     df_to_csv(midi_to_df(midi_path), csv_path)
     
