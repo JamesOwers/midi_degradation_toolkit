@@ -109,6 +109,7 @@ def df_to_csv(df, csv_path):
     csv_path : string
         The filename of the csv to which to print the data. No header or index
         will be printed, and the rows will be printed in the current order of the
-        DataFrame.
+        DataFrame. Any nested directories will be created.
     """
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     df.to_csv(csv_path, index=None, header=False)
