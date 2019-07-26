@@ -1,11 +1,13 @@
 import pandas as pd
 import os
 import pretty_midi
+import shutil
 
 import mdtk.midi as midi
 
 USER_HOME = os.path.expanduser('~')
 TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
+MIDI_PATH = f"mdtk{os.path.sep}tests{os.path.sep}test.mid"
 
 def test_df_to_csv():
     notes = []
@@ -41,9 +43,11 @@ def test_df_to_csv():
             assert float(split[0]) == notes[i]['onset'], ("Onset time of " +
                    f"note {i} ({notes[i]}) not equal to csv's written onset " +
                    f"time of {float(split[0])}")
+            assert split[1].isdigit(), f"Track {split[1]} is not an int."
             assert int(split[1]) == notes[i]['track'], ("Track of " +
                    f"note {i} ({notes[i]}) not equal to csv's written track " +
                    f"of {int(split[1])}")
+            assert split[2].isdigit(), f"Pitch {split[2]} is not an int."
             assert int(split[2]) == notes[i]['pitch'], ("Pitch of " +
                    f"note {i} ({notes[i]}) not equal to csv's written pitch " +
                    f"of {int(split[2])}")
@@ -54,11 +58,10 @@ def test_df_to_csv():
             
             
 def test_midi_to_df():
-    midi_path = f"mdtk{os.path.sep}tests{os.path.sep}test.mid"
-    df = midi.midi_to_df(midi_path)
+    df = midi.midi_to_df(MIDI_PATH)
     
     # This relies on pretty_midi being correct
-    m = pretty_midi.PrettyMIDI(midi_path)
+    m = pretty_midi.PrettyMIDI(MIDI_PATH)
     midi_notes = []
     for i, instrument in enumerate(m.instruments):
         for note in instrument.notes:
@@ -99,4 +102,98 @@ def test_midi_to_df():
     # Test that all MIDI notes were in the df
     assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
                                   f"not found in the DataFrame: {midi_notes}")
+    
+    
+    
+def test_midi_to_csv():
+    # This method is just calls to midi_to_df and df_to_csv
+    csv_path = TEST_CACHE_PATH + os.path.sep + 'test.csv'
+    
+    try:
+        os.remove(csv_path)
+    except:
+        pass
+    
+    midi.midi_to_csv(MIDI_PATH, csv_path)
+    
+    # This relies on pretty_midi being correct
+    m = pretty_midi.PrettyMIDI(MIDI_PATH)
+    midi_notes = []
+    for i, instrument in enumerate(m.instruments):
+        for note in instrument.notes:
+            midi_notes.append({'onset': note.start * 1000,
+                               'track': i,
+                               'pitch': note.pitch,
+                               'dur': (note.end - note.start) * 1000})
+            
+    # Check that notes were written correctly
+    with open(csv_path, 'r') as file:
+        for i, line in enumerate(file):
+            split = line.split(',')
+            note = {'onset': float(split[0]),
+                    'track': int(split[1]),
+                    'pitch': int(split[2]),
+                    'dur': float(split[3])}
+            assert note in midi_notes, (f"csv note {note} not in list " +
+                                        "of MIDI notes from pretty_midi " +
+                                        "(or was duplicated).")
+            midi_notes.remove(note)
+            
+    # Test that all MIDI notes were in the df
+    assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
+                                  f"not found in the DataFrame: {midi_notes}")
+    
+    
+def test_midi_dir_to_csv():
+    midi_dir = os.path.dirname(MIDI_PATH)
+    csv_dir = TEST_CACHE_PATH
+    csv_paths = [csv_dir + os.path.sep + 'test.csv',
+                 csv_dir + os.path.sep + 'test2.csv']
+    
+    for csv_path in csv_paths:
+        try:
+            os.remove(csv_path)
+        except:
+            pass
+    
+    midi2_path = os.path.dirname(MIDI_PATH) + os.path.sep + 'test2.mid'
+    shutil.copyfile(MIDI_PATH, midi2_path)
+    
+    midi.midi_dir_to_csv(midi_dir, csv_dir)
+    
+    os.remove(midi2_path)
+    
+    for csv_path in csv_paths:
+        assert os.path.exists(csv_path), f"{csv_path} was not created."
+    
+    # This relies on pretty_midi being correct
+    m = pretty_midi.PrettyMIDI(MIDI_PATH)
+    midi_notes = []
+    midi_notes2 = []
+    for i, instrument in enumerate(m.instruments):
+        for note in instrument.notes:
+            midi_notes.append({'onset': note.start * 1000,
+                               'track': i,
+                               'pitch': note.pitch,
+                               'dur': (note.end - note.start) * 1000})
+            midi_notes2.append(midi_notes[-1])
+            
+    # Check that notes were written correctly
+    for csv_path, notes in zip(csv_paths, [midi_notes, midi_notes2]):
+        with open(csv_path, 'r') as file:
+            for i, line in enumerate(file):
+                split = line.split(',')
+                note = {'onset': float(split[0]),
+                        'track': int(split[1]),
+                        'pitch': int(split[2]),
+                        'dur': float(split[3])}
+                assert note in notes, (f"csv note {note} not in list " +
+                                       "of MIDI notes from pretty_midi " +
+                                       "(or was duplicated).")
+                notes.remove(note)
+            
+    # Test that all MIDI notes were in the df
+    for notes in [midi_notes, midi_notes2]:
+        assert len(notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
+                                 f"not found in the DataFrame: {notes}")
     
