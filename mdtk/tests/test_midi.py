@@ -70,13 +70,7 @@ def test_midi_to_df():
                                'pitch': note.pitch,
                                'dur': (note.end - note.start) * 1000})
     
-    df_notes = []
-    for index, df_note in df.iterrows():
-        # There must be a better way to do this
-        df_notes.append({'onset': df_note['onset'],
-                         'track': df_note['track'],
-                         'pitch': df_note['pitch'],
-                         'dur': df_note['dur']})
+    df_notes = df.to_dict('records')
     
     # Test sorting
     for prev_note, next_note in zip(df_notes[:-1], df_notes[1:]):
