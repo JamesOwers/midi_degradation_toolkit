@@ -85,7 +85,7 @@ def midi_to_df(midi_path):
                           'pitch': note.pitch,
                           'dur': (note.end - note.start) * 1000})
 
-    df = pd.DataFrame(notes)
+    df = pd.DataFrame(notes)[COLNAMES]
     df = df.sort_values(COLNAMES)
     return df.reset_index(drop=True)
 
