@@ -25,7 +25,7 @@ def pitch_shift(excerpt, rand, params):
                 Defaults to 0.
             max_pitch : int
                 One greater than the maximum pitch to which a note may be
-                shifted. Defaults to 88.
+                shifted. Defaults to 127.
 
     Returns
     -------
@@ -34,7 +34,7 @@ def pitch_shift(excerpt, rand, params):
     """
     min_pitch = (0 if 'pitch_shift_min_pitch' not in params
                  else params['pitch_shift_min_pitch'])
-    max_pitch = (88 if 'pitch_shift_max_pitch' not in params
+    max_pitch = (127 if 'pitch_shift_max_pitch' not in params
                  else params['pitch_shift_max_pitch'])
 
     degraded = excerpt.copy()
@@ -74,6 +74,7 @@ def time_shift(excerpt, rand, params):
     degraded : Composition
         A copy of the given excerpt, with the timing of one note changed.
     """
+    raise NotImplementedError()
 
 
 
@@ -99,6 +100,7 @@ def onset_shift(excerpt, rand, params):
     degraded : Composition
         A copy of the given excerpt, with the onset time of one note changed.
     """
+    raise NotImplementedError()
 
 
 
@@ -124,7 +126,7 @@ def offset_shift(excerpt, rand, params):
     degraded : Composition
         A copy of the given excerpt, with the offset time of one note changed.
     """
-
+    raise NotImplementedError()
 
 
 def remove_note(excerpt, rand, params):
