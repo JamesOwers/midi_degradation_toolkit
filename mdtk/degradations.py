@@ -15,8 +15,8 @@ def set_random_seed(func, seed=None):
     ----------
     func : function
         function to be decorated
-    seed : int
-        integer value to seed
+    seed : int or None
+        integer value to use for seed, if None leaves the random state as is
 
     Returns
     -------
@@ -25,7 +25,8 @@ def set_random_seed(func, seed=None):
         seed keyword argument.
     """
     def seeded_func(*args, seed=seed, **kwargs):
-        np.random.seed(seed)
+        if seed is not None:
+            np.random.seed(seed)
         return func(*args, **kwargs)
     return seeded_func
 
