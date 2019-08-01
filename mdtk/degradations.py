@@ -21,7 +21,7 @@ def get_degradations():
 
 
 
-def pitch_shift(excerpt, params):
+def pitch_shift(excerpt, rand, params):
     """
     Shift the pitch of one note from the given excerpt.
     
@@ -30,20 +30,44 @@ def pitch_shift(excerpt, params):
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
         
+    rand : numpy.random
+        A seeded numpy random object.
+        
     params : dict
         A dictionary containing parameters for the pitch shift. All used
         parameters keys will begin with 'pitch_shift_'. They include:
-            None
+            min_pitch : int
+                The minimum pitch to which a note may be shifted.
+                Defaults to 0.
+            max_pitch : int
+                One greater than the maximum pitch to which a note may be
+                shifted. Defaults to 88.
             
     Returns
     -------
     degraded : Composition
         A copy of the given excerpt, with the pitch of one note changed.
     """
+    min_pitch = (0 if 'pitch_shift_min_pitch' not in params
+                 else params['pitch_shift_min_pitch'])
+    max_pitch = (88 if 'pitch_shift_max_pitch' not in params
+                 else params['pitch_shift_max_pitch'])
+    
+    degraded = excerpt.copy()
+    
+    # Sample a random note
+    note_index = rand.randint(0, degraded.note_df.shape[0])
+    
+    # Shift its pitch (to something new)
+    original_pitch = degraded.note_df.loc[note_index, 'pitch']
+    while degraded.note_df.loc[note_index, 'pitch'] == original_pitch:
+        degraded.note_df.loc[note_index, 'pitch'] = rand.randint(min_pitch, max_pitch)
+        
+    return degraded
 
 
 
-def time_shift(excerpt, params):
+def time_shift(excerpt, rand, params):
     """
     Shift the onset and offset times of one note from the given excerpt,
     leaving its duration unchanged.
@@ -52,6 +76,9 @@ def time_shift(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    rand : numpy.random
+        A seeded numpy random object.
         
     params : dict
         A dictionary containing parameters for the time shift. All used
@@ -66,7 +93,7 @@ def time_shift(excerpt, params):
 
 
 
-def onset_shift(excerpt, params):
+def onset_shift(excerpt, rand, params):
     """
     Shift the onset time of one note from the given excerpt.
     
@@ -74,6 +101,9 @@ def onset_shift(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    rand : numpy.random
+        A seeded numpy random object.
         
     params : dict
         A dictionary containing parameters for the onset shift. All used
@@ -88,7 +118,7 @@ def onset_shift(excerpt, params):
 
 
 
-def offset_shift(excerpt, params):
+def offset_shift(excerpt, rand, params):
     """
     Shift the offset time of one note from the given excerpt.
     
@@ -96,6 +126,9 @@ def offset_shift(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    rand : numpy.random
+        A seeded numpy random object.
         
     params : dict
         A dictionary containing parameters for the offset shift. All used
@@ -110,7 +143,7 @@ def offset_shift(excerpt, params):
 
 
 
-def remove_note(excerpt, params):
+def remove_note(excerpt, rand, params):
     """
     Remove one note from the given excerpt.
     
@@ -118,6 +151,9 @@ def remove_note(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    rand : numpy.random
+        A seeded numpy random object.
         
     params : dict
         A dictionary containing parameters for the note removal. All used
@@ -132,7 +168,7 @@ def remove_note(excerpt, params):
 
 
 
-def add_note(excerpt, params):
+def add_note(excerpt, rand, params):
     """
     Add one note to the given excerpt.
     
@@ -140,6 +176,9 @@ def add_note(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    rand : numpy.random
+        A seeded numpy random object.
         
     params : dict
         A dictionary containing parameters for the note addition. All used
