@@ -157,7 +157,10 @@ def remove_note(excerpt, rand, params):
     note_index = rand.randint(0, degraded.note_df.shape[0])
 
     # Remove that note
-    degraded.note_df.drop(0, inplace=True).reset_index(drop=True, inplace=True)
+    (degraded.note_df
+         .drop(note_index, inplace=True)
+         .reset_index(drop=True, inplace=True)
+    )
 
     return degraded
 
