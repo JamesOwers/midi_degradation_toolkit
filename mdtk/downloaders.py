@@ -49,20 +49,14 @@ def make_directory(path, overwrite=None, make_parents=True, verbose=True):
         overwrite: boolean or None
             If the path already exists, if overwrite is: True - delete the 
             existing path; False - return error; None - leave the existing
-            path as it is and throw a warning    
-        make_parents: bool
-            Whether to create the parent folders of a dir if they don't exist
+            path as it is and throw a warning
         verbose: bool
             Verbosity of printing
         """
         if verbose:
             print(f'Making directory at {path}')
         
-        if make_parents:
-            mkdir = os.makedirs
-        else:
-            mkdir = os.mkdir
-        
+        mkdir = os.makedirs
         try:
             mkdir(path)
         except FileExistsError as e:
@@ -98,7 +92,7 @@ def extract_zip(zip_path, out_path, overwrite=None, verbose=True):
                   category=UserWarning)
             return extracted_path
         elif overwrite is False:
-            raise FileExistsError(f'{path} already exists')
+            raise FileExistsError(f'{extracted_path} already exists')
     
     with zipfile.ZipFile(zip_path, 'r') as zz:
         zz.extractall(path=out_path)
@@ -153,7 +147,7 @@ class DataDownloader:
         """Downloads the csv data to output_path"""
         cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError('In order to download CSV, you must '
-                                  'implement the download_midi method.')
+                                  'implement the download_csv method.')
         
         
 
