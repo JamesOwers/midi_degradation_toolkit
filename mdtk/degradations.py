@@ -165,6 +165,15 @@ def remove_note(excerpt, rand, params):
     degraded : Composition
         A copy of the given excerpt, with one note removed.
     """
+    degraded = excerpt.copy()
+    
+    # Sample a random note
+    note_index = rand.randint(0, degraded.note_df.shape[0])
+    
+    # Remove that note
+    degraded.note_df.drop(0, inplace=True).reset_index(drop=True, inplace=True)
+        
+    return degraded
 
 
 
