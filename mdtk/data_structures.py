@@ -365,7 +365,7 @@ def pianoroll_to_df(pianoroll, exclude_silence_token=True,
 # Plotting ====================================================================
 def plot_from_df(df, ax=None, facecolor='None', edgecolor='black', alpha=.8,
                  linewidth=1, capstyle='round', pitch_spacing=0.05,
-                 label_axes=True):
+                 linestyle='-', label_axes=True):
     """Produce a 'pianoroll' style plot from a note DataFrame"""
     if ax is None:
         ax = plt.gca()
@@ -384,7 +384,7 @@ def plot_from_df(df, ax=None, facecolor='None', edgecolor='black', alpha=.8,
 
     pc = PatchCollection(note_boxes, facecolor=facecolor, alpha=alpha,
                          edgecolor=edgecolor, capstyle=capstyle,
-                         linewidth=linewidth)
+                         linewidth=linewidth, linestyle=linestyle)
 
     ax.add_collection(pc)
 
