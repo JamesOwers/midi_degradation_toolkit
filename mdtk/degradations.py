@@ -226,13 +226,25 @@ def add_note(excerpt, rand, params):
 
 
 
+def split_note(excerpt, rand, params):
+    raise NotImplementedError()
+    
+
+
+def join_notes(excerpt, rand, params):
+    raise NotImplementedError()
+
+
+
 DEGRADATIONS = {
     'pitch_shift': pitch_shift,
     'time_shift': time_shift,
     'onset_shift': onset_shift,
     'offset_shift': offset_shift,
     'remove_note': remove_note,
-    'add_note': add_note
+    'add_note': add_note,
+    'split_note': split_note,
+    'join_notes': join_notes
 }
 
 
