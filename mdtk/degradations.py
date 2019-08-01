@@ -1,5 +1,5 @@
 """Code to perform the degradations i.e. edits to the midi data"""
-import nump as np
+import numpy as np
 
 from mdtk.data_structures import Composition
 
