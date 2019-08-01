@@ -1,4 +1,6 @@
 """Code to perform the degradations i.e. edits to the midi data"""
+import nump as np
+
 from mdtk.data_structures import Composition
 
 
@@ -192,12 +194,52 @@ def add_note(excerpt, rand, params):
     params : dict
         A dictionary containing parameters for the note addition. All used
         parameters keys will begin with 'add_note_'. They include:
-            None
+            min_pitch : int
+                The minimum pitch at which a note may be added.
+                Defaults to 0.
+            max_pitch : int
+                One greater than the maximum pitch at which a note may be
+                added. Defaults to 88.
+            min_duration : float
+                The minimum duration for the note to be added. Defaults to 50.
+            max_duration : float
+                The maximum duration for the added note. Defaults to infinity.
+                (The offset time will never go beyond the current last offset
+                in the excerpt.)
             
     Returns
     -------
     degraded : Composition
         A copy of the given excerpt, with one note added.
     """
+    min_pitch = (0 if 'add_note_min_pitch' not in params
+                 else params['add_note_min_pitch'])
+    max_pitch = (88 if 'add_note_max_pitch' not in params
+                 else params['add_note_max_pitch'])
+    min_duration = (50 if 'add_note_min_duration' not in params
+                    else params['add_note_min_duration'])
+    max_duration = (np.inf if 'add_note_max_duration' not in params
+                    else params['add_note_max_duration'])
+    
+    degraded = excerpt.copy()
+    
+    end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
+    
+    pitch = rand.randint(min_pitch, max_pitch)
+    
+    onset = rand.uniform(degraded.note_df['onset'].min(), end_time - min_duration)
+    duration = rand.uniform(onset + min_duration, max(end_time - onset, max_duration))
+    
+    # Track is random one of existing tracks
+    track = rand.choice(degraded.note_df['track'].unique())
+    
+    degraded.note_df = degraded.note_df.append({'pitch': pitch,
+                                                'onset': onset,
+                                                'dur': duration,
+                                                'track': track}, ignore_index=True)
+    
+    return degraded
+    
+    
 
 
