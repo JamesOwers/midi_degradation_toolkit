@@ -20,7 +20,8 @@ setuptools.setup(
         'numpy',
         'pandas',
         'matplotlib',
-        'pretty_midi'
+        'pretty_midi',
+        'tqdm'
     ],
     classifiers=[
         "Development Status :: 1 - Planning",
