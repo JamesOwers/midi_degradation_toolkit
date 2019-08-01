@@ -6,6 +6,11 @@ from mdtk.data_structures import Composition
 
 
 
+MIN_PITCH = 0
+MAX_PITCH = 127
+
+
+
 def set_random_seed(func, seed=None):
     """This is a function decorator which just adds the keyword argument `seed`
     to the end of the supplied function that it decorates. It seeds numpy's
@@ -33,7 +38,7 @@ def set_random_seed(func, seed=None):
 
 
 @set_random_seed
-def pitch_shift(excerpt, params):
+def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
     """
     Shift the pitch of one note from the given excerpt.
 
@@ -41,17 +46,10 @@ def pitch_shift(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
-
-    params : dict
-        A dictionary containing parameters for the pitch shift. All used
-        parameters keys will begin with 'pitch_shift_'. They include:
-            min_pitch : int
-                The minimum pitch to which a note may be shifted.
-                Defaults to 0.
-            max_pitch : int
-                One greater than the maximum pitch to which a note may be
-                shifted. Defaults to 127.
-
+    min_pitch : int
+        The minimum pitch to which a note may be shifted.
+    max_pitch : int
+        One greater than the maximum pitch to which a note may be shifted.
     seed : int
         A seed to be supplied to np.random.seed(), defaults to None
 
@@ -60,11 +58,6 @@ def pitch_shift(excerpt, params):
     degraded : Composition
         A copy of the given excerpt, with the pitch of one note changed.
     """
-    min_pitch = (0 if 'pitch_shift_min_pitch' not in params
-                 else params['pitch_shift_min_pitch'])
-    max_pitch = (127 if 'pitch_shift_max_pitch' not in params
-                 else params['pitch_shift_max_pitch'])
-
     degraded = excerpt.copy()
 
     # Sample a random note
@@ -110,7 +103,7 @@ def time_shift(excerpt, params):
 
 
 @set_random_seed
-def onset_shift(excerpt, params):
+def onset_shift(excerpt):
     """
     Shift the onset time of one note from the given excerpt.
 
@@ -118,11 +111,6 @@ def onset_shift(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
-
-    params : dict
-        A dictionary containing parameters for the onset shift. All used
-        parameters keys will begin with 'onset_shift_'. They include:
-            None
 
     seed : int
         A seed to be supplied to np.random.seed(), defaults to None
@@ -137,7 +125,7 @@ def onset_shift(excerpt, params):
 
 
 @set_random_seed
-def offset_shift(excerpt, params):
+def offset_shift(excerpt):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -145,11 +133,6 @@ def offset_shift(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
-
-    params : dict
-        A dictionary containing parameters for the offset shift. All used
-        parameters keys will begin with 'offset_shift_'. They include:
-            None
 
     seed : int
         A seed to be supplied to np.random.seed(), defaults to None
@@ -165,7 +148,7 @@ def offset_shift(excerpt, params):
 
 
 @set_random_seed
-def remove_note(excerpt, params):
+def remove_note(excerpt):
     """
     Remove one note from the given excerpt.
 
@@ -173,11 +156,6 @@ def remove_note(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
-
-    params : dict
-        A dictionary containing parameters for the note removal. All used
-        parameters keys will begin with 'remove_note_'. They include:
-            None
 
     seed : int
         A seed to be supplied to np.random.seed(), defaults to None
@@ -204,7 +182,8 @@ def remove_note(excerpt, params):
 
 
 @set_random_seed
-def add_note(excerpt, params):
+def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
+             min_duration=50, max_duration=np.inf):
     """
     Add one note to the given excerpt.
 
@@ -212,23 +191,16 @@ def add_note(excerpt, params):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
-
-    params : dict
-        A dictionary containing parameters for the note addition. All used
-        parameters keys will begin with 'add_note_'. They include:
-            min_pitch : int
-                The minimum pitch at which a note may be added.
-                Defaults to 0.
-            max_pitch : int
-                One greater than the maximum pitch at which a note may be
-                added. Defaults to 88.
-            min_duration : float
-                The minimum duration for the note to be added. Defaults to 50.
-            max_duration : float
-                The maximum duration for the added note. Defaults to infinity.
-                (The offset time will never go beyond the current last offset
-                in the excerpt.)
-
+    min_pitch : int
+        The minimum pitch at which a note may be added.
+    max_pitch : int
+        One greater than the maximum pitch at which a note may be added.
+    min_duration : float
+        The minimum duration for the note to be added. Defaults to 50.
+    max_duration : float
+        The maximum duration for the added note. Defaults to infinity.
+        (The offset time will never go beyond the current last offset
+        in the excerpt.)
     seed : int
         A seed to be supplied to np.random.seed(), defaults to None
 
@@ -238,15 +210,6 @@ def add_note(excerpt, params):
     degraded : Composition
         A copy of the given excerpt, with one note added.
     """
-    min_pitch = (0 if 'add_note_min_pitch' not in params
-                 else params['add_note_min_pitch'])
-    max_pitch = (88 if 'add_note_max_pitch' not in params
-                 else params['add_note_max_pitch'])
-    min_duration = (50 if 'add_note_min_duration' not in params
-                    else params['add_note_min_duration'])
-    max_duration = (np.inf if 'add_note_max_duration' not in params
-                    else params['add_note_max_duration'])
-
     degraded = excerpt.copy()
 
     end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
@@ -254,7 +217,8 @@ def add_note(excerpt, params):
     pitch = randint(min_pitch, max_pitch)
 
     onset = uniform(degraded.note_df['onset'].min(), end_time - min_duration)
-    duration = uniform(onset + min_duration, max(end_time - onset, max_duration))
+    duration = uniform(onset + min_duration,
+                       max(end_time - onset, max_duration))
 
     # Track is random one of existing tracks
     track = choice(degraded.note_df['track'].unique())
@@ -262,8 +226,8 @@ def add_note(excerpt, params):
     degraded.note_df = degraded.note_df.append({'pitch': pitch,
                                                 'onset': onset,
                                                 'dur': duration,
-                                                'track': track}, ignore_index=True)
-
+                                                'track': track},
+                                               ignore_index=True)
     return degraded
 
 
