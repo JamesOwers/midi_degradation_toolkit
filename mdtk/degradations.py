@@ -39,7 +39,7 @@ def set_random_seed(func, seed=None):
 
 
 
-def split_range_sample(split_range):
+def split_range_sample(split_range, p=None):
     """
     Return a value sampled randomly from the given split range.
     
@@ -51,22 +51,33 @@ def split_range_sample(split_range):
         contiguous. For example, on an input of [(0,1),(2,3)], a sampled
         value of 1.5 will return 2.5.
         
+    p : list(float)
+        If given, should be a list the same length as split_range, and
+        contains the probability of sampling from each range. p will be
+        normalized before use. Defaults to None.
+        
     Returns
     -------
     A value sampled uniformly from the given split range.
     """
-    total = sum([val[1] - val[0] for val in split_range])
+    if p is None:
+        total = sum([val[1] - val[0] for val in split_range])
+
+        sample = uniform(0, total)
+
+        for bottom, top in split_range:
+            if sample < top - bottom:
+                return bottom + sample
+            sample -= top - bottom
+
+        raise ValueError('ERROR: split_range_sample tried to return value ' +
+                         'outside of any range.')
     
-    sample = uniform(0, total)
+    # Here, p is used to sample a range first
+    p = p / np.sum(p)
+    index = choice(range(len(split_range)), p=p)
     
-    for bottom, top in split_range:
-        if sample < top - bottom:
-            print(bottom+sample)
-            return bottom + sample
-        sample -= top - bottom
-        
-    raise ValueError('ERROR: split_range_sample tried to return value ' +
-                     'outside of any range.')
+    return uniform(split_range[index][0], split_range[index][1])
 
 
 
