@@ -15,6 +15,7 @@ import pretty_midi
 
 CSV_COLNAMES = ['onset', 'pitch', 'morph', 'dur', 'ch']
 DEFAULT_QUANTIZATION = 12
+NR_MIDINOTES = 128
 
 
 def read_note_csv(path, colnames=CSV_COLNAMES):
@@ -467,6 +468,143 @@ def synthesize_from_pianoroll(
 
 
 # Class wrapper ===============================================================
+class Pianoroll():
+    """
+    Wrapper class for arrays representing a pianoroll of some description. It
+    is callable and will return an array. It only stores the matrices, and is
+    initialised with a standard note dataframe.
+    
+    It expects to recieve a dataframe with integer onset times i.e. you have
+    already quantized the data.
+    """
+    #TODO: create test that checks if this alters quant_df supplied
+    def __init__(self, quant_df, silence=False, note_off=False):
+        expected_cols = ['onset', 'pitch', 'dur']
+        assert all([col in quant_df.columns for col in expected_cols]), (
+                f'quant_df is expected to have columns {expected_cols}')
+        assert all([pd.api.types.is_integer_dtype(tt)
+                    for tt in quant_df[['onset', 'pitch', 'dur']].dtypes]), (
+            'quant_df must have integer data (the data are expected to have '
+            'been quantized)')
+        
+        quant_df_note_off = quant_df.onset + quant_df.dur
+        self.first_note_on = quant_df.onset.min()
+        self.nr_timesteps = quant_df_note_off.max() - self.first_note_on
+        try:
+            self.track_names = quant_df.track.unique()
+            self.nr_tracks = len(self.track_names)
+        except AttributeError:
+            quant_df = quant_df.copy()
+            quant_df['track'] = 1
+            self.track_names = np.array([1])
+            self.nr_tracks = 1
+        self.sounding, self.note_on = self.get_sounding_note_on(df=quant_df)
+        # Properties only created upon first get
+        self._note_off = None
+        self._silence = None
+        if note_off is True:
+            self._note_off = self.note_off(df=quant_df)
+        if silence is True:
+            self._silence = self.silence(df=quant_df)
+    
+    
+    def __call__(self, channels=['sounding', 'note_on'], tracks='all'):
+        """Upon call, the object will present as a numpy array.
+            
+        Parameters
+        ----------
+        channels: list
+            An ordered list of what information to put in each channel
+            dimension. Names of channels requested must match attributes
+            available to the class.
+        tracks: list or 'all'
+            Which instrument tracks to include
+        
+        Returns
+        -------
+        pianoroll: np.array
+            In general, the output array will be of shape:
+            (nr_tracks, nr_channels, nr_pitches, nr_timesteps)
+            
+        """
+        if tracks == 'all':
+            tracks = np.arange(self.nr_tracks)
+        else:
+            assert all([track in self.track_names for track in tracks]), (
+                f'a track in {tracks} is not in {self.track_names}'
+            )
+            tracks = [np.argmax(self.track_names == track) for track in tracks]
+        pianoroll = np.zeros((len(tracks), len(channels), NR_MIDINOTES,
+                              self.nr_timesteps), dtype='uint8')
+        for ii, attr_name in enumerate(channels):
+            array = getattr(self, attr_name)
+            pianoroll[:, ii, :, :] = array
+        return pianoroll.squeeze()
+
+    
+    def get_sounding_note_on(self, df):
+        df_ = df.set_index('track', append=True).reorder_levels([1, 0])
+        sounding = np.zeros((self.nr_tracks, NR_MIDINOTES, self.nr_timesteps),
+                            dtype='uint8')
+        note_on = np.zeros((self.nr_tracks, NR_MIDINOTES, self.nr_timesteps),
+                           dtype='uint8')
+        for ii, track in enumerate(self.track_names):
+            for idx, row in df_.loc[track].iterrows():
+                note_on[ii, row.pitch, row.onset] = 1
+                note_off = row.onset + row.dur
+                sounding[ii, row.pitch, row.onset:note_off] = 1
+        return sounding.squeeze(), note_on.squeeze()
+    
+    
+    def get_note_off(self, df):
+        df_ = df.set_index('track', append=True).reorder_levels([1, 0])
+        note_off = np.zeros((self.nr_tracks, NR_MIDINOTES, self.nr_timesteps),
+                           dtype='uint8')
+        for ii, track in enumerate(self.track_names):
+            for idx, row in df_.loc[track].iterrows():
+                note_off[ii, row.pitch, row.onset+row.dur] = 1
+        return note_off.squeeze()
+    
+    
+    def get_note_off_from_pianoroll(self):
+        note_on_back_1 = np.zeros_like(self.note_on, dtype='uint8')
+        from_slice = tuple(slice(None) for ii in 
+                           range(self.note_on.ndim - 1)) + (slice(-1),)
+        to_slice = (tuple(slice(None) for ii in 
+                          range(self.note_on.ndim - 1))
+                   + (slice(1, self.nr_timesteps),))
+        note_on_back_1[from_slice] = self.note_on[to_slice]
+        sounding_back_1 = np.zeros_like(self.sounding, dtype='uint8')
+        sounding_back_1[from_slice] = self.sounding[to_slice]
+        note_off = np.zeros_like(self.sounding, dtype='uint8')
+        note_off[np.logical_and(self.sounding == 1, sounding_back_1 == 0)] = 1
+        note_off[np.logical_and(self.sounding == 1, note_on_back_1 == 1)] = 1
+        return note_off
+    
+    
+    @property
+    def note_off(self, df=None):
+        """Only create upon first get. No set method - will error if set."""
+        if self._note_off is None:
+            if df is None:
+                self._note_off = self.get_note_off_from_pianoroll()
+            else:
+                self._note_off = self.get_note_off(df)
+        return self._note_off
+    
+    
+    @property
+    def silence(self, df=None):
+        """Only create upon first get. No set method - will error if set."""
+        if self._silence is None:
+            if df is None:
+                pass
+            else:
+                pass
+        return self._silence
+    
+    
+    
 class Composition:
     """
     Wrapper class for note csv data. Has methods to plot, synthesize,
@@ -554,6 +692,7 @@ class Composition:
     def pianoroll(self):
         """Only create upon first get. No set method - will error if set."""
         if self._pianoroll is None:
+            # TODO: make this a pianoroll object
             self._quanta_labels, self._pianoroll = df_to_pianoroll(
                 self.quant_df,
                 quantize=False,  # already quantized

@@ -27,6 +27,20 @@ all_pitch_df = pd.DataFrame({
     'pitch': all_midinotes,
     'dur': [1] * len(all_midinotes)
 })
+
+nr_tracks = 3
+track_names = np.random.choice(np.arange(10), replace=False, size=nr_tracks)
+all_pitch_df_tracks = pd.DataFrame({
+    'onset': [x for sublist in [np.arange(ii, len(all_midinotes)*2 + ii, 2)
+                                for ii in range(nr_tracks)]
+              for x in sublist],
+    'pitch': all_midinotes * nr_tracks,
+    'dur': [2] * (len(all_midinotes)*nr_tracks),
+    'track': [x for sublist in [[name]*len(all_midinotes)
+                                for name in track_names]
+              for x in sublist]
+})
+
 ALL_DF = [
     note_df_2pitch_aligned,
     note_df_2pitch_weird_times,
