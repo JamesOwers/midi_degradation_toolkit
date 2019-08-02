@@ -21,7 +21,8 @@ def set_random_seed(func, seed=None):
     func : function
         function to be decorated
     seed : int or None
-        integer value to use for seed, if None leaves the random state as is
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
 
     Returns
     -------
@@ -46,12 +47,17 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+
     min_pitch : int
         The minimum pitch to which a note may be shifted.
+
     max_pitch : int
-        One greater than the maximum pitch to which a note may be shifted.
+        The maximum pitch to which a note may be shifted.
+
     seed : int
-        A seed to be supplied to np.random.seed(), defaults to None
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
+
 
     Returns
     -------
@@ -68,7 +74,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
     original_pitch = degraded.note_df.loc[note_index, 'pitch']
     while degraded.note_df.loc[note_index, 'pitch'] == original_pitch:
         degraded.note_df.loc[note_index, 'pitch'] = randint(min_pitch,
-                                                            max_pitch)
+                                                            max_pitch + 1)
 
     return degraded
 
@@ -91,7 +97,9 @@ def time_shift(excerpt, params):
             None
 
     seed : int
-        A seed to be supplied to np.random.seed(), defaults to None
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
+
 
     Returns
     -------
@@ -103,7 +111,8 @@ def time_shift(excerpt, params):
 
 
 @set_random_seed
-def onset_shift(excerpt):
+def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
+                max_duration=np.inf):
     """
     Shift the onset time of one note from the given excerpt.
 
@@ -111,16 +120,66 @@ def onset_shift(excerpt):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    min_shift : float
+        The minimum amount by which the onset time will be changed. Defaults
+        to 50.
+        
+    max_shift : float
+        The maximum amount by which the onset time will be changed. Defaults
+        to infinity.
+        
+    min_duration : float
+        The minimum duration for the resulting note. Defaults to 50.
+        
+    max_duration : float
+        The maximum duration for the resulting note. Defaults to infinity.
+        (The offset time will never go beyond the current last offset
+        in the excerpt.)
 
     seed : int
-        A seed to be supplied to np.random.seed(), defaults to None
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
 
     Returns
     -------
     degraded : Composition
         A copy of the given excerpt, with the onset time of one note changed.
     """
-    raise NotImplementedError()
+    degraded = excerpt.copy()
+
+    # TODO: It is possible for there to be no valid notes
+    # Sample a random note
+    while True:
+        note_index = randint(0, degraded.note_df.shape[0])
+    
+        onset = degraded.note_df.loc[note_index, 'onset']
+        offset = onset + degraded.note_df.loc[note_index, 'dur']
+        
+        # Lengthen bounds (decrease onset)
+        earliest_lengthened_onset = max(offset - max_duration,
+                                        onset - max_shift,
+                                        0)
+        latest_lengthened_onset = onset - min_shift
+        
+        # Shorten bounds (increase onset)
+        earliest_shortened_onset = onset + min_shift
+        latest_shortened_onset = min(offset - min_duration,
+                                     onset + max_shift)
+        
+        # Check that sampled note is valid (can be lengthened or shortened)
+        if (earliest_lengthened_onset < latest_lengthened_onset or
+            earliest_shortened_onset < latest_shortened_onset):
+            break
+            
+    while onset > latest_lengthened_onset or onset < earliest_shortened_onset:
+        # TODO: directly sample from the split range
+        onset = uniform(earliest_lengthened_onset, latest_shortened_onset)
+    
+    degraded.note_df.loc[note_index, 'onset'] = onset
+    degraded.note_df.loc[note_index, 'dur'] = offset - onset
+    
+    return degraded
 
 
 
@@ -135,7 +194,8 @@ def offset_shift(excerpt):
         A Composition object of an excerpt from a piece of music.
 
     seed : int
-        A seed to be supplied to np.random.seed(), defaults to None
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
 
 
     Returns
@@ -158,7 +218,8 @@ def remove_note(excerpt):
         A Composition object of an excerpt from a piece of music.
 
     seed : int
-        A seed to be supplied to np.random.seed(), defaults to None
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
 
 
     Returns
@@ -194,7 +255,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     min_pitch : int
         The minimum pitch at which a note may be added.
     max_pitch : int
-        One greater than the maximum pitch at which a note may be added.
+        The maximum pitch at which a note may be added.
     min_duration : float
         The minimum duration for the note to be added. Defaults to 50.
     max_duration : float
@@ -202,7 +263,8 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         (The offset time will never go beyond the current last offset
         in the excerpt.)
     seed : int
-        A seed to be supplied to np.random.seed(), defaults to None
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
 
 
     Returns
@@ -214,7 +276,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
 
-    pitch = randint(min_pitch, max_pitch)
+    pitch = randint(min_pitch, max_pitch + 1)
 
     onset = uniform(degraded.note_df['onset'].min(), end_time - min_duration)
     duration = uniform(onset + min_duration,
