@@ -40,7 +40,8 @@ def set_random_seed(func, seed=None):
 
 
 @set_random_seed
-def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
+def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH
+                distribution=None):
     """
     Shift the pitch of one note from the given excerpt.
 
@@ -54,6 +55,14 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
 
     max_pitch : int
         The maximum pitch to which a note may be shifted.
+        
+    distribution : list(float)
+        If given, a list describing the distribution of pitch shifts.
+        Element (len(distribution) // 2) refers to the note's original
+        pitch, and will be set to 0. Additionally, pitches outside of the
+        range [min_pitch, max_pitch] will also be set to 0. The distribution
+        will then be normalized to sum to 1, and used to generate a new
+        pitch. Defaults to None, which implies a uniform distribution.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -74,13 +83,24 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
 
     # Sample a random note
     note_index = randint(0, degraded.note_df.shape[0])
-
-    # Shift its pitch (to something new)
-    # TODO: I reckon this may update in place so the while loop will go forever
-    original_pitch = degraded.note_df.loc[note_index, 'pitch']
-    while degraded.note_df.loc[note_index, 'pitch'] == original_pitch:
-        degraded.note_df.loc[note_index, 'pitch'] = randint(min_pitch,
-                                                            max_pitch + 1)
+    pitch = degraded.note_df.loc[note_index, 'pitch']
+    
+    # Shift its pitch
+    if distribution is None:
+        # Uniform distribution
+        while degraded.note_df.loc[note_index, 'pitch'] == pitch:
+            degraded.note_df.loc[note_index, 'pitch'] = randint(min_pitch,
+                                                                max_pitch + 1)
+    else:
+        middle = len(distribution) // 2
+        pitches = np.array(range(pitch - middle,
+                                 pitch - middle + len(distribution)))
+        distribution[middle] = 0
+        distribution = np.where(pitches < min_pitch or pitches > max_pitch,
+                                0, distribution)
+        distribution = distribution / np.sum(distribution)
+        degraded.note_df.loc[note_index, 'pitch'] = choice(pitches,
+                                                           p=distribution)
 
     return degraded
 
