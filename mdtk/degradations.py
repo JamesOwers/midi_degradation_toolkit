@@ -1,5 +1,6 @@
 """Code to perform the degradations i.e. edits to the midi data"""
 import numpy as np
+import warnings
 from numpy.random import randint, uniform, choice
 
 from mdtk.data_structures import Composition
@@ -106,17 +107,19 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with the timing of one note changed.
+        A copy of the given excerpt, with the timing of one note changed,
+        or None if there are no notes that can be changed given the
+        parameters.
     """
     degraded = excerpt.copy()
     
     end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
     
-    # TODO: It is possible for there to be no valid notes
-    # Sample a random note
-    while True:
-        note_index = randint(0, degraded.note_df.shape[0])
+    # Find all editable notes
+    valid_notes = []
     
+    # Use indices because saving the df.loc objects creates copies
+    for note_index in range(degraded.note_df.shape[0]):
         onset = degraded.note_df.loc[note_index, 'onset']
         offset = onset + degraded.note_df.loc[note_index, 'dur']
         
@@ -132,9 +135,27 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_earlier_onset < latest_earlier_onset or
             earliest_later_onset < latest_later_onset):
-            break
+            valid_note_indices.append((note_index,
+                                       onset,
+                                       earliest_earlier_onset,
+                                       latest_earlier_onset,
+                                       earliest_later_onset,
+                                       latest_later_onset))
+            
+    if len(valid_notes) == 0:
+        warnings.warn('WARNING: No valid notes to time_shift. Returning ' +
+                      'None.', category=UserWarning)
+        return None
     
-    while onset > latest_earlier_onset or onset < earliest_later_onset:
+    # Sample a random note
+    (note_index,
+     onset,
+     earliest_earlier_onset,
+     latest_earlier_onset,
+     earliest_later_onset,
+     latest_later_onset) = choice(valid_notes)
+    
+    while latest_earlier_onset < onset < earliest_later_onset:
         # TODO: directly sample from the split range
         onset = uniform(earliest_earlier_onset, latest_later_onset)
     
