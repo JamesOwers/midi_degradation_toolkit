@@ -41,9 +41,12 @@ def set_random_seed(func, seed=None):
 
 def split_range_sample(split_range, p=None):
     """
-    Return a value sampled randomly from the given list of ranges. Is
+    Return a value sampled randomly from the given list of ranges. It is
     implemented to first sample a range from the list of ranges `split_range`,
-    and then sample uniformly from the selected range.
+    and then sample uniformly from the selected range. The sample of each range
+    is proportional to the size of the range, by default, such that the
+    resulting sample is akin to sampling uniformly from the range defined by
+    taking the union of the ranges supplied in `split_range`.
     
     Parameters
     ----------
@@ -62,6 +65,10 @@ def split_range_sample(split_range, p=None):
     """    
     if p is not None:
         p = p / np.sum(p)
+    else:
+        range_sizes = [rr[1] - rr[0] for rr in split_range]
+        total_range = sum(range_sizes)
+        p = [range_size / total_range for range_size in range_sizes]
     index = choice(range(len(split_range)), p=p)
     samp = uniform(split_range[index][0], split_range[index][1])
     return samp
