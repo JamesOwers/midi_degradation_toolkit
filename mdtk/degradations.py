@@ -39,6 +39,37 @@ def set_random_seed(func, seed=None):
 
 
 
+def split_range_sample(split_range):
+    """
+    Return a value sampled randomly from the given split range.
+    
+    Parameters
+    ----------
+    split_range : list(tuple)
+        A list of [min, max) tuples defining ranges from which to sample.
+        The sample will be drawn uniformly from the ranges, as if they were
+        contiguous. For example, on an input of [(0,1),(2,3)], a sampled
+        value of 1.5 will return 2.5.
+        
+    Returns
+    -------
+    A value sampled uniformly from the given split range.
+    """
+    total = sum([val[1] - val[0] for val in split_range])
+    
+    sample = uniform(0, total)
+    
+    for bottom, top in split_range:
+        if sample < top - bottom:
+            print(bottom+sample)
+            return bottom + sample
+        sample -= top - bottom
+        
+    raise ValueError('ERROR: split_range_sample tried to return value ' +
+                     'outside of any range.')
+
+
+
 @set_random_seed
 def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                 distribution=None):
@@ -178,9 +209,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
      earliest_later_onset,
      latest_later_onset) = valid_notes[randint(len(valid_notes))]
     
-    while latest_earlier_onset < onset < earliest_later_onset:
-        # TODO: directly sample from the split range
-        onset = uniform(earliest_earlier_onset, latest_later_onset)
+    onset = split_range_sample([(earliest_earlier_onset,
+                                 latest_earlier_onset),
+                                (earliest_later_onset,
+                                 latest_later_onset)])
     
     degraded = excerpt.copy()
     
@@ -271,9 +303,10 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
      earliest_shortened_onset,
      latest_shortened_onset) = valid_notes[randint(len(valid_notes))]
     
-    while latest_lengthened_onset < onset < earliest_shortened_onset:
-        # TODO: directly sample from the split range
-        onset = uniform(earliest_lengthened_onset, latest_shortened_onset)
+    onset = split_range_sample([(earliest_lengthened_onset,
+                                 latest_lengthened_onset),
+                                (earliest_shortened_onset,
+                                 latest_shortened_onset)])
     
     degraded = excerpt.copy()
     
@@ -366,10 +399,11 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
      shortest_lengthened_dur,
      longest_shortened_dur,
      shortest_shortened_dur) = valid_notes[randint(len(valid_notes))]
-            
-    while longest_shortened_dur < duration < shortest_lengthened_dur:
-        # TODO: directly sample from the split range
-        duration = uniform(shortest_shortened_dur, longest_lengthened_dur)
+    
+    duration = split_range_sample([(shortest_shortened_dur,
+                                    longest_shortened_dur),
+                                   (shortest_lengthened_dur,
+                                    longest_lengthened_dur)])
         
     degraded = excerpt.copy()
     
