@@ -65,6 +65,11 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
     degraded : Composition
         A copy of the given excerpt, with the pitch of one note changed.
     """
+    if excerpt.note_df.shape[0] == 0:
+        warnings.warn('WARNING: No notes to remove. Returning None.',
+                      category=UserWarning)
+        return None
+    
     degraded = excerpt.copy()
 
     # Sample a random note
@@ -111,17 +116,15 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         or None if there are no notes that can be changed given the
         parameters.
     """
-    degraded = excerpt.copy()
-    
-    end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
+    end_time = excerpt.note_df[['onset', 'dur']].sum(axis=1).max()
     
     # Find all editable notes
     valid_notes = []
     
     # Use indices because saving the df.loc objects creates copies
-    for note_index in range(degraded.note_df.shape[0]):
-        onset = degraded.note_df.loc[note_index, 'onset']
-        offset = onset + degraded.note_df.loc[note_index, 'dur']
+    for note_index in range(excerpt.note_df.shape[0]):
+        onset = excerpt.note_df.loc[note_index, 'onset']
+        offset = onset + excerpt.note_df.loc[note_index, 'dur']
         
         # Early-shift bounds (decrease onset)
         earliest_earlier_onset = max(onset - max_shift, 0)
@@ -135,15 +138,15 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_earlier_onset < latest_earlier_onset or
             earliest_later_onset < latest_later_onset):
-            valid_note_indices.append((note_index,
-                                       onset,
-                                       earliest_earlier_onset,
-                                       latest_earlier_onset,
-                                       earliest_later_onset,
-                                       latest_later_onset))
+            valid_notes.append((note_index,
+                                onset,
+                                earliest_earlier_onset,
+                                latest_earlier_onset,
+                                earliest_later_onset,
+                                latest_later_onset))
             
     if len(valid_notes) == 0:
-        warnings.warn('WARNING: No valid notes to time_shift. Returning ' +
+        warnings.warn('WARNING: No valid notes to time shift. Returning ' +
                       'None.', category=UserWarning)
         return None
     
@@ -158,6 +161,8 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     while latest_earlier_onset < onset < earliest_later_onset:
         # TODO: directly sample from the split range
         onset = uniform(earliest_earlier_onset, latest_later_onset)
+    
+    degraded = excerpt.copy()
     
     degraded.note_df.loc[note_index, 'onset'] = onset
     
@@ -202,15 +207,13 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     degraded : Composition
         A copy of the given excerpt, with the onset time of one note changed.
     """
-    degraded = excerpt.copy()
-
-    # TODO: It is possible for there to be no valid notes
-    # Sample a random note
-    while True:
-        note_index = randint(0, degraded.note_df.shape[0])
+    # Find all editable notes
+    valid_notes = []
     
-        onset = degraded.note_df.loc[note_index, 'onset']
-        offset = onset + degraded.note_df.loc[note_index, 'dur']
+    # Use indices because saving the df.loc objects creates copies
+    for note_index in range(excerpt.note_df.shape[0]):
+        onset = excerpt.note_df.loc[note_index, 'onset']
+        offset = onset + excerpt.note_df.loc[note_index, 'dur']
         
         # Lengthen bounds (decrease onset)
         earliest_lengthened_onset = max(offset - max_duration,
@@ -226,11 +229,33 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_lengthened_onset < latest_lengthened_onset or
             earliest_shortened_onset < latest_shortened_onset):
-            break
+            valid_notes.append((note_index,
+                                onset,
+                                offset,
+                                earliest_lengthened_onset,
+                                latest_lengthened_onset,
+                                earliest_shortened_onset,
+                                latest_shortened_onset))
             
-    while onset > latest_lengthened_onset or onset < earliest_shortened_onset:
+    if len(valid_notes) == 0:
+        warnings.warn('WARNING: No valid notes to onset shift. Returning ' +
+                      'None.', category=UserWarning)
+        return None
+    
+    # Sample a random note
+    (note_index,
+     onset,
+     offset,
+     earliest_lengthened_onset,
+     latest_lengthened_onset,
+     earliest_shortened_onset,
+     latest_shortened_onset) = choice(valid_notes)
+    
+    while latest_lengthened_onset < onset < earliest_shortened_onset:
         # TODO: directly sample from the split range
         onset = uniform(earliest_lengthened_onset, latest_shortened_onset)
+    
+    degraded = excerpt.copy()
     
     degraded.note_df.loc[note_index, 'onset'] = onset
     degraded.note_df.loc[note_index, 'dur'] = offset - onset
@@ -276,41 +301,57 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     degraded : Composition
         A copy of the given excerpt, with the offset time of one note changed.
     """
-    degraded = excerpt.copy()
-    
-    end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
+    end_time = excerpt.note_df[['onset', 'dur']].sum(axis=1).max()
 
-    # TODO: It is possible for there to be no valid notes
-    # Sample a random note
-    while True:
-        note_index = randint(0, degraded.note_df.shape[0])
+    # Find all editable notes
+    valid_notes = []
     
-        onset = degraded.note_df.loc[note_index, 'onset']
-        duration = degraded.note_df.loc[note_index, 'dur']
+    # Use indices because saving the df.loc objects creates copies
+    for note_index in range(excerpt.note_df.shape[0]):
+        onset = excerpt.note_df.loc[note_index, 'onset']
+        duration = excerpt.note_df.loc[note_index, 'dur']
         
         # Lengthen bounds (increase duration)
-        longest_lengthened_duration = min(duration + max_shift,
-                                          end_time - onset,
-                                          max_duration)
-        shortest_lengthened_duration = max(duration + min_shift,
-                                           min_duration)
+        longest_lengthened_dur = min(duration + max_shift,
+                                     end_time - onset,
+                                     max_duration)
+        shortest_lengthened_dur = max(duration + min_shift,
+                                      min_duration)
         
         # Shorten bounds (decrease duration)
-        longest_shortened_duration = max(duration - min_shift,
-                                         min_duration)
-        shortest_shortened_duration = min(duration - max_shift,
-                                          max_duration)
+        longest_shortened_dur = max(duration - min_shift,
+                                    min_duration)
+        shortest_shortened_dur = min(duration - max_shift,
+                                     max_duration)
         
         # Check that sampled note is valid (can be lengthened or shortened)
-        if (shortest_lengthened_duration < longest_lengthened_duration or
-            shortest_shortened_duration < longest_shortened_duration):
-            break
+        if (shortest_lengthened_dur < longest_lengthened_dur or
+            shortest_shortened_dur < longest_shortened_dur):
+            valid_notes.append((note_index,
+                                duration,
+                                longest_lengthened_dur,
+                                shortest_lengthened_dur,
+                                longest_shortened_dur,
+                                shortest_shortened_dur))
             
-    while (duration > latest_shortened_duration or
-           duration < shortest_lengthened_duration):
+    if len(valid_notes) == 0:
+        warnings.warn('WARNING: No valid notes to offset shift. Returning ' +
+                      'None.', category=UserWarning)
+        return None
+    
+    # Sample a random note
+    (note_index,
+     duration,
+     longest_lengthened_dur,
+     shortest_lengthened_dur,
+     longest_shortened_dur,
+     shortest_shortened_dur) = choice(valid_notes)
+            
+    while latest_shortened_dur < duration < shortest_lengthened_dur:
         # TODO: directly sample from the split range
-        duration = uniform(shortest_shortened_duration,
-                           longest_lengthened_duration)
+        duration = uniform(shortest_shortened_dur, longest_lengthened_dur)
+        
+    degraded = excerpt.copy()
     
     degraded.note_df.loc[note_index, 'dur'] = duration
     
@@ -338,6 +379,11 @@ def remove_note(excerpt):
     degraded : Composition
         A copy of the given excerpt, with one note removed.
     """
+    if excerpt.note_df.shape[0] == 0:
+        warnings.warn('WARNING: No notes to remove. Returning None.',
+                      category=UserWarning)
+        return None
+        
     degraded = excerpt.copy()
 
     # Sample a random note
@@ -389,9 +435,14 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     pitch = randint(min_pitch, max_pitch + 1)
 
-    onset = uniform(degraded.note_df['onset'].min(), end_time - min_duration)
-    duration = uniform(onset + min_duration,
-                       max(end_time - onset, max_duration))
+    if min_duration > end_time:
+        onset = 0
+        duration = min_duration
+    else:
+        onset = uniform(degraded.note_df['onset'].min(),
+                        end_time - min_duration)
+        duration = uniform(onset + min_duration,
+                           max(end_time - onset, max_duration))
 
     # Track is random one of existing tracks
     track = choice(degraded.note_df['track'].unique())
