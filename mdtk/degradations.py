@@ -40,7 +40,7 @@ def set_random_seed(func, seed=None):
 
 
 @set_random_seed
-def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH
+def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                 distribution=None):
     """
     Shift the pitch of one note from the given excerpt.
@@ -96,8 +96,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH
         pitches = np.array(range(pitch - middle,
                                  pitch - middle + len(distribution)))
         distribution[middle] = 0
-        distribution = np.where(pitches < min_pitch or pitches > max_pitch,
-                                0, distribution)
+        distribution = np.where(pitches < min_pitch, 0, distribution)
+        distribution = np.where(pitches > max_pitch, 0, distribution)
         distribution = distribution / np.sum(distribution)
         degraded.note_df.loc[note_index, 'pitch'] = choice(pitches,
                                                            p=distribution)
@@ -176,7 +176,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
      earliest_earlier_onset,
      latest_earlier_onset,
      earliest_later_onset,
-     latest_later_onset) = choice(valid_notes)
+     latest_later_onset) = valid_notes[randint(len(valid_notes))]
     
     while latest_earlier_onset < onset < earliest_later_onset:
         # TODO: directly sample from the split range
@@ -269,7 +269,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
      earliest_lengthened_onset,
      latest_lengthened_onset,
      earliest_shortened_onset,
-     latest_shortened_onset) = choice(valid_notes)
+     latest_shortened_onset) = valid_notes[randint(len(valid_notes))]
     
     while latest_lengthened_onset < onset < earliest_shortened_onset:
         # TODO: directly sample from the split range
@@ -339,10 +339,10 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                                       min_duration)
         
         # Shorten bounds (decrease duration)
-        longest_shortened_dur = max(duration - min_shift,
-                                    min_duration)
-        shortest_shortened_dur = min(duration - max_shift,
-                                     max_duration)
+        longest_shortened_dur = min(duration - min_shift,
+                                    max_duration)
+        shortest_shortened_dur = max(duration - max_shift,
+                                     min_duration)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (shortest_lengthened_dur < longest_lengthened_dur or
@@ -365,9 +365,9 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
      longest_lengthened_dur,
      shortest_lengthened_dur,
      longest_shortened_dur,
-     shortest_shortened_dur) = choice(valid_notes)
+     shortest_shortened_dur) = valid_notes[randint(len(valid_notes))]
             
-    while latest_shortened_dur < duration < shortest_lengthened_dur:
+    while longest_shortened_dur < duration < shortest_lengthened_dur:
         # TODO: directly sample from the split range
         duration = uniform(shortest_shortened_dur, longest_lengthened_dur)
         
@@ -410,10 +410,8 @@ def remove_note(excerpt):
     note_index = randint(0, degraded.note_df.shape[0])
 
     # Remove that note
-    (degraded.note_df
-         .drop(note_index, inplace=True)
-         .reset_index(drop=True, inplace=True)
-    )
+    degraded.note_df.drop(note_index, inplace=True)
+    degraded.note_df.reset_index(drop=True, inplace=True)
 
     return degraded
 
@@ -461,8 +459,8 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     else:
         onset = uniform(degraded.note_df['onset'].min(),
                         end_time - min_duration)
-        duration = uniform(onset + min_duration,
-                           max(end_time - onset, max_duration))
+        duration = uniform(min_duration,
+                           min(end_time - onset, max_duration))
 
     # Track is random one of existing tracks
     track = choice(degraded.note_df['track'].unique())
