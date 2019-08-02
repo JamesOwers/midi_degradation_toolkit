@@ -219,7 +219,8 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
-def offset_shift(excerpt):
+def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
+                max_duration=np.inf):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -227,6 +228,22 @@ def offset_shift(excerpt):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    min_shift : float
+        The minimum amount by which the offset time will be changed. Defaults
+        to 50.
+        
+    max_shift : float
+        The maximum amount by which the offset time will be changed. Defaults
+        to infinity.
+        
+    min_duration : float
+        The minimum duration for the resulting note. Defaults to 50.
+        
+    max_duration : float
+        The maximum duration for the resulting note. Defaults to infinity.
+        (The offset time will never go beyond the current last offset
+        in the excerpt.)
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -238,7 +255,45 @@ def offset_shift(excerpt):
     degraded : Composition
         A copy of the given excerpt, with the offset time of one note changed.
     """
-    raise NotImplementedError()
+    degraded = excerpt.copy()
+    
+    end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
+
+    # TODO: It is possible for there to be no valid notes
+    # Sample a random note
+    while True:
+        note_index = randint(0, degraded.note_df.shape[0])
+    
+        onset = degraded.note_df.loc[note_index, 'onset']
+        duration = degraded.note_df.loc[note_index, 'dur']
+        
+        # Lengthen bounds (increase duration)
+        longest_lengthened_duration = min(duration + max_shift,
+                                          end_time - onset,
+                                          max_duration)
+        shortest_lengthened_duration = max(duration + min_shift,
+                                           min_duration)
+        
+        # Shorten bounds (decrease duration)
+        longest_shortened_duration = max(duration - min_shift,
+                                         min_duration)
+        shortest_shortened_duration = min(duration - max_shift,
+                                          max_duration)
+        
+        # Check that sampled note is valid (can be lengthened or shortened)
+        if (shortest_lengthened_duration < longest_lengthened_duration or
+            shortest_shortened_duration < longest_shortened_duration):
+            break
+            
+    while (duration > latest_shortened_duration or
+           duration < shortest_lengthened_duration):
+        # TODO: directly sample from the split range
+        duration = uniform(shortest_shortened_duration,
+                           longest_lengthened_duration)
+    
+    degraded.note_df.loc[note_index, 'dur'] = duration
+    
+    return degraded
 
 
 
