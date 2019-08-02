@@ -81,7 +81,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH):
 
 
 @set_random_seed
-def time_shift(excerpt, params):
+def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     """
     Shift the onset and offset times of one note from the given excerpt,
     leaving its duration unchanged.
@@ -91,10 +91,12 @@ def time_shift(excerpt, params):
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
 
-    params : dict
-        A dictionary containing parameters for the time shift. All used
-        parameters keys will begin with 'time_shift_'. They include:
-            None
+    min_shift : float
+        The minimum amount by which the note will be shifted. Defaults to 50.
+        
+    max_shift : float
+        The maximum amount by which the note will be shifted. Defaults to
+        infinity.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -106,8 +108,41 @@ def time_shift(excerpt, params):
     degraded : Composition
         A copy of the given excerpt, with the timing of one note changed.
     """
-    raise NotImplementedError()
+    degraded = excerpt.copy()
+    
+    end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
+    
+    # TODO: It is possible for there to be no valid notes
+    # Sample a random note
+    while True:
+        note_index = randint(0, degraded.note_df.shape[0])
+    
+        onset = degraded.note_df.loc[note_index, 'onset']
+        offset = onset + degraded.note_df.loc[note_index, 'dur']
+        
+        # Early-shift bounds (decrease onset)
+        earliest_earlier_onset = max(onset - max_shift, 0)
+        latest_earlier_onset = onset - min_shift
+        
+        # Late-shift bounds (increase onset)
+        earliest_later_onset = onset + min_shift
+        latest_later_onset = onset + min(max_shift,
+                                         end_time - offset)
+        
+        # Check that sampled note is valid (can be lengthened or shortened)
+        if (earliest_earlier_onset < latest_earlier_onset or
+            earliest_later_onset < latest_later_onset):
+            break
+    
+    while onset > latest_earlier_onset or onset < earliest_later_onset:
+        # TODO: directly sample from the split range
+        onset = uniform(earliest_earlier_onset, latest_later_onset)
+    
+    degraded.note_df.loc[note_index, 'onset'] = onset
+    
+    return degraded
 
+    
 
 
 @set_random_seed
