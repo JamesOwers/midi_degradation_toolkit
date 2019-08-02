@@ -41,15 +41,14 @@ def set_random_seed(func, seed=None):
 
 def split_range_sample(split_range, p=None):
     """
-    Return a value sampled randomly from the given split range.
+    Return a value sampled randomly from the given list of ranges. Is
+    implemented to first sample a range from the list of ranges `split_range`,
+    and then sample uniformly from the selected range.
     
     Parameters
     ----------
     split_range : list(tuple)
         A list of [min, max) tuples defining ranges from which to sample.
-        The sample will be drawn uniformly from the ranges, as if they were
-        contiguous. For example, on an input of [(0,1),(2,3)], a sampled
-        value of 1.5 will return 2.5.
         
     p : list(float)
         If given, should be a list the same length as split_range, and
@@ -58,26 +57,14 @@ def split_range_sample(split_range, p=None):
         
     Returns
     -------
-    A value sampled uniformly from the given split range.
-    """
-    if p is None:
-        total = sum([val[1] - val[0] for val in split_range])
-
-        sample = uniform(0, total)
-
-        for bottom, top in split_range:
-            if sample < top - bottom:
-                return bottom + sample
-            sample -= top - bottom
-
-        raise ValueError('ERROR: split_range_sample tried to return value ' +
-                         'outside of any range.')
-    
-    # Here, p is used to sample a range first
-    p = p / np.sum(p)
+    samp : float
+        A value sampled uniformly from the given split range.
+    """    
+    if p is not None:
+        p = p / np.sum(p)
     index = choice(range(len(split_range)), p=p)
-    
-    return uniform(split_range[index][0], split_range[index][1])
+    samp = uniform(split_range[index][0], split_range[index][1])
+    return samp
 
 
 
