@@ -22,7 +22,8 @@ NR_MIDINOTES = 128
 
 
 def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
-                  sort=True, header='infer', make_monophonic=None):
+                  sort=True, header='infer', make_monophonic=None,
+                  max_note_len=None):
     """Read a csv and create a standard note event DataFrame - a `note_df`.
     
     Parameters
@@ -46,6 +47,8 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
         Track names to make monophonic. If None, performs no action. If True,
         expects a single track, and makes it monophonic. If 'all', makes all
         tracks monophonic.
+    max_note_len : int, float, or None
+        A value for the maximum duration of a note
     """
     cols = {}
     cols[onset] = 'onset'
@@ -57,12 +60,15 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
     integer_colspec = all(isinstance(vv, str) for vv in cols.keys())
     assert string_colspec or integer_colspec, ('All column specifications '
         'must be either all strings or all integers.')
+    
     df = pd.read_csv(path, header=header, usecols=list(cols.keys()))
     df.rename(columns=cols, inplace=True)
     if track is None:
         df.loc[:, 'track'] = 0
+    
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
+    
     if make_monophonic is not None:
         if make_monophonic is True:
             make_monophonic = df.track.unique()
@@ -80,6 +86,10 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
             df.loc[df['track']==track_name] = fix_overlapping_notes(
                 df[df['track']==track_name].copy()  # reqd to avoid warnings
             )
+            
+    if max_note_len is not None:
+        df.loc[df['dur'] > max_note_len] = max_note_len
+        
     if sort:
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
         df.reset_index(drop=True, inplace=True)
@@ -146,11 +156,13 @@ def check_monophonic(note_df):
         'overlaps another')
     
 
-# Conversion from note dataframe ==============================================
+# note_df_editing =============================================================
+# Functions for altering already imported note_df
 def make_df_monophonic(df, inplace=False):
     """Takes a note df and returns a version where all notes which overlap
     a subsequent note have their durations clipped. Assumes that the note_df
     input is sorted accordingly."""
+    # TODO: account for tracks
     if not inplace:
         df = df.copy(deep=True)
     onsets = df.onset.unique()
