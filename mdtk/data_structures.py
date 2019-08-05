@@ -1,6 +1,7 @@
 """The main data structure class we will transform into and all the functions
 for converting between different data formats.
 """
+import copy
 
 import numpy as np
 import pandas as pd
@@ -21,8 +22,8 @@ NR_MIDINOTES = 128
 
 
 def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
-                  sort=True, header='infer'):
-    """Read a csv and create a standard note event DataFrame
+                  sort=True, header='infer', make_monophonic=None):
+    """Read a csv and create a standard note event DataFrame - a `note_df`.
     
     Parameters
     ----------
@@ -41,6 +42,10 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
     header : int, list of int, default ‘infer’
         parameter to pass to pandas read_csv - see their documentation. Must
         set to None if your csv has no header.
+    make_monophonic : list(int), 'all', True, or None
+        Track names to make monophonic. If None, performs no action. If True,
+        expects a single track, and makes it monophonic. If 'all', makes all
+        tracks monophonic.
     """
     cols = {}
     cols[onset] = 'onset'
@@ -55,56 +60,91 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
     df = pd.read_csv(path, header=header, usecols=list(cols.keys()))
     df.rename(columns=cols, inplace=True)
     if track is None:
-        df['track'] = 1
+        df.loc[:, 'track'] = 0
+    # Check no overlapping notes of the same pitch
+    df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
+    if make_monophonic is not None:
+        if make_monophonic is True:
+            make_monophonic = df.track.unique()
+            assert len(make_monophonic) == 1, ('Expected only one track, found'
+                f' {len(make_monophonic)}: {make_monophonic}'
+            )
+        elif make_monophonic == 'all':
+            make_monophonic = df.track.unique()
+        elif isinstance(make_monophonic, list):
+            assert all(track_name in df.track.unique()
+                       for track_name in make_monophonic), ('Not all track '
+                'names supplied exist in the dataframe')
+            
+        for track_name in make_monophonic:
+            df.loc[df.loc[:, 'track']==track_name] = fix_overlapping_notes(
+                df[df['track']==track_name].copy()  # reqd to avoid warnings
+            )
     if sort:
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
         df.reset_index(drop=True, inplace=True)
     return df.loc[:, NOTE_DF_SORT_ORDER]
 
 
-def plot_flat_pianoroll(mat, fignum=None):
-    """Plot with matshow - depreciated, use plot_from_pianoroll"""
-    plt.matshow(mat, aspect='auto', origin='lower', fignum=fignum)
-    plt.colorbar()
+def fix_overlapping_notes(df, drop_new_cols=True):
+    """For use in a groupby operation over track. Fixes any pitches that
+    overlap. Pulls the offending note's offtime back to one quantum behind the
+    following onset time."""
+    if df.shape[0] <= 1:
+        return df
+    df['note_off'] = df['onset'] + df['dur']
+    # need to use df.index to avoid 'chaining' iloc and loc, see:
+    # https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html
+    df['next_note_on'] = df['onset'].shift(-1)
+    df.loc[df.index[-1], 'next_note_on'] = np.inf
+    df['bad_note'] = df['note_off'] > df['next_note_on']  # equal is fine
+    df.loc[df['bad_note'], 'dur'] = (df.loc[df['bad_note'], 'next_note_on']
+                                     - df.loc[df['bad_note'], 'onset'])
+    if drop_new_cols:
+        new_cols = ['note_off', 'next_note_on', 'bad_note']
+        df.drop(new_cols, axis=1, in_place=True)
+    return df
 
 
-def show_gridlines(ax=None, major_mult=4, minor_mult=1, y_maj_min=None):
-    """Convenience method to apply nice major and minor grilines to pianoroll
-    plots"""
-    if ax is None:
-        ax = plt.gca()
-    ax.xaxis.set_minor_locator(MultipleLocator(minor_mult))
-    ax.xaxis.set_major_locator(MultipleLocator(major_mult))
-    if y_maj_min is not None:
-        major_mult, minor_mult = y_maj_min
-        ax.yaxis.set_minor_locator(MultipleLocator(minor_mult))
-        ax.yaxis.set_major_locator(MultipleLocator(major_mult))
-    ax.grid(which='major', linestyle='-', axis='both')
-    ax.grid(which='minor', linestyle='--', axis='both')
-    ax.set_axisbelow(True)
+# Note DataFrame checking======================================================
+# Most subsequent functions expect a note_df - a pandas dataframe with specific
+# columns, and a defined sort order. We want to write functions which are
+# usable independent of the Composition class, but also by the Composition
+# class. The Composition class does checking on the note_df by default, but
+# users who call these functions may not. Subsequent functions all call this
+# checking by default but, when used in the Composition class, they don't need
+# to
+def check_note_df(note_df):
+    """Performs checks to ensure the note_df has the correct properties"""
+    # Check columns
+    assert all(col in note_df.columns for col in NOTE_DF_SORT_ORDER), (
+              f'note_df must contain all columns in {NOTE_DF_SORT_ORDER}')
+    # Check sorted and has increasing integer index
+    assert (
+        note_df
+            .sort_values(by=NOTE_DF_SORT_ORDER)
+            .reset_index(drop=True)
+            .equals(note_df)
+        ), (f'note_df must be sorted by {NOTE_DF_SORT_ORDER} and columns '
+            'ordered')
+    # Check no overlapping notes of the same pitch
+    for track, track_df in note_df.groupby('track'):
+        for pitch, pitch_df in track_df.groupby('pitch'):
+            note_off = pitch_df.onset + pitch_df.dur
+            next_note_on = pitch_df.onset.iloc[1:]
+            assert all(note_off.iloc[:-1] > next_note_on), (f'Track {track} '
+                f'has an overlapping note at pitch {pitch}, i.e. there is a '
+                'note which overlaps another at the same pitch')
 
 
-def round_to_nearest_division(x, div):
-    """Rounds an array of numbers to the nearest division of a unit.
-
-    Parameters
-    ----------
-    x : array like
-        array of numbers to round (or single number)
-    div : int
-        Number of divisions per unit
-
-    Returns
-    -------
-    array like x
-
-    Notes
-    -----
-    In the case of x*div producing exact .5 values, np.round rounds
-    to the nearest even number.
-    """
-    return np.round(x*div) / div
-
+def check_monophonic(note_df):
+    assert len(note_df.track.unique()), ('This note_df is not monophonic, it '
+        'has multiple tracks')
+    note_off = note_df.onset + note_df.dur
+    next_note_on = note_df.onset.iloc[1:]
+    assert all(note_off.iloc[:-1] > next_note_on), (f'There is a  note which '
+        'overlaps another')
+    
 
 # Conversion from note dataframe ==============================================
 def make_df_monophonic(df, inplace=False):
