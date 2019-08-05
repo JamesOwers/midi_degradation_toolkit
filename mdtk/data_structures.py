@@ -77,7 +77,7 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
                 'names supplied exist in the dataframe')
             
         for track_name in make_monophonic:
-            df.loc[df.loc[:, 'track']==track_name] = fix_overlapping_notes(
+            df.loc[df['track']==track_name] = fix_overlapping_notes(
                 df[df['track']==track_name].copy()  # reqd to avoid warnings
             )
     if sort:
