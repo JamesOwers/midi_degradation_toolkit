@@ -58,7 +58,7 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
         df['track'] = 1
     if sort:
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
-        df.reset_index(inplace=True)
+        df.reset_index(drop=True, inplace=True)
     return df.loc[:, NOTE_DF_SORT_ORDER]
 
 

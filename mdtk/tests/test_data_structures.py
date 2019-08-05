@@ -78,9 +78,15 @@ def test_read_note_csv():
     assert df.equals(comp_df.drop('sparecol', axis=1))
     df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', track='track')
     assert not df.equals(comp_df.drop('sparecol', axis=1))  # sorting
+    assert df.equals(
+            (comp_df
+                 .drop('sparecol', axis=1)
+                 .sort_values(by=NOTE_DF_SORT_ORDER)
+                 .reset_index(drop=True)
+            )[NOTE_DF_SORT_ORDER])  # sorting
     df = read_note_csv('./all_pitch_df_tracks_sparecol_weirdorder.csv',
                        track='track', sort=False)
-    df.equals(comp_df.drop('sparecol', axis=1))
+    assert df.equals(comp_df.drop('sparecol', axis=1))
     
 
 def test_remove_csvs():
