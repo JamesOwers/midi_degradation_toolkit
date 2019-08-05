@@ -40,6 +40,16 @@ all_pitch_df_tracks = pd.DataFrame({
                                 for name in track_names]
               for x in sublist]
 })
+all_pitch_df_tracks_overlaps = pd.DataFrame({
+    'onset': [x for sublist in [np.arange(ii, len(all_midinotes)*2 + ii, 2)
+                                for ii in range(nr_tracks)]
+              for x in sublist],
+    'pitch': all_midinotes * nr_tracks,
+    'dur': [3] * (len(all_midinotes)*nr_tracks),
+    'track': [x for sublist in [[name]*len(all_midinotes)
+                                for name in track_names]
+              for x in sublist]
+})
 
 
 all_pitch_df.to_csv('./all_pitch_df.csv', index=False)
