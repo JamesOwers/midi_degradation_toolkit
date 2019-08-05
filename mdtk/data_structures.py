@@ -102,7 +102,7 @@ def fix_overlapping_notes(df, drop_new_cols=True):
                                      - df.loc[df['bad_note'], 'onset'])
     if drop_new_cols:
         new_cols = ['note_off', 'next_note_on', 'bad_note']
-        df.drop(new_cols, axis=1, in_place=True)
+        df.drop(new_cols, axis=1, inplace=True)
     return df
 
 
