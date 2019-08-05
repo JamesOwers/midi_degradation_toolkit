@@ -13,15 +13,53 @@ from matplotlib.ticker import MaxNLocator, MultipleLocator
 import pretty_midi
 
 
-CSV_COLNAMES = ['onset', 'pitch', 'morph', 'dur', 'ch']
+
+NOTE_DF_SORT_ORDER = ['onset', 'track', 'pitch', 'dur']
 DEFAULT_QUANTIZATION = 12
 NR_MIDINOTES = 128
 
 
-def read_note_csv(path, colnames=CSV_COLNAMES):
-    """Read csv as defined in mirex competition"""
-    df = pd.read_csv(path, names=colnames)
-    return df
+
+def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
+                  sort=True, header='infer'):
+    """Read a csv and create a standard note event DataFrame
+    
+    Parameters
+    ----------
+    path : str
+        The path to the csv to be imported
+    onset : str or int
+        The name or index of the column in the csv describing note onset times
+    pitch : str or int
+        The name or index of the column in the csv describing note pitches
+    dur : str or int
+        The name or index of the column in the csv describing note durations
+    track : str or int
+        The name or index of the column in the csv describing the midi track
+    sort : bool
+        Whether to sort the resulting DataFrame to the default sort order
+    header : int, list of int, default ‘infer’
+        parameter to pass to pandas read_csv - see their documentation. Must
+        set to None if your csv has no header.
+    """
+    cols = {}
+    cols[onset] = 'onset'
+    cols[pitch] = 'pitch'
+    cols[dur] = 'dur'
+    if track is not None:
+        cols[track] = 'track'
+    string_colspec = all(isinstance(vv, int) for vv in cols.keys())
+    integer_colspec = all(isinstance(vv, str) for vv in cols.keys())
+    assert string_colspec or integer_colspec, ('All column specifications '
+        'must be either all strings or all integers.')
+    df = pd.read_csv(path, header=header, usecols=list(cols.keys()))
+    df.rename(columns=cols, inplace=True)
+    if track is None:
+        df['track'] = 1
+    if sort:
+        df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
+        df.reset_index(inplace=True)
+    return df.loc[:, NOTE_DF_SORT_ORDER]
 
 
 def plot_flat_pianoroll(mat, fignum=None):

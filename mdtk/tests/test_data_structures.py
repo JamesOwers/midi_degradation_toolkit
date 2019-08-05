@@ -2,7 +2,7 @@ import os
 from glob import glob
 import pandas as pd
 import numpy as np
-from mdtk.data_structures import Composition
+from mdtk.data_structures import Composition, read_note_csv, NOTE_DF_SORT_ORDER
 
 
 note_df_2pitch_aligned = pd.DataFrame(
@@ -41,6 +41,24 @@ all_pitch_df_tracks = pd.DataFrame({
               for x in sublist]
 })
 
+
+all_pitch_df.to_csv('./all_pitch_df.csv', index=False)
+all_pitch_df_tracks.to_csv('./all_pitch_df_tracks.csv', index=False)
+all_pitch_df_tracks_sparecol = all_pitch_df_tracks.copy(deep=True)
+all_pitch_df_tracks_sparecol['sparecol'] = 'whoops'
+all_pitch_df_tracks_sparecol.to_csv('./all_pitch_df_tracks_sparecol.csv',
+                                    index=False)
+all_pitch_df_tracks_sparecol.to_csv(
+        './all_pitch_df_tracks_sparecol_noheader.csv',
+        index=False,
+        header=False
+    )
+weird_col_order = ['pitch','track','sparecol','dur','onset']
+all_pitch_df_tracks_sparecol[weird_col_order].to_csv(
+        './all_pitch_df_tracks_sparecol_weirdorder.csv',
+        index=False
+    )
+
 ALL_DF = [
     note_df_2pitch_aligned,
     note_df_2pitch_weird_times,
@@ -48,6 +66,32 @@ ALL_DF = [
     all_pitch_df
 ]
 
+
+def test_read_note_csv():
+    df = read_note_csv('./all_pitch_df.csv', track=None)
+    assert df.drop('track', axis=1).equals(all_pitch_df)
+    df = read_note_csv('./all_pitch_df_tracks.csv', track='track', sort=False)
+    assert df.equals(all_pitch_df_tracks[NOTE_DF_SORT_ORDER])
+    df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', track='track',
+                       sort=False)
+    comp_df = all_pitch_df_tracks_sparecol[NOTE_DF_SORT_ORDER + ['sparecol']]
+    assert df.equals(comp_df.drop('sparecol', axis=1))
+    df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', track='track')
+    assert not df.equals(comp_df.drop('sparecol', axis=1))  # sorting
+    df = read_note_csv('./all_pitch_df_tracks_sparecol_weirdorder.csv',
+                       track='track', sort=False)
+    df.equals(comp_df.drop('sparecol', axis=1))
+    
+
+def test_remove_csvs():
+    csv_list = [
+        './all_pitch_df_tracks.csv',
+        './all_pitch_df_tracks_sparecol.csv',
+        './all_pitch_df_tracks_sparecol_weirdorder.csv'   
+    ]
+    for csv in csv_list:
+        os.remove(csv)
+    
 
 def test_assert_sort_onset_and_pitch():
     assertion = False
