@@ -38,6 +38,7 @@ all_pitch_df = all_pitch_df[NOTE_DF_SORT_ORDER]
 
 nr_tracks = 3
 track_names = np.random.choice(np.arange(10), replace=False, size=nr_tracks)
+track_names.sort()
 all_pitch_df_tracks = pd.DataFrame({
     'onset': [x for sublist in [np.arange(ii, len(all_midinotes)*2 + ii, 2)
                                 for ii in range(nr_tracks)]
@@ -84,6 +85,19 @@ ALL_DF = [
     all_pitch_df
 ]
 
+ALL_VALID_DF = [
+    (note_df_2pitch_aligned.sort_values(NOTE_DF_SORT_ORDER)
+                           .reset_index(drop=True)),
+    (note_df_2pitch_weird_times.sort_values(NOTE_DF_SORT_ORDER)
+                               .reset_index(drop=True)),
+    (note_df_with_silence.sort_values(NOTE_DF_SORT_ORDER)
+                         .reset_index(drop=True)),
+    (all_pitch_df.sort_values(NOTE_DF_SORT_ORDER)
+                 .reset_index(drop=True)),
+    (all_pitch_df_tracks.sort_values(NOTE_DF_SORT_ORDER)
+                        .reset_index(drop=True))
+]
+
 
 # Function tests ==============================================================
 def test_read_note_csv():
@@ -110,16 +124,6 @@ def test_read_note_csv():
     assert df.equals(comp_df.drop('sparecol', axis=1))
     
 
-def test_remove_csvs():
-    csv_list = [
-        './all_pitch_df_tracks.csv',
-        './all_pitch_df_tracks_sparecol.csv',
-        './all_pitch_df_tracks_sparecol_weirdorder.csv'   
-    ]
-    for csv in csv_list:
-        os.remove(csv)
-    
-
     
  # Pianoroll class tests ======================================================
 def test_pianoroll_all_pitches():
@@ -127,7 +131,17 @@ def test_pianoroll_all_pitches():
     assert (pianoroll == np.ones((1, 2, 128, 1), dtype='uint8')).all()
     
 
+# TODO: test all note_on occur with sounding
+    
+# TODO: test all note_off occur with sounding
+
+# TODO: test all sounding begin note_on and end_note_off
+
+
+
 # Composition class tests =====================================================
+# TODO: write import from csv tests    
+
 def test_composition_df_assertions():
     assertion = False
     try:
@@ -170,33 +184,36 @@ def test_composition_df_assertions():
 def test_composition_all_pitches():
     c = Composition(note_df=all_pitch_df, quantization=1)
     pr = np.ones_like(c.pianoroll)
-    assert (pr[:-1] == c.pianoroll[:-1]).all()  # don't consider silence token
+    assert (pr == c.pianoroll).all()
 
 
-def test_auto_sort_onset_and_pitch():
-    comp = Composition(note_df=note_df_2pitch_aligned, sort_note_df=True)
-    assert comp.note_df.equals(
-        note_df_2pitch_aligned
-            .sort_values(['onset', 'pitch'])
-            .reset_index(drop=True)
-    )
+
+# TODO: reimplement this if and when we implement auto fix of note_df
+#def test_auto_sort_onset_and_pitch():
+#    comp = Composition(note_df=note_df_2pitch_aligned, fix_note_df=True)
+#    assert comp.note_df.equals(
+#        note_df_2pitch_aligned
+#            .sort_values(['onset', 'pitch'])
+#            .reset_index(drop=True)
+#    )
 
 
 def test_not_ending_in_silence():
-    for df in ALL_DF:
-        comp = Composition(note_df=df, sort_note_df=True)
-        assert comp.pianoroll[-1, -1, 0] != 1
+    for df in ALL_VALID_DF:
+        comp = Composition(note_df=df)
+        assert (comp.pianoroll[:, :, 0, -1] != 1).all()
 
 
-def test_nr_note_offs_equals_nr_notes():
-    for df in ALL_DF:
-        comp = Composition(note_df=df, sort_note_df=True)
+def test_nr_note_on_equals_nr_notes():
+    for df in ALL_VALID_DF:
+        comp = Composition(note_df=df)
         pianoroll = comp.pianoroll
-        assert np.sum(pianoroll[:-1, :, 1]) == comp.note_df.shape[0]
+        assert np.sum(pianoroll[:, 1, :, :]) == comp.note_df.shape[0]
 
 
 def test_all_composition_methods_and_attributes():
-    compositions = [Composition(comp, sort_note_df=True) for comp in ALL_DF]
+    compositions = [Composition(comp)
+                    for comp in ALL_VALID_DF]
     for comp in compositions:
         comp.csv_path
         comp.note_df
@@ -207,7 +224,18 @@ def test_all_composition_methods_and_attributes():
         comp.plot()
         comp.synthesize()
 
-# TODO: Check if anything alters input data
+# TODO: Check if anything alters input data - loop over all functions and
+#       methods
 
-# TODO: Check every method works!
 
+# Cleanup =====================================================================
+# TODO: This isn't technichally a test...should probably be some other function
+#       look up the proper way to do this.
+def test_remove_csvs():
+    csv_list = [
+        './all_pitch_df_tracks.csv',
+        './all_pitch_df_tracks_sparecol.csv',
+        './all_pitch_df_tracks_sparecol_weirdorder.csv'   
+    ]
+    for csv in csv_list:
+        os.remove(csv)
