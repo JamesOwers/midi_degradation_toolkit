@@ -60,24 +60,6 @@ all_pitch_df_tracks_overlaps = pd.DataFrame({
               for x in sublist]
 })
 
-
-all_pitch_df.to_csv('./all_pitch_df.csv', index=False)
-all_pitch_df_tracks.to_csv('./all_pitch_df_tracks.csv', index=False)
-all_pitch_df_tracks_sparecol = all_pitch_df_tracks.copy(deep=True)
-all_pitch_df_tracks_sparecol['sparecol'] = 'whoops'
-all_pitch_df_tracks_sparecol.to_csv('./all_pitch_df_tracks_sparecol.csv',
-                                    index=False)
-all_pitch_df_tracks_sparecol.to_csv(
-        './all_pitch_df_tracks_sparecol_noheader.csv',
-        index=False,
-        header=False
-    )
-weird_col_order = ['pitch','track','sparecol','dur','onset']
-all_pitch_df_tracks_sparecol[weird_col_order].to_csv(
-        './all_pitch_df_tracks_sparecol_weirdorder.csv',
-        index=False
-    )
-
 ALL_DF = [
     note_df_2pitch_aligned,
     note_df_2pitch_weird_times,
@@ -97,6 +79,33 @@ ALL_VALID_DF = [
     (all_pitch_df_tracks.sort_values(NOTE_DF_SORT_ORDER)
                         .reset_index(drop=True))
 ]
+
+
+all_pitch_df.to_csv('./all_pitch_df.csv', index=False)
+all_pitch_df_tracks.to_csv('./all_pitch_df_tracks.csv', index=False)
+all_pitch_df_tracks_sparecol = all_pitch_df_tracks.copy(deep=True)
+all_pitch_df_tracks_sparecol['sparecol'] = 'whoops'
+all_pitch_df_tracks_sparecol.to_csv('./all_pitch_df_tracks_sparecol.csv',
+                                    index=False)
+all_pitch_df_tracks_sparecol.to_csv(
+        './all_pitch_df_tracks_sparecol_noheader.csv',
+        index=False,
+        header=False
+    )
+weird_col_order = ['pitch','track','sparecol','dur','onset']
+all_pitch_df_tracks_sparecol[weird_col_order].to_csv(
+        './all_pitch_df_tracks_sparecol_weirdorder.csv',
+        index=False
+    )
+
+ALL_CSVS = [
+        './all_pitch_df.csv',
+        './all_pitch_df_tracks.csv',
+        './all_pitch_df_tracks_sparecol.csv',
+        './all_pitch_df_tracks_sparecol_weirdorder.csv',
+        './all_pitch_df_tracks_sparecol_noheader.csv'
+    ]
+
 
 
 # Function tests ==============================================================
@@ -232,11 +241,6 @@ def test_all_composition_methods_and_attributes():
 # Cleanup =====================================================================
 # TODO: This isn't technichally a test...should probably be some other function
 #       look up the proper way to do this.
-def test_remove_csvs():
-    csv_list = [
-        './all_pitch_df_tracks.csv',
-        './all_pitch_df_tracks_sparecol.csv',
-        './all_pitch_df_tracks_sparecol_weirdorder.csv'   
-    ]
-    for csv in csv_list:
+def test_remove_csvs(): 
+    for csv in ALL_CSVS:
         os.remove(csv)
