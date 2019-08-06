@@ -354,6 +354,7 @@ class Pianoroll():
                  first_note_on=None, quantization=None):
         # Properties only created upon first get but stored thereafter
         self._note_off = None
+        self._pianoroll = None
         # -----
         
         self.first_note_on = None
@@ -444,6 +445,24 @@ class Pianoroll():
             array = getattr(self, attr_name)
             pianoroll[:, ii, :, :] = array
         return pianoroll
+    
+    
+    def __repr__(self):
+        """String representation of the composition - the note_df"""
+        return self.pianoroll.__repr__()
+
+
+    def __str__(self):
+        """String representation of the composition - the note_df"""
+        return self.pianoroll.__str__()
+    
+    
+    def __getitem__(self, key):
+        return self.pianoroll[key]
+    
+    
+    def __len__(self):
+        return self.nr_timesteps
 
 
     # Properties ==============================================================
@@ -456,6 +475,13 @@ class Pianoroll():
             else:
                 self._note_off = self.get_note_off(df)
         return self._note_off
+    
+    @property
+    def pianoroll(self):
+        """Only create upon first get. No set method - will error if set."""
+        if self._pianoroll is None:
+            self._pianoroll = self()
+        return self._pianoroll
     
     
     # Note_df methods =========================================================
@@ -674,7 +700,9 @@ class Composition:
             # We do not assume that the supplied note_df is correctly formed,
             # and simply bomb out if it is not
             # TODO: implement df methods to fix issues instead e.g. overlaps.
-            #       Copy code from read_note_csv.
+            #       Copy code from read_note_csv. e.g.:
+            #       * reorder columns
+            #       * if all columns but track and no extra cols, assume 1 trk
             if self.make_monophonic is not None:
                 # TODO: adapt `make_df_monophonic` to handle tracks
                 raise NotImplementedError()
