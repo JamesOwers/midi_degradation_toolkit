@@ -7,26 +7,33 @@ from mdtk.data_structures import Composition, read_note_csv, NOTE_DF_SORT_ORDER
 
 note_df_2pitch_aligned = pd.DataFrame(
     {'onset': [0, 0, 1, 2, 3, 4],
+     'track' : 0,
      'pitch': [61, 60, 60, 60, 60, 60],
      'dur': [4, 1, 1, 0.5, 0.5, 2]}
 )
 note_df_2pitch_weird_times = pd.DataFrame(
     {'onset': [0, 0, 1.125, 1.370],
+     'track' : 0,
      'pitch': [61, 60, 60, 60],
      'dur': [1.6, .9, .24, 0.125]}
 )
 note_df_with_silence = pd.DataFrame(
     {'onset': [0, 0, 1, 2, 3, 4],
+     'track' : 0,
      'pitch': [61, 60, 60, 60, 60, 60],
      'dur': [3.75, 1, 1, 0.5, 0.5, 2]}
 )
 # midinote keyboard range from 0 to 127 inclusive
 all_midinotes = list(range(0, 128))
-all_pitch_df = pd.DataFrame({
+all_pitch_df_notrack = pd.DataFrame({
     'onset': [0] * len(all_midinotes),
     'pitch': all_midinotes,
     'dur': [1] * len(all_midinotes)
 })
+all_pitch_df = all_pitch_df_notrack.copy()
+all_pitch_df['track'] = 1
+all_pitch_df_wrongorder = all_pitch_df.copy()
+all_pitch_df = all_pitch_df[NOTE_DF_SORT_ORDER]
 
 nr_tracks = 3
 track_names = np.random.choice(np.arange(10), replace=False, size=nr_tracks)
@@ -77,9 +84,12 @@ ALL_DF = [
 ]
 
 
+# Function tests ==============================================================
 def test_read_note_csv():
     df = read_note_csv('./all_pitch_df.csv', track=None)
-    assert df.drop('track', axis=1).equals(all_pitch_df)
+    assert not df.equals(all_pitch_df)  # track names don't match
+    df = read_note_csv('./all_pitch_df.csv', track='track')
+    assert df.equals(all_pitch_df)
     df = read_note_csv('./all_pitch_df_tracks.csv', track='track', sort=False)
     assert df.equals(all_pitch_df_tracks[NOTE_DF_SORT_ORDER])
     df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', track='track',
@@ -109,18 +119,51 @@ def test_remove_csvs():
         os.remove(csv)
     
 
-def test_assert_sort_onset_and_pitch():
+# Composition class tests =====================================================
+def test_composition_df_assertions():
+    assertion = False
+    try:
+        Composition(note_df=all_pitch_df_notrack)
+    except AssertionError as e:
+        if e.args == ("note_df must contain all columns in ['onset', 'track', "
+                      "'pitch', 'dur']",):
+            assertion = True
+    assert assertion
+    assertion = False
+    
     assertion = False
     try:
         Composition(note_df=note_df_2pitch_aligned)
-    except AssertionError:
-        assertion = True
+    except AssertionError as e:
+        if e.args == ("note_df must be sorted by ['onset', 'track', 'pitch', "
+                      "'dur'] and columns ordered",):
+            assertion = True
     assert assertion
-
-
-def test_all_pitches():
-    c = Composition(note_df=all_pitch_df, sort_note_df=False,
-                    check_sorted=True, quantization=1)
+    assertion = False
+    
+    try:
+        Composition(
+            note_df=note_df_2pitch_aligned.sort_values(NOTE_DF_SORT_ORDER)
+        )
+    except AssertionError as e:
+        if e.args == ("note_df must have a RangeIndex with integer steps",):
+            assertion = True
+    assert assertion
+    
+    assert Composition(
+            note_df=(
+                note_df_2pitch_aligned
+                    .sort_values(NOTE_DF_SORT_ORDER)
+                    .reset_index(drop=True)
+            )
+        )
+    
+ # Pianoroll class tests ======================================================
+def test_pianoroll_all_pitches():
+    pass
+    
+def test_composition_all_pitches():
+    c = Composition(note_df=all_pitch_df, quantization=1)
     pr = np.ones_like(c.pianoroll)
     assert (pr[:-1] == c.pianoroll[:-1]).all()  # don't consider silence token
 
@@ -159,5 +202,7 @@ def test_all_composition_methods_and_attributes():
         comp.plot()
         comp.synthesize()
 
+# TODO: Check if anything alters input data
 
+# TODO: Check every method works!
 

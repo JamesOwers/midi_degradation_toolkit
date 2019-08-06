@@ -129,7 +129,10 @@ def check_note_df(note_df):
     # Check columns
     assert all(col in note_df.columns for col in NOTE_DF_SORT_ORDER), (
               f'note_df must contain all columns in {NOTE_DF_SORT_ORDER}')
-    # Check sorted and has increasing integer index
+    # Check has increasing integer index
+    assert all(note_df.index == pd.RangeIndex(note_df.shape[0])), ('note_df '
+        'must have a RangeIndex with integer steps')
+    # Check sorted
     assert (
         note_df
             .sort_values(by=NOTE_DF_SORT_ORDER)
@@ -141,8 +144,14 @@ def check_note_df(note_df):
     for track, track_df in note_df.groupby('track'):
         for pitch, pitch_df in track_df.groupby('pitch'):
             note_off = pitch_df.onset + pitch_df.dur
-            next_note_on = pitch_df.onset.iloc[1:]
-            assert all(note_off.iloc[:-1] > next_note_on), (f'Track {track} '
+            next_note_on = pitch_df.onset.shift(-1)
+            next_note_on.iloc[-1] = np.inf
+            try:
+                note_off <= next_note_on
+            except ValueError:
+                print(note_off)
+                print(next_note_on)
+            assert all(note_off <= next_note_on), (f'Track {track} '
                 f'has an overlapping note at pitch {pitch}, i.e. there is a '
                 'note which overlaps another at the same pitch')
 
