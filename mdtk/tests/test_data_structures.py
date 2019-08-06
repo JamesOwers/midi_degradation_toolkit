@@ -2,7 +2,8 @@ import os
 from glob import glob
 import pandas as pd
 import numpy as np
-from mdtk.data_structures import Composition, read_note_csv, NOTE_DF_SORT_ORDER
+from mdtk.data_structures import (Composition, Pianoroll, read_note_csv,
+                                  NOTE_DF_SORT_ORDER)
 
 
 note_df_2pitch_aligned = pd.DataFrame(
@@ -119,6 +120,13 @@ def test_remove_csvs():
         os.remove(csv)
     
 
+    
+ # Pianoroll class tests ======================================================
+def test_pianoroll_all_pitches():
+    pianoroll = Pianoroll(quant_df=all_pitch_df)
+    assert (pianoroll == np.ones((1, 2, 128, 1), dtype='uint8')).all()
+    
+
 # Composition class tests =====================================================
 def test_composition_df_assertions():
     assertion = False
@@ -157,11 +165,8 @@ def test_composition_df_assertions():
                     .reset_index(drop=True)
             )
         )
-    
- # Pianoroll class tests ======================================================
-def test_pianoroll_all_pitches():
-    pass
-    
+
+
 def test_composition_all_pitches():
     c = Composition(note_df=all_pitch_df, quantization=1)
     pr = np.ones_like(c.pianoroll)

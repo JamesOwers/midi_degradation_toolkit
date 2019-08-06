@@ -355,6 +355,7 @@ class Pianoroll():
         # Properties only created upon first get but stored thereafter
         self._note_off = None
         self._pianoroll = None
+        self._shape = None
         # -----
         
         self.first_note_on = None
@@ -458,13 +459,17 @@ class Pianoroll():
     
     
     def __getitem__(self, key):
-        return self.pianoroll[key]
+        return self.pianoroll.__getitem__(key)
     
     
     def __len__(self):
         return self.nr_timesteps
 
 
+    def __eq__(self, other):
+        return self.pianoroll == other
+    
+    
     # Properties ==============================================================
     @property
     def note_off(self, df=None):
@@ -483,6 +488,10 @@ class Pianoroll():
             self._pianoroll = self()
         return self._pianoroll
     
+    @property
+    def shape(self):
+        """Only create upon first get. No set method - will error if set."""
+        return self.pianoroll.shape
     
     # Note_df methods =========================================================
     def get_sounding_note_on(self, df):
