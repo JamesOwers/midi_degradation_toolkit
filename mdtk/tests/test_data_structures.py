@@ -201,7 +201,8 @@ def test_composition_all_pitches():
 def test_not_ending_in_silence():
     for df in ALL_VALID_DF:
         comp = Composition(note_df=df)
-        assert (comp.pianoroll[:, :, 0, -1] != 1).all()
+        assert not (comp.pianoroll[:, 0, :, -1] == 0).all(), (f'{df}',
+                   f'{comp.plot()} {comp.pianoroll}')
 
 
 def test_nr_note_on_equals_nr_notes():
