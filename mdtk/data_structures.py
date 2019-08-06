@@ -581,13 +581,16 @@ class Pianoroll():
         return df
     
     
-    def plot(self, first_note_on=None, quantization=None, **plot_from_df_kwargs):
+    # Plotting ================================================================
+    def plot(self, first_note_on=None, quantization=None,
+             **plot_from_df_kwargs):
         df = self.get_note_df(first_note_on=first_note_on,
                               quantization=quantization)
         ax = plot_from_df(df, **plot_from_df_kwargs)
         return ax
     
     
+    # Synthesis ===============================================================
     def synthesize(
             self,
             quantization=DEFAULT_QUANTIZATION,
@@ -600,8 +603,13 @@ class Pianoroll():
         return synthesize_from_note_df(df, bpm=bpm, fs=fs, inst_name=inst_name)
     
     
-
+    # Functional ==============================================================
+    def copy(self):
+        """Returns a deep copy of the object."""
+        return copy.deepcopy(self)
     
+    
+
 class Composition:
     """Wrapper class for note csv data. Takes as input either and already
     imported pandas DataFrame, or the location of a csv to be imported. For the
