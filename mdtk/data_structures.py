@@ -100,16 +100,14 @@ def check_overlap(note_df):
         return True
 
 
-def check_monophonic(note_df):
-    """Returns a list of booleans, one for each track, True if monophonic."""
-    track_monophonic = []
+def get_monophonic_tracks(note_df):
+    """Returns a list of monophonic tracks."""
+    mono_tracks = []
     for track, track_df in note_df.groupby('track'):
         overlap = check_overlap(track_df)
-        if overlap:
-            track_monophonic += [False]
-        else:
-            track_monophonic += [True]
-    return track_monophonic
+        if not overlap:
+            mono_tracks += [track]
+    return mono_tracks
 
 
 def check_overlapping_pitch(note_df, return_info=False):
@@ -179,7 +177,7 @@ def check_note_df(note_df, raise_error=True):
     return is_note_df
 
 
-def assert_monophonic(note_df, tracks=None):
+def check_monophonic(note_df, tracks=None, raise_error=True):
     """
     Parameters
     ----------
@@ -189,20 +187,27 @@ def assert_monophonic(note_df, tracks=None):
         Track names to check monophonic. If None, expects a single track.
         If 'all', checks all tracks are monophonic.
     """
-    if tracks is None:
-        assert len(note_df.track.unique()), ('This note_df is not monophonic, '
-            'it has multiple tracks')
-    elif tracks == 'all':
-        tracks = note_df.track.unique()
-    elif isinstance(tracks, list):
-        assert all(track_name in note_df.track.unique()
-                   for track_name in tracks), ('Not all track '
-            'names supplied exist in the dataframe')
-    for track, track_df in note_df.groupby('track'):
-        overlap = check_overlap(track_df)
-        assert not overlap, (f'Track {track} has a note '
-            f'with a duration overlapping a subsequent note onset')
-    
+    is_mono = []
+    try:
+        if tracks is None:
+            assert len(note_df.track.unique()), ('This note_df is not '
+                'monophonic, it has multiple tracks')
+        elif tracks == 'all':
+            tracks = note_df.track.unique()
+        elif isinstance(tracks, list):
+            assert all(track_name in note_df.track.unique()
+                       for track_name in tracks), ('Not all track '
+                'names supplied exist in the dataframe')
+        for track, track_df in note_df.groupby('track'):
+            overlap = check_overlap(track_df)
+            is_mono += [not overlap]
+            assert not overlap, (f'Track {track} has a note '
+                f'with a duration overlapping a subsequent note onset')
+    except AssertionError as e:
+        if raise_error:
+            raise e
+    return is_mono
+
 
 # note_df_editing =============================================================
 # Functions for altering already imported note_df DataFrames
@@ -291,8 +296,7 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
     if keep_monophonic is True:
-        is_monophonic = check_monophonic(df)
-        monophonic_tracks = df.track.unique()[is_monophonic]
+        monophonic_tracks = get_monophonic_tracks(df)
         df = make_monophonic(df, tracks=monophonic_tracks)
     elif isinstance(keep_monophonic, list):
         df = make_monophonic(df, tracks=keep_monophonic)
