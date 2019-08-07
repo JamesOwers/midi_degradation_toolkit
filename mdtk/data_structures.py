@@ -205,10 +205,13 @@ def fix_overlapping_notes(df, drop_new_cols=True):
     """For use in a groupby operation over track. Fixes any pitches that
     overlap. Pulls the offending note's offtime back behind the
     following onset time."""
-    df = df.copy()
+    # It appears making a copy is very bad if you want to use a function with
+    # groupby.apply, which we nearly always do with this function.
+    # Unfortunately, that means this function always has to operate in place
+#    df = df.copy()
     if df.shape[0] <= 1:
         return df
-    dtypes = dict(zip(df.columns, df.dtypes))
+#    dtypes = dict(zip(df.columns, df.dtypes))  # See comment below
     df['note_off'] = df['onset'] + df['dur']
     df['next_note_on'] = df['onset'].shift(-1)
     df.loc[df.index[-1], 'next_note_on'] = np.inf
@@ -218,7 +221,11 @@ def fix_overlapping_notes(df, drop_new_cols=True):
     if drop_new_cols:
         new_cols = ['note_off', 'next_note_on', 'bad_note']
         df.drop(new_cols, axis=1, inplace=True)
-    df = df.astype(dtypes)
+#    df = df.astype(dtypes)  # This broke the function when used with a groupby
+                             # it made track always return as the same value
+    df['dur'] = df['dur'].astype('int')
+    df['onset'] = df['onset'].astype('int')
+    # TODO: add an assertion to catch dur==0 and add a test
     return df
 
 
@@ -238,10 +245,12 @@ def make_monophonic(df, tracks='all'):
     input is sorted accordingly."""
     df = df.copy()
     dtypes = dict(zip(df.columns, df.dtypes))
-    if make_monophonic == 'all':
+    if tracks == 'all':
         # Check no overlapping notes of the same pitch
-        df = df.groupby(['track']).apply(fix_overlapping_notes)
-    elif isinstance(make_monophonic, list):
+        df = df.groupby('track').apply(fix_overlapping_notes)
+        df.sort_values(NOTE_DF_SORT_ORDER, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+    elif isinstance(tracks, list):
         assert all(track_name in df.track.unique() for track_name in tracks), (
             'Not all track names supplied exist in the dataframe')
         for track_name in tracks:
@@ -250,6 +259,8 @@ def make_monophonic(df, tracks='all'):
         # This .copy() is required to avoid 'chaining' iloc and loc, see:
         # https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html
         )
+    else:
+        raise ValueError('Invalid value for tracks')
     df = df.astype(dtypes)
     return df
 

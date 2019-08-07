@@ -222,7 +222,8 @@ def test_read_note_csv():
     df = read_note_csv('./all_pitch_df.csv', track='track')
     assert df.equals(all_pitch_df)
     df = read_note_csv('./all_pitch_df_tracks.csv', track='track', sort=False)
-    assert df.equals(all_pitch_df_tracks[NOTE_DF_SORT_ORDER])
+    assert df.equals(all_pitch_df_tracks[NOTE_DF_SORT_ORDER]), (
+            f"{df}\n\n\n{all_pitch_df_tracks[NOTE_DF_SORT_ORDER]}")
     df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', track='track',
                        sort=False)
     comp_df = all_pitch_df_tracks_sparecol[NOTE_DF_SORT_ORDER + ['sparecol']]
@@ -289,7 +290,7 @@ def test_check_monophonic():
 
 def test_fix_overlapping_notes():
     assert note_df_overlapping_pitch_fix.equals(
-            fix_overlapping_notes(note_df_overlapping_pitch)
+            fix_overlapping_notes(note_df_overlapping_pitch.copy())
         )
 
 
@@ -301,6 +302,9 @@ def test_get_monophonic_tracks():
             == list(track_names))
     assert get_monophonic_tracks(all_pitch_df_tracks_overlaps) == []
 
+
+def test_make_monophonic():
+    assert make_monophonic(df_all_poly).equals(df_all_mono)
 
 def test_quantize_df():
     assert note_df_2pitch_weird_times_quant.equals(
