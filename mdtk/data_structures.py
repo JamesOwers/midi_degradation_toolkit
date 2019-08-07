@@ -205,8 +205,10 @@ def fix_overlapping_notes(df, drop_new_cols=True):
     """For use in a groupby operation over track. Fixes any pitches that
     overlap. Pulls the offending note's offtime back behind the
     following onset time."""
+    df = df.copy()
     if df.shape[0] <= 1:
         return df
+    dtypes = dict(zip(df.columns, df.dtypes))
     df['note_off'] = df['onset'] + df['dur']
     df['next_note_on'] = df['onset'].shift(-1)
     df.loc[df.index[-1], 'next_note_on'] = np.inf
@@ -216,6 +218,7 @@ def fix_overlapping_notes(df, drop_new_cols=True):
     if drop_new_cols:
         new_cols = ['note_off', 'next_note_on', 'bad_note']
         df.drop(new_cols, axis=1, inplace=True)
+    df = df.astype(dtypes)
     return df
 
 

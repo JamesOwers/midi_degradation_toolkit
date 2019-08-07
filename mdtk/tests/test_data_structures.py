@@ -285,7 +285,13 @@ def test_check_monophonic():
         assert e.args == (f"Track(s) {list(track_names)} has a note with a "
                           "duration overlapping a subsequent note onset",)
     assert correctly_errored
-        
+
+
+def test_fix_overlapping_notes():
+    assert note_df_overlapping_pitch_fix.equals(
+            fix_overlapping_notes(note_df_overlapping_pitch)
+        )
+
 
 def test_get_monophonic_tracks():
     assert get_monophonic_tracks(df_all_mono) == [0, 1, 2]
