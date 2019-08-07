@@ -22,7 +22,7 @@ NR_MIDINOTES = 128
 
 
 def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
-                  sort=True, header='infer', make_monophonic=None,
+                  sort=True, header='infer', monophonic_tracks=None,
                   max_note_len=None):
     """Read a csv and create a standard note event DataFrame - a `note_df`.
     
@@ -43,10 +43,9 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
     header : int, list of int, default ‘infer’
         parameter to pass to pandas read_csv - see their documentation. Must
         set to None if your csv has no header.
-    make_monophonic : list(int), 'all', True, or None
-        Track names to make monophonic. If None, performs no action. If True,
-        expects a single track, and makes it monophonic. If 'all', makes all
-        tracks monophonic.
+    monophonic_tracks : list(int), 'all', or None
+        Track names to make monophonic. If None, performs no action. If 'all',
+        makes all tracks monophonic.
     max_note_len : int, float, or None
         A value for the maximum duration of a note
     """
@@ -69,23 +68,9 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
     
-    if make_monophonic is not None:
-        if make_monophonic is True:
-            make_monophonic = df.track.unique()
-            assert len(make_monophonic) == 1, ('Expected only one track, found'
-                f' {len(make_monophonic)}: {make_monophonic}'
-            )
-        elif make_monophonic == 'all':
-            make_monophonic = df.track.unique()
-        elif isinstance(make_monophonic, list):
-            assert all(track_name in df.track.unique()
-                       for track_name in make_monophonic), ('Not all track '
-                'names supplied exist in the dataframe')
-            
-        for track_name in make_monophonic:
-            df.loc[df['track']==track_name] = fix_overlapping_notes(
-                df[df['track']==track_name].copy()  # reqd to avoid warnings
-            )
+    if monophonic_tracks is not None:
+        df = make_monophonic(df, tracks=monophonic_tracks)    
+
             
     if max_note_len is not None:
         df.loc[df['dur'] > max_note_len] = max_note_len
@@ -96,15 +81,132 @@ def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
     return df.loc[:, NOTE_DF_SORT_ORDER]
 
 
+# Note DataFrame checking======================================================
+# Most subsequent functions expect a note_df - a pandas dataframe with specific
+# columns, and a defined sort order. We want to write functions which are
+# usable independent of the Composition class, but also by the Composition
+# class. The Composition class does checking on the note_df by default, but
+# users who call these functions may not. Subsequent functions all call this
+# checking by default but, when used in the Composition class, they don't need
+# to
+def check_overlap(note_df):
+    """Simply checks if any notes in the provided note_df overlap"""
+    note_off = note_df.onset + note_df.dur
+    next_note_on = note_df.onset.shift(-1)
+    next_note_on.iloc[-1] = np.inf
+    if all(note_off <= next_note_on):
+        return False
+    else:
+        return True
+
+
+def check_monophonic(note_df):
+    """Returns a list of booleans, one for each track, True if monophonic."""
+    track_monophonic = []
+    for track, track_df in note_df.groupby('track'):
+        overlap = check_overlap(track_df)
+        if overlap:
+            track_monophonic += [False]
+        else:
+            track_monophonic += [True]
+    return track_monophonic
+
+
+def check_overlapping_pitch(note_df, return_info=False):
+    """Checks whether the note_df has a note which overlaps another at the same
+    pitch - it shouldn't be possible for an instrument to create a new note
+    at the same pitch before the previous has ended.
+    
+    Parameters
+    ----------
+    note_df : pd.DataFrame
+        The note dataframe to consider
+    return_info : bool
+        If True, returns additional information about the badness
+    """
+    bad_track = []
+    bad_pitch = []
+    overlapping_pitch = False
+    for track, track_df in note_df.groupby('track'):
+        for pitch, pitch_df in track_df.groupby('pitch'):
+            overlap = check_overlap(pitch_df)
+            if overlap:
+                overlapping_pitch = True
+                bad_track += [track]
+                bad_pitch += [pitch]
+    if return_info is True:
+        return overlapping_pitch, (bad_track, bad_pitch)
+    else:
+        return overlapping_pitch
+
+
+def check_note_df(note_df, raise_error=True):
+    """Performs checks to ensure the note_df has the correct properties"""
+    is_note_df = True
+    try:
+        # Check columns
+        assert all(col in note_df.columns for col in NOTE_DF_SORT_ORDER), (
+                  f'note_df must contain all columns in {NOTE_DF_SORT_ORDER}')
+        # Check has increasing integer index
+        assert all(note_df.index == pd.RangeIndex(note_df.shape[0])), (
+            'note_df must have a RangeIndex with integer steps')
+        # Check sorted
+        assert (
+            note_df
+                .sort_values(by=NOTE_DF_SORT_ORDER)
+                .reset_index(drop=True)
+                .equals(note_df)
+            ), (f'note_df must be sorted by {NOTE_DF_SORT_ORDER} and columns '
+                'ordered')
+        
+        # Check no overlapping notes of the same pitch
+        overlapping_pitch, (bad_track, bad_pitch) = check_overlapping_pitch(
+            note_df, return_info=True
+        )
+        assert not overlapping_pitch, (f'Track(s) {bad_track} '
+            f'has an overlapping note at pitch(es) {bad_pitch}, i.e. there is '
+            'a note which overlaps another at the same pitch')
+    except AssertionError as e:
+        is_note_df = False
+        if raise_error:
+            raise e
+    return is_note_df
+
+
+def assert_monophonic(note_df, tracks=None):
+    """
+    Parameters
+    ----------
+    note_df : pd.DataFrame
+        DataFrame conforming to note_df standards
+    tracks : list(int), 'all', or None
+        Track names to check monophonic. If None, expects a single track.
+        If 'all', checks all tracks are monophonic.
+    """
+    if tracks is None:
+        assert len(note_df.track.unique()), ('This note_df is not monophonic, '
+            'it has multiple tracks')
+    elif tracks == 'all':
+        tracks = note_df.track.unique()
+    elif isinstance(tracks, list):
+        assert all(track_name in note_df.track.unique()
+                   for track_name in tracks), ('Not all track '
+            'names supplied exist in the dataframe')
+    for track, track_df in note_df.groupby('track'):
+        overlap = check_overlap(track_df)
+        assert not overlap, (f'Track {track} has a note '
+            f'with a duration overlapping a subsequent note onset')
+    
+
+# note_df_editing =============================================================
+# Functions for altering already imported note_df DataFrames
 def fix_overlapping_notes(df, drop_new_cols=True):
     """For use in a groupby operation over track. Fixes any pitches that
-    overlap. Pulls the offending note's offtime back to one quantum behind the
+    overlap. Pulls the offending note's offtime back behind the
     following onset time."""
     if df.shape[0] <= 1:
         return df
     df['note_off'] = df['onset'] + df['dur']
-    # need to use df.index to avoid 'chaining' iloc and loc, see:
-    # https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html
     df['next_note_on'] = df['onset'].shift(-1)
     df.loc[df.index[-1], 'next_note_on'] = np.inf
     df['bad_note'] = df['note_off'] > df['next_note_on']  # equal is fine
@@ -116,87 +218,31 @@ def fix_overlapping_notes(df, drop_new_cols=True):
     return df
 
 
-# Note DataFrame checking======================================================
-# Most subsequent functions expect a note_df - a pandas dataframe with specific
-# columns, and a defined sort order. We want to write functions which are
-# usable independent of the Composition class, but also by the Composition
-# class. The Composition class does checking on the note_df by default, but
-# users who call these functions may not. Subsequent functions all call this
-# checking by default but, when used in the Composition class, they don't need
-# to
-def check_note_df(note_df):
-    """Performs checks to ensure the note_df has the correct properties"""
-    # Check columns
-    assert all(col in note_df.columns for col in NOTE_DF_SORT_ORDER), (
-              f'note_df must contain all columns in {NOTE_DF_SORT_ORDER}')
-    # Check has increasing integer index
-    assert all(note_df.index == pd.RangeIndex(note_df.shape[0])), ('note_df '
-        'must have a RangeIndex with integer steps')
-    # Check sorted
-    assert (
-        note_df
-            .sort_values(by=NOTE_DF_SORT_ORDER)
-            .reset_index(drop=True)
-            .equals(note_df)
-        ), (f'note_df must be sorted by {NOTE_DF_SORT_ORDER} and columns '
-            'ordered')
-    # Check no overlapping notes of the same pitch
-    for track, track_df in note_df.groupby('track'):
-        for pitch, pitch_df in track_df.groupby('pitch'):
-            note_off = pitch_df.onset + pitch_df.dur
-            next_note_on = pitch_df.onset.shift(-1)
-            next_note_on.iloc[-1] = np.inf
-            try:
-                note_off <= next_note_on
-            except ValueError:
-                print(note_off)
-                print(next_note_on)
-            assert all(note_off <= next_note_on), (f'Track {track} '
-                f'has an overlapping note at pitch {pitch}, i.e. there is a '
-                'note which overlaps another at the same pitch')
-
-
-def check_monophonic(note_df):
-    assert len(note_df.track.unique()), ('This note_df is not monophonic, it '
-        'has multiple tracks')
-    note_off = note_df.onset + note_df.dur
-    next_note_on = note_df.onset.iloc[1:]
-    assert all(note_off.iloc[:-1] > next_note_on), (f'There is a  note which '
-        'overlaps another')
-    
-
-# note_df_editing =============================================================
-# Functions for altering already imported note_df DataFrames
-def make_df_monophonic(df, inplace=False):
+def make_monophonic(df, tracks='all'):
     """Takes a note df and returns a version where all notes which overlap
     a subsequent note have their durations clipped. Assumes that the note_df
     input is sorted accordingly."""
-    # TODO: account for tracks
-    if not inplace:
-        df = df.copy(deep=True)
-    onsets = df.onset.unique()
-    next_onset = {onsets[ii]: onsets[ii+1] for ii in range(len(onsets)-1)}
-    note_off = df.onset + df.dur
-    next_onset[onsets[-1]] = note_off.max()
-    # select notes which overlap their next onset
-    idx = note_off > [next_onset[oo] for oo in df.onset]
-    # clip the duration of these notes
-    new_durations = [next_onset[oo] - oo for oo in df.loc[idx, 'onset']]
-    dtype = df.dur.dtype
-    df.loc[idx, 'dur'] = new_durations
-    if dtype == int:  # This is a bit of a hack to handle the assigment
-                      # on the line above, which makes ints into floats.
-                      # It appears this has something to do with nans, (nans
-                      # are not valid for numpy ints, so pandas converts)
-                      # however new_durations never contains nans, so this is 
-                      # probably something to do with how .loc works...
-        df.dur = df.dur.astype(dtype)
-    if not inplace:
-        return df
+    df = df.copy()
+    dtypes = dict(zip(df.columns, df.dtypes))
+    if make_monophonic == 'all':
+        # Check no overlapping notes of the same pitch
+        df = df.groupby(['track']).apply(fix_overlapping_notes)
+    elif isinstance(make_monophonic, list):
+        assert all(track_name in df.track.unique() for track_name in tracks), (
+            'Not all track names supplied exist in the dataframe')
+        for track_name in tracks:
+            df.loc[df['track']==track_name] = fix_overlapping_notes(
+                df[df['track']==track_name].copy()
+        # This .copy() is required to avoid 'chaining' iloc and loc, see:
+        # https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html
+        )
+    df = df.astype(dtypes)
+    return df
 
 
 # Quantization ================================================================
-def quantize_df(df, quantization, inplace=False):
+# TODO: implement keep_monophonic
+def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     """Quantization is number of divisions per integer. Will return onsets and
     durations as an integer number of quanta.
 
@@ -208,33 +254,49 @@ def quantize_df(df, quantization, inplace=False):
         number and the duration (in crotchets).
     quantization : int
         Number of divisions requred per integer (i.e. quarter note or crotchet)
-    inplace : bool (optional)
-        If True, do operation inplace on supplied DataFrame and return None
-
+    keep_monophonic : list(int), True, or False
+        Track names to ensure stay monophonic. If False, performs no action. If
+        If True, keeps all tracks monophonic.
+    
     Returns
     -------
-    this_df : DataFrame
+    df : DataFrame
         The quantized DataFrame
 
     Notes
     -----
-    If the result of the onset or duration multiplied by the quantization
-    results in an exact .5 value, np.around will round to the nearest even
-    number.
+    It is possible that data will be made non-monophonic even if they
+    were monophonic before. If the result of the onset or duration multiplied
+    by the quantization results in an exact .5 value, np.around will round to
+    the nearest even number.
     
-    Whilst the monophonic argument may seem superfluous if the input df is
-    monophonic, note that the quantisation could create polyphony. This
-    argument allows the user to handle this.
+    For example, if the quantization level is 3, and the notes have onsets of 1
+    and 1.5, these will quantize to 3 and 4 (because 1.5 * 3 = 4.5 and then
+    np.around rounds to nearest even). If these notes have durations of 0.5 and
+    1 before, these will quantize to 2 and 3. The first note now overlaps the
+    second note, whereas it did not before. 
+    
+    However, the default behaviour of the function is to keep any track that
+    was monophic before monophonic - i.e. a fix is performed.
     """
-    if inplace:
-        this_df = df
+    df = df.copy()
+    df.onset = np.around(df.onset * quantization).astype(int)
+    df.dur = np.around(df.dur * quantization).astype(int)
+    df.loc[df['dur']==0, 'dur'] = 1  # minimum duration is 1 quantum
+    # Check no overlapping notes of the same pitch
+    df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
+    if keep_monophonic is True:
+        is_monophonic = check_monophonic(df)
+        monophonic_tracks = df.track.unique()[is_monophonic]
+        df = make_monophonic(df, tracks=monophonic_tracks)
+    elif isinstance(keep_monophonic, list):
+        df = make_monophonic(df, tracks=keep_monophonic)
+    elif keep_monophonic is False:
+        pass
     else:
-        this_df = df.copy()
-    this_df.onset = np.around(this_df.onset * quantization).astype(int)
-    this_df.dur = np.around(this_df.dur * quantization).astype(int)
-    this_df.loc[this_df['dur']==0, 'dur'] = 1  # minimum duration is 1 quantum
-    if not inplace:
-        return this_df
+        ValueError('Invalid value for keep_monophonic')
+    df = df.astype({'onset': 'int', 'dur': 'int'})
+    return df
 
 
 # Plotting ====================================================================
