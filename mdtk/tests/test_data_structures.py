@@ -4,7 +4,7 @@ import numpy as np
 from mdtk.data_structures import (
     Composition, Pianoroll, read_note_csv, fix_overlapping_notes,
     check_overlap, check_monophonic, check_overlapping_pitch, check_note_df,
-    assert_monophonic, make_monophonic, quantize_df,
+    get_monophonic_tracks, make_monophonic, quantize_df,
     plot_from_df, show_gridlines, plot_matrix, note_df_to_pretty_midi,
     synthesize_from_quant_df, synthesize_from_note_df, NOTE_DF_SORT_ORDER
 )
@@ -99,10 +99,27 @@ all_pitch_df_tracks_overlaps = pd.DataFrame({
     'pitch': all_midinotes * nr_tracks,
     'dur': [3] * (len(all_midinotes)*nr_tracks)
 })
-
-
 all_pitch_df_tracks_sparecol = all_pitch_df_tracks.copy(deep=True)
 all_pitch_df_tracks_sparecol['sparecol'] = 'whoops'
+df_all_mono = pd.DataFrame({
+    'onset': [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3],
+    'track' : [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
+    'pitch': [60, 61, 62, 63, 70, 71, 72, 73, 80, 81, 82, 83],
+    'dur': [1]*(4*3)
+}).sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
+df_some_mono = pd.DataFrame({
+    'onset': [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3],
+    'track' : [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
+    'pitch': [60, 61, 62, 63, 70, 71, 72, 73, 80, 81, 82, 83],
+    'dur': [1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1]
+}).sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
+df_all_poly = pd.DataFrame({
+    'onset': [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3],
+    'track' : [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
+    'pitch': [60, 61, 62, 63, 70, 71, 72, 73, 80, 81, 82, 83],
+    'dur': [2, 1, 1, 1, 4, 1, 1, 1, 3, 1, 1, 1]
+}).sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
+
 
 ALL_DF = {
     'note_df_overlapping_pitch': note_df_overlapping_pitch,
@@ -116,7 +133,10 @@ ALL_DF = {
     'all_pitch_df': all_pitch_df,
     'all_pitch_df_tracks': all_pitch_df_tracks,
     'all_pitch_df_tracks_overlaps': all_pitch_df_tracks_overlaps,
-    'all_pitch_df_tracks_sparecol': all_pitch_df_tracks_sparecol
+    'all_pitch_df_tracks_sparecol': all_pitch_df_tracks_sparecol,
+    'df_all_mono': df_all_mono,
+    'df_some_mono': df_some_mono,
+    'df_all_poly': df_all_poly
 }
 
 sort_err = (f"note_df must be sorted by {NOTE_DF_SORT_ORDER} and columns "
@@ -140,7 +160,10 @@ ASSERTION_ERRORS = {
     'all_pitch_df': None,
     'all_pitch_df_tracks': sort_err,
     'all_pitch_df_tracks_overlaps': sort_err,
-    'all_pitch_df_tracks_sparecol': extra_col_err
+    'all_pitch_df_tracks_sparecol': extra_col_err,
+    'df_all_mono': None,
+    'df_some_mono': None,
+    'df_all_poly': None
 }
 
 def fix_sort(df):
@@ -162,7 +185,10 @@ ALL_VALID_DF = {
     'all_pitch_df': all_pitch_df,
     'all_pitch_df_tracks': fix_sort(all_pitch_df_tracks),
     'all_pitch_df_tracks_overlaps': fix_sort(all_pitch_df_tracks_overlaps),
-    'all_pitch_df_tracks_sparecol': fix_sort(all_pitch_df_tracks_sparecol)
+    'all_pitch_df_tracks_sparecol': fix_sort(all_pitch_df_tracks_sparecol),
+    'df_all_mono': df_all_mono,
+    'df_some_mono': df_some_mono,
+    'df_all_poly': df_all_poly
 }
 
 
@@ -217,11 +243,13 @@ def test_read_note_csv():
 def test_check_overlap():
     assert check_overlap(note_df_overlapping_pitch)
     assert check_overlap(note_df_overlapping_note)
+    assert not check_overlap(note_df_overlapping_pitch_fix)
     
-def test_check_monophonic():
-    assert all(check_monophonic(all_pitch_df_tracks))
-    assert all([not bb for bb in
-                check_monophonic(all_pitch_df_tracks_overlaps)])
+
+def test_check_overlapping_pitch():
+    assert check_overlapping_pitch(note_df_overlapping_pitch)
+    assert not check_overlapping_pitch(note_df_overlapping_pitch_fix)
+    assert not check_overlapping_pitch(note_df_overlapping_note)
 
 
 def test_check_note_df():
@@ -240,6 +268,30 @@ def test_check_note_df():
         # Check the corrected version *does* pass
         assert check_note_df(ALL_VALID_DF[name]), (f'Fixed version of {name} '
             'should pass the tests but does not')
+
+
+def test_check_monophonic():
+    assert all(check_monophonic(df_all_mono))
+    assert (check_monophonic(df_some_mono, raise_error=False) 
+            == [True, False, True])
+    assert (check_monophonic(df_all_poly, raise_error=False) 
+            == [False, False, False])
+    assert all(check_monophonic(all_pitch_df_tracks))
+    correctly_errored = False
+    try:
+        check_monophonic(all_pitch_df_tracks_overlaps)
+    except AssertionError as e:
+        correctly_errored = True
+        assert e.args == (f"Track(s) {list(track_names)} has a note with a "
+                          "duration overlapping a subsequent note onset",)
+    assert correctly_errored
+        
+
+
+def test_get_monophonic_tracks():
+    assert get_monophonic_tracks(df_all_mono) == [0, 1, 2]
+    assert get_monophonic_tracks(df_some_mono) == [0, 2]
+    assert get_monophonic_tracks(df_all_poly) == []
         
 
 def test_quantize_df():
