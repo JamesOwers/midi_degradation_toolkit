@@ -176,6 +176,8 @@ all_pitch_df_tracks_sparecol[weird_col_order].to_csv(
     )
 
 ALL_CSV = [f'./{name}.csv' for name in ALL_DF.keys()]
+ALL_CSV += ['./all_pitch_df_tracks_sparecol_noheader.csv',
+            './all_pitch_df_tracks_sparecol_weirdorder.csv']
 
 
 
