@@ -8,7 +8,7 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle, Patch
 from matplotlib.ticker import MaxNLocator, MultipleLocator
 
 import pretty_midi
@@ -299,38 +299,68 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
 
 
 # Plotting ====================================================================
-def plot_from_df(df, ax=None, facecolor='None', edgecolor='black', alpha=.8,
-                 linewidth=1, capstyle='round', pitch_spacing=0.05,
-                 linestyle='-', label_axes=True):
+DEFAULT_PATCH_KWARGS = dict(
+    facecolor='None', edgecolor='black', alpha=.8,
+    linewidth=1, capstyle='round', linestyle='-'
+)
+
+
+def plot_from_df_track(df, ax=None, pitch_spacing=0.05, patch_kwargs=None):
     """Produce a 'pianoroll' style plot from a note DataFrame"""
     if ax is None:
         ax = plt.gca()
 
     note_boxes = []
-
+    
     for _, row in df.iterrows():
         onset, pitch, dur = row[['onset', 'pitch', 'dur']]
-        box_height = 1-2*pitch_spacing
+        box_height = 1 - 2*pitch_spacing
         box_width = dur
         x = onset
-        y = pitch - (0.5-pitch_spacing)
+        y = pitch - (0.5 - pitch_spacing)
         bottom_left_corner = (x, y)
         rect = Rectangle(bottom_left_corner, box_width, box_height)
         note_boxes.append(rect)
 
-    pc = PatchCollection(note_boxes, facecolor=facecolor, alpha=alpha,
-                         edgecolor=edgecolor, capstyle=capstyle,
-                         linewidth=linewidth, linestyle=linestyle)
-
+    kwargs = DEFAULT_PATCH_KWARGS
+    if patch_kwargs is not None:
+        kwargs.update(patch_kwargs)
+    pc = PatchCollection(note_boxes, **kwargs)
+    
     ax.add_collection(pc)
-
     ax.autoscale()  # required for boxes to be seen
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    if label_axes:
+    return pc
+
+
+def plot_from_df(df, ax=None, pitch_spacing=0.05, 
+                 axes_labels=['onset', 'pitch'], track_patch_kwargs=None,
+                 tracks='all'):
+    if ax is None:
+        ax = plt.gca()
+    
+    if tracks == 'all':
+        tracks = df.track.unique()
+    
+    if track_patch_kwargs is None:
+        track_patch_kwargs = {}
+        for ii, track in enumerate(tracks):
+            track_patch_kwargs[track] = {'facecolor': f'C{ii}'}
+    for track in tracks:
+        track_df = df[df['track'] == track]
+        patch_kwargs = track_patch_kwargs[track]
+        plot_from_df_track(track_df, ax=ax, pitch_spacing=pitch_spacing,
+                           patch_kwargs=patch_kwargs)
+    legend_elements = [
+        Patch(**track_patch_kwargs[track], label=f'track {track}')
+        for track in tracks
+    ]
+    plt.legend(handles=legend_elements, loc='best')
+    if axes_labels is not False:
+        xlabel, ylabel = axes_labels
         ax.set_xlabel('onset')
         ax.set_ylabel('pitch')
-    return pc
 
 
 def show_gridlines(ax=None, major_mult=4, minor_mult=1, y_maj_min=None):
@@ -892,7 +922,7 @@ class Composition:
     
     
     # Plotting ================================================================
-    def plot(self, quantized=True, label_axes=True, **kwargs):
+    def plot(self, quantized=True, axes_labels=None, **kwargs):
         """Convenience method for plotting either a quantized or note level
         pianoroll. By default will label the axes to clarify what type of
         plot is shown. Plot kwargs for plot_from_df can be supplied.
@@ -902,21 +932,25 @@ class Composition:
         quantized : bool
             If False, the labels for the x axis (time) are given in the
             original 'note level' units, else counts number of quanta.
-        label_axes : bool
-            Whether or not label the x and y axes
+        axes_labels : list(str), None, or False
+            Labels to use for axes. Defaults to logical labels. False gives
+            no labels
 
         Returns
         -------
         None
         """
+        if axes_labels is None:
+            if quantized:
+                axes_labels = ['onset quantum', 'pitch']
+            else:
+                axes_labels = ['onset', 'pitch']
         if quantized:
-            plot_from_df(self.quant_df, label_axes=label_axes, **kwargs)
+            plot_from_df(self.quant_df, axes_labels=axes_labels, **kwargs)
             show_gridlines(major_mult=self.quantization*4,
                            minor_mult=self.quantization)
-            if label_axes:
-                plt.xlabel('onset quantum')
         else:
-            plot_from_df(self.note_df, label_axes=label_axes, **kwargs)
+            plot_from_df(self.note_df, axes_labels=axes_labels, **kwargs)
             show_gridlines()
 
 
