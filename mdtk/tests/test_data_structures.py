@@ -287,12 +287,14 @@ def test_check_monophonic():
     assert correctly_errored
         
 
-
 def test_get_monophonic_tracks():
     assert get_monophonic_tracks(df_all_mono) == [0, 1, 2]
     assert get_monophonic_tracks(df_some_mono) == [0, 2]
     assert get_monophonic_tracks(df_all_poly) == []
-        
+    assert (get_monophonic_tracks(all_pitch_df_tracks)
+            == list(track_names))
+    assert get_monophonic_tracks(all_pitch_df_tracks_overlaps) == []
+
 
 def test_quantize_df():
     assert note_df_2pitch_weird_times_quant.equals(
