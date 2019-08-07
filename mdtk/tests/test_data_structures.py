@@ -8,7 +8,6 @@ from mdtk.data_structures import (
     plot_from_df, show_gridlines, plot_matrix, note_df_to_pretty_midi,
     synthesize_from_quant_df, synthesize_from_note_df, NOTE_DF_SORT_ORDER
 )
-from collections import defaultdict
 
 
 # Test note DataFrames ========================================================
@@ -18,6 +17,12 @@ note_df_overlapping_pitch = pd.DataFrame({
     'track' : 0,
     'pitch': [60, 60],
     'dur': [2, 1]
+})
+note_df_overlapping_pitch_fix = pd.DataFrame({
+    'onset': [0, 1],
+    'track' : 0,
+    'pitch': [60, 60],
+    'dur': [1, 1]
 })
 # Two notes in the same track overlap but have different pitches
 note_df_overlapping_note = pd.DataFrame({
@@ -114,52 +119,52 @@ ALL_DF = {
     'all_pitch_df_tracks_sparecol': all_pitch_df_tracks_sparecol
 }
 
-sort_err = ("note_df must be sorted by ['onset', 'track', 'pitch', 'dur'] and "
-            "columns ordered")
-# TODO: finish these two dicts and make into a test
+sort_err = (f"note_df must be sorted by {NOTE_DF_SORT_ORDER} and columns "
+            "ordered")
+missing_col_err = (f"note_df must contain all columns in {NOTE_DF_SORT_ORDER}")
+col_order_err = (f"note_df colums must be in order: {NOTE_DF_SORT_ORDER}")
+extra_col_err = (f"note_df must only contain columns in {NOTE_DF_SORT_ORDER}")
+overlap_err = ('Track(s) {bad_tracks} has an overlapping note at pitch(es) '
+               '{bad_pitches}, i.e. there is a note which overlaps another '
+               'at the same pitch')
 ASSERTION_ERRORS = {
-    'note_df_overlapping_pitch': ('Track 0 has an overlapping note at pitch '
-        '60, i.e. there is a note which overlaps another at the same pitch'),
+    'note_df_overlapping_pitch': overlap_err.format(bad_tracks=[0],
+                                                    bad_pitches=[60]),
     'note_df_overlapping_note': None,
     'note_df_2pitch_aligned': sort_err,
-    'note_df_2pitch_weird_times': note_df_2pitch_weird_times,
-    'note_df_2pitch_weird_times_quant': note_df_2pitch_weird_times_quant,
-    'note_df_with_silence': note_df_with_silence,
-    'all_pitch_df_notrack': all_pitch_df_notrack,
-    'all_pitch_df_wrongorder': all_pitch_df_wrongorder,
-    'all_pitch_df': all_pitch_df,
-    'all_pitch_df_tracks': all_pitch_df_tracks,
-    'all_pitch_df_tracks_overlaps': all_pitch_df_tracks_overlaps,
-    'all_pitch_df_tracks_sparecol': all_pitch_df_tracks_sparecol
-}
-ALL_VALID_DF = {
-    'note_df_overlapping_pitch': note_df_overlapping_pitch,
-    'note_df_overlapping_note': note_df_overlapping_note,
-    'note_df_2pitch_aligned': note_df_2pitch_aligned,
-    'note_df_2pitch_weird_times': note_df_2pitch_weird_times,
-    'note_df_2pitch_weird_times_quant': note_df_2pitch_weird_times_quant,
-    'note_df_with_silence': note_df_with_silence,
-    'all_pitch_df_notrack': all_pitch_df_notrack,
-    'all_pitch_df_wrongorder': all_pitch_df_wrongorder,
-    'all_pitch_df': all_pitch_df,
-    'all_pitch_df_tracks': all_pitch_df_tracks,
-    'all_pitch_df_tracks_overlaps': all_pitch_df_tracks_overlaps,
-    'all_pitch_df_tracks_sparecol': all_pitch_df_tracks_sparecol
+    'note_df_2pitch_weird_times': None,
+    'note_df_2pitch_weird_times_quant': None,
+    'note_df_with_silence': None,
+    'all_pitch_df_notrack': missing_col_err,
+    'all_pitch_df_wrongorder': col_order_err,
+    'all_pitch_df': None,
+    'all_pitch_df_tracks': sort_err,
+    'all_pitch_df_tracks_overlaps': sort_err,
+    'all_pitch_df_tracks_sparecol': extra_col_err
 }
 
-# TODO: remove this when the above is complete
-ALL_VALID_DF = [
-    (note_df_2pitch_aligned.sort_values(NOTE_DF_SORT_ORDER)
-                           .reset_index(drop=True)),
-    (note_df_2pitch_weird_times.sort_values(NOTE_DF_SORT_ORDER)
-                               .reset_index(drop=True)),
-    (note_df_with_silence.sort_values(NOTE_DF_SORT_ORDER)
-                         .reset_index(drop=True)),
-    (all_pitch_df.sort_values(NOTE_DF_SORT_ORDER)
-                 .reset_index(drop=True)),
-    (all_pitch_df_tracks.sort_values(NOTE_DF_SORT_ORDER)
-                        .reset_index(drop=True))
-]
+def fix_sort(df):
+    return (
+        df
+            .sort_values(by=NOTE_DF_SORT_ORDER)
+            .reset_index(drop=True)
+    )[NOTE_DF_SORT_ORDER]
+    
+ALL_VALID_DF = {
+    'note_df_overlapping_pitch': note_df_overlapping_pitch_fix,
+    'note_df_overlapping_note': note_df_overlapping_note,
+    'note_df_2pitch_aligned': fix_sort(note_df_2pitch_aligned),
+    'note_df_2pitch_weird_times': note_df_2pitch_weird_times,
+    'note_df_2pitch_weird_times_quant': note_df_2pitch_weird_times_quant,
+    'note_df_with_silence': note_df_with_silence,
+    'all_pitch_df_notrack': all_pitch_df,
+    'all_pitch_df_wrongorder': all_pitch_df,
+    'all_pitch_df': all_pitch_df,
+    'all_pitch_df_tracks': fix_sort(all_pitch_df_tracks),
+    'all_pitch_df_tracks_overlaps': fix_sort(all_pitch_df_tracks_overlaps),
+    'all_pitch_df_tracks_sparecol': fix_sort(all_pitch_df_tracks_sparecol)
+}
+
 
 for name, df in ALL_DF.items():    
     df.to_csv(f'./{name}.csv', index=False)
@@ -218,10 +223,24 @@ def test_check_monophonic():
     assert all([not bb for bb in
                 check_monophonic(all_pitch_df_tracks_overlaps)])
 
-# TODO: keep going through functions sequentially testing them
+
 def test_check_note_df():
-    # TODO: ALL_DF, and ASSERTION_ERRORS 
-    pass
+    for name, df in ALL_DF.items():
+        err = ASSERTION_ERRORS[name]
+        # If df will error, check it errors and the assertion correct
+        if err is not None:
+            correctly_errored = False
+            try:
+                check_note_df(df)
+            except AssertionError as e:
+                correctly_errored = True
+                assert e.args == (err,), (f'{name} did error but the '
+                    'assertion text was incorrect')
+            assert correctly_errored, f'{name} did not error and it should'
+        # Check the corrected version *does* pass
+        assert check_note_df(ALL_VALID_DF[name]), (f'Fixed version of {name} '
+            'should pass the tests but does not')
+        
 
 def test_quantize_df():
     assert note_df_2pitch_weird_times_quant.equals(
@@ -241,6 +260,7 @@ def test_pianoroll_all_pitches():
 # TODO: test all sounding begin note_on and end_note_off
 
 # TODO: test all methods in pianoroll and all attributes
+
 
 # Composition class tests =====================================================
 # TODO: write import from csv tests    
@@ -303,14 +323,14 @@ def test_composition_all_pitches():
 
 
 def test_not_ending_in_silence():
-    for df in ALL_VALID_DF:
+    for df in ALL_VALID_DF.values():
         comp = Composition(note_df=df)
         assert not (comp.pianoroll[:, 0, :, -1] == 0).all(), (f'{df}',
                    f'{comp.plot()} {comp.pianoroll}')
 
 
 def test_nr_note_on_equals_nr_notes():
-    for df in ALL_VALID_DF:
+    for df in ALL_VALID_DF.values():
         comp = Composition(note_df=df)
         pianoroll = comp.pianoroll
         assert np.sum(pianoroll[:, 1, :, :]) == comp.note_df.shape[0]
@@ -318,7 +338,7 @@ def test_nr_note_on_equals_nr_notes():
 
 def test_all_composition_methods_and_attributes():
     compositions = [Composition(comp)
-                    for comp in ALL_VALID_DF]
+                    for comp in ALL_VALID_DF.values()]
     for comp in compositions:
         comp.csv_path
         comp.note_df

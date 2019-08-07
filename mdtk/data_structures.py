@@ -147,6 +147,12 @@ def check_note_df(note_df, raise_error=True):
         # Check columns
         assert all(col in note_df.columns for col in NOTE_DF_SORT_ORDER), (
                   f'note_df must contain all columns in {NOTE_DF_SORT_ORDER}')
+        # Check no extra columns
+        assert len(note_df.columns) == len(NOTE_DF_SORT_ORDER), (
+                  f'note_df must only contain columns in '
+                  f'{NOTE_DF_SORT_ORDER}')
+        assert all(note_df.columns == NOTE_DF_SORT_ORDER), (
+                  f'note_df colums must be in order: {NOTE_DF_SORT_ORDER}')
         # Check has increasing integer index
         assert all(note_df.index == pd.RangeIndex(note_df.shape[0])), (
             'note_df must have a RangeIndex with integer steps')
