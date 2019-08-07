@@ -241,7 +241,6 @@ def make_monophonic(df, tracks='all'):
 
 
 # Quantization ================================================================
-# TODO: implement keep_monophonic
 def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     """Quantization is number of divisions per integer. Will return onsets and
     durations as an integer number of quanta.
@@ -357,7 +356,6 @@ def plot_matrix(mat, fignum=None):
 
 
 # Synthesis ===================================================================
-# TODO: make all these work with tracks
 def note_df_to_pretty_midi(note_df, bpm=100, inst_name='Acoustic Grand Piano'):
     """Create a pretty_midi.PrettyMIDI object from a note DataFrame
 
@@ -366,17 +364,22 @@ def note_df_to_pretty_midi(note_df, bpm=100, inst_name='Acoustic Grand Piano'):
     See http://www.midi.org/techspecs/gm1sound.php
     """
     midi = pretty_midi.PrettyMIDI()
-    inst_program = pretty_midi.instrument_name_to_program(inst_name)
-    inst = pretty_midi.Instrument(program=inst_program)
     quantum_time = 60 / bpm
-    for _, row in note_df.iterrows():
-        onset, pitch, dur = row[['onset', 'pitch', 'dur']]
-        start_time = quantum_time * onset
-        end_time = quantum_time * (onset+dur)
-        note = pretty_midi.Note(velocity=100, pitch=pitch,
-                                start=start_time, end=end_time)
-        inst.notes.append(note)
-    midi.instruments.append(inst)
+    tracks = note_df.track.unique()
+    if isinstance(inst_name, str):
+        inst_name = {track: inst_name for track in tracks}
+    for track, track_df in note_df.groupby('track'): 
+        track_inst_name = inst_name[track]
+        inst_program = pretty_midi.instrument_name_to_program(track_inst_name)
+        inst = pretty_midi.Instrument(program=inst_program)
+        for _, row in track_df.iterrows():
+            onset, pitch, dur = row[['onset', 'pitch', 'dur']]
+            start_time = quantum_time * onset
+            end_time = quantum_time * (onset+dur)
+            note = pretty_midi.Note(velocity=100, pitch=pitch,
+                                    start=start_time, end=end_time)
+            inst.notes.append(note)
+        midi.instruments.append(inst)
     return midi
 
 
@@ -737,9 +740,8 @@ class Composition:
         (crotched) is useful for encoding triplets, but for data which are not
         already beat aligned, one may like to use a higher quantization per
         second or milisecond.
-    make_monophonic : list(int), 'all', True, or None
-        Track names to make monophonic. If None, performs no action. If
-        True, expects a single track, and makes it monophonic. If 'all',
+    monophonic_tracks : list(int), 'all', or None
+        Track names to make monophonic. If None, performs no action. If 'all',
         makes all tracks monophonic. Note that this overrides the arg passed
         to read_note_csv in read_note_csv_kwargs
     max_note_len : int, float, or None
@@ -757,10 +759,10 @@ class Composition:
     )
     def __init__(self, note_df=None, csv_path=None,
                  read_note_csv_kwargs=default_read_note_csv_kwargs,
-                 quantization=default_quantization, make_monophonic=None,
+                 quantization=default_quantization, monophonic_tracks=None,
                  max_note_len=None):
         self.quantization = quantization
-        self.make_monophonic = make_monophonic
+        self.monophonic_tracks = monophonic_tracks
         self.max_note_len = max_note_len
         
         # Create note_df from either the path or supplied df
@@ -768,7 +770,7 @@ class Composition:
             raise ValueError('Supply either csv_path or note_df, not both')
         elif csv_path:
             self.csv_path = csv_path
-            read_note_csv_kwargs['make_monophonic'] = self.make_monophonic
+            read_note_csv_kwargs['monophonic_tracks'] = self.monophonic_tracks
             read_note_csv_kwargs['max_note_len'] = self.max_note_len
             self.read_note_csv_kwargs = read_note_csv_kwargs
             self.note_df = read_note_csv(csv_path, **read_note_csv_kwargs)
@@ -782,10 +784,8 @@ class Composition:
             #       Copy code from read_note_csv. e.g.:
             #       * reorder columns
             #       * if all columns but track and no extra cols, assume 1 trk
-            if self.make_monophonic is not None:
-                # TODO: adapt `make_df_monophonic` to handle tracks
-                raise NotImplementedError()
-                make_df_monophonic(self.note_df, inplace=True)
+            if self.monophonic_tracks is not None:
+                make_monophonic(self.note_df, tracks=monophonic_tracks)
             if self.max_note_len is not None:
                 idx = self.note_df.dur > max_note_len
                 self.note_df.loc[idx, 'dur'] = max_note_len
