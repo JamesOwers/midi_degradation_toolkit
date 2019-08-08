@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 USER_HOME = os.path.expanduser('~')
 DEFAULT_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_cache')
+DATASETS = ['PPDDSept2018Monophonic']
 
 
 
