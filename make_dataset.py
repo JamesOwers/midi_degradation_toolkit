@@ -57,9 +57,9 @@ def parse_degradation_kwargs(kwarg_dict):
 
 def parse_args(args_input=None):
     parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument('-o', '--output-dir', type=str, default='.',
+    parser.add_argument('-o', '--output-dir', type=str, default='./acme',
                         help='the directory to write the dataset to (defaults '
-                        'to the current directory)')
+                        'to ./acme)')
     parser.add_argument('-i', '--input-dir', type=str, default='./input_data',
                         help='the directory to store the preprocessed '
                         'downloaded data to (by default, makes a directory '
@@ -70,8 +70,6 @@ def parse_args(args_input=None):
     parser.add_argument('--local-csv-dirs', metavar='csv_dir', type=str,
                         nargs='*', help='directories containing csv files to '
                         'include in the dataset')
-#    [name for name, obj in inspect.getmembers(downloaders)
-#     if inspect.isclass(obj)]
     parser.add_argument('--datasets', metavar='dataset_name',
                         nargs='*', choices=downloaders.DATASETS,
                         help='datasets to download and use. Must match names '
@@ -102,6 +100,10 @@ def parse_args(args_input=None):
     parser.add_argument('--degradation-kwarg-json', metavar='json_file',
                         help='A file containing parameters as described in '
                         '--degradation-kwargs', type=json.load, default=None)
+    parser.add_argument('--degradation-dist', metavar='relative_probability',
+                        nargs='*', default=None, help='a list of relative '
+                        'probabilities that each degradation will used. Must '
+                        'be the same length as --degradations')
     args = parser.parse_args(args=args_input)
     return args
 
@@ -119,6 +121,22 @@ if __name__ == '__main__':
         degradation_kwargs = parse_degradation_kwargs(
                 args.degradation_kwarg_json
             )
+    # TODO: warn user they specified kwargs for degradation not being used
+    # TODO: bomb out if degradation-dist is a diff length to degradations
+    
+    # Set up directories ======================================================
+    
+    # Download data ===========================================================
+    
+    # Create all Composition objects and write clean data to output ===========
+    # output to output_dir/clean/dataset_name/filename.csv
+    # The reason for this is we know there will be no filename duplicates
+    
+    # Perform degradations and write degraded data to output ==================
+    # Because we have already written clean data, we can do this in place
+    # output to output_dir/degraded/dataset_name/filename.csv
+    # The reason for this is filename duplicates (as above) and easy matching
+    # of source and target data
     
     
     
