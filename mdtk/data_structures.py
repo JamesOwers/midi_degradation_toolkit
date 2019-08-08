@@ -211,20 +211,18 @@ def fix_overlapping_notes(df, drop_new_cols=True):
 #    df = df.copy()
     if df.shape[0] <= 1:
         return df
-#    dtypes = dict(zip(df.columns, df.dtypes))  # See comment below
+    dtypes = dict(zip(df.columns, df.dtypes))
     df['note_off'] = df['onset'] + df['dur']
     df['next_note_on'] = df['onset'].shift(-1)
-    df.loc[df.index[-1], 'next_note_on'] = np.inf
+    df.loc[df.index[-1], 'next_note_on'] = np.iinfo(np.int32).max
+    if np.issubdtype(dtypes['onset'], np.integer):
+        df['next_note_on'] = df['next_note_on'].astype('int')
     df['bad_note'] = df['note_off'] > df['next_note_on']  # equal is fine
     df.loc[df['bad_note'], 'dur'] = (df.loc[df['bad_note'], 'next_note_on']
                                      - df.loc[df['bad_note'], 'onset'])
     if drop_new_cols:
         new_cols = ['note_off', 'next_note_on', 'bad_note']
         df.drop(new_cols, axis=1, inplace=True)
-#    df = df.astype(dtypes)  # This broke the function when used with a groupby
-                             # it made track always return as the same value
-    df['dur'] = df['dur'].astype('int')
-    df['onset'] = df['onset'].astype('int')
     # TODO: add an assertion to catch dur==0 and add a test
     return df
 

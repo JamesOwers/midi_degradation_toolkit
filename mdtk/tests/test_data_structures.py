@@ -307,6 +307,8 @@ def test_fix_overlapping_notes():
     assert note_df_overlapping_pitch_fix.equals(
             fix_overlapping_notes(note_df_overlapping_pitch.copy())
         )
+    assert all(note_df_2pitch_weird_times.dtypes == 
+               fix_overlapping_notes(note_df_2pitch_weird_times.copy()).dtypes)
 
 
 def test_get_monophonic_tracks():
