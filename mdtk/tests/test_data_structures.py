@@ -38,6 +38,19 @@ note_df_2pitch_aligned = pd.DataFrame({
     'pitch': [61, 60, 60, 60, 60, 60],
     'dur': [4, 1, 1, 0.5, 0.5, 2]
 })
+note_df_ms = pd.DataFrame({
+    'onset': [0, 0, 40, 80, 120, 160],
+    'track' : 0,
+    'pitch': [61, 60, 60, 60, 60, 60],
+    'dur': [160, 40, 40, 20, 20, 80]
+})
+note_df_ms_quant = pd.DataFrame({
+    'onset': [0, 0, 1, 2, 3, 4],
+    'track' : 0,
+    'pitch': [61, 60, 60, 60, 60, 60],
+    'dur': [4, 1, 1, 1, 1, 2]  # N.B. 20*1/40 = 0.5 but this rounds down to 0
+                                # the quant function adjusts this to 1
+})
 # Not quantized, polyphonic
 note_df_2pitch_weird_times = pd.DataFrame({
     'onset': [0, 0, 1.125, 1.370],
@@ -152,6 +165,7 @@ ASSERTION_ERRORS = {
                                                     bad_pitches=[60]),
     'note_df_overlapping_note': None,
     'note_df_2pitch_aligned': sort_err,
+    'note_df_ms': sort_err,
     'note_df_2pitch_weird_times': None,
     'note_df_2pitch_weird_times_quant': None,
     'note_df_with_silence': None,
@@ -177,6 +191,7 @@ ALL_VALID_DF = {
     'note_df_overlapping_pitch': note_df_overlapping_pitch_fix,
     'note_df_overlapping_note': note_df_overlapping_note,
     'note_df_2pitch_aligned': fix_sort(note_df_2pitch_aligned),
+    'note_df_ms': fix_sort(note_df_ms),
     'note_df_2pitch_weird_times': note_df_2pitch_weird_times,
     'note_df_2pitch_weird_times_quant': note_df_2pitch_weird_times_quant,
     'note_df_with_silence': note_df_with_silence,
@@ -309,6 +324,8 @@ def test_make_monophonic():
 def test_quantize_df():
     assert note_df_2pitch_weird_times_quant.equals(
             quantize_df(note_df_2pitch_weird_times, 12))
+    assert note_df_ms_quant.equals(
+            quantize_df(note_df_ms, 1/40))
 
 
  # Pianoroll class tests ======================================================
