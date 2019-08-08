@@ -74,6 +74,12 @@ note_df_with_silence = pd.DataFrame({
     'pitch': [60, 61, 60, 60, 60, 60],
     'dur': [1, 3.75, 1, 0.5, 0.5, 2]
 })
+note_df_odd_names = pd.DataFrame({
+    'note_on': [0, 0, 1, 2, 3, 4],
+    'midinote': [60, 61, 60, 60, 60, 60],
+    'duration': [1, 3.75, 1, 0.5, 0.5, 2],
+    'ch' :[0, 1, 0, 0, 0, 0]
+})
 # midinote keyboard range from 0 to 127 inclusive
 all_midinotes = list(range(0, 128))
 # All pitches played simultaneously for 1 quantum
@@ -132,12 +138,18 @@ df_all_poly = pd.DataFrame({
     'pitch': [60, 61, 62, 63, 70, 71, 72, 73, 80, 81, 82, 83],
     'dur': [2, 1, 1, 1, 4, 1, 1, 1, 3, 1, 1, 1]
 }).sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
-
+note_df_with_silence = pd.DataFrame({
+    'onset': [0, 0, 1, 2, 3, 4],
+    'track' :[0, 1, 0, 0, 0, 0],
+    'pitch': [60, 61, 60, 60, 60, 60],
+    'dur': [1, 3.75, 1, 0.5, 0.5, 2]
+})
 
 ALL_DF = {
     'note_df_overlapping_pitch': note_df_overlapping_pitch,
     'note_df_overlapping_note': note_df_overlapping_note,
     'note_df_2pitch_aligned': note_df_2pitch_aligned,
+    'note_df_odd_names': note_df_odd_names,
     'note_df_2pitch_weird_times': note_df_2pitch_weird_times,
     'note_df_2pitch_weird_times_quant': note_df_2pitch_weird_times_quant,
     'note_df_with_silence': note_df_with_silence,
@@ -169,6 +181,7 @@ ASSERTION_ERRORS = {
     'note_df_2pitch_weird_times': None,
     'note_df_2pitch_weird_times_quant': None,
     'note_df_with_silence': None,
+    'note_df_odd_names': missing_col_err,
     'all_pitch_df_notrack': missing_col_err,
     'all_pitch_df_wrongorder': col_order_err,
     'all_pitch_df': None,
@@ -195,6 +208,7 @@ ALL_VALID_DF = {
     'note_df_2pitch_weird_times': note_df_2pitch_weird_times,
     'note_df_2pitch_weird_times_quant': note_df_2pitch_weird_times_quant,
     'note_df_with_silence': note_df_with_silence,
+    'note_df_odd_names': note_df_with_silence,
     'all_pitch_df_notrack': all_pitch_df,
     'all_pitch_df_wrongorder': all_pitch_df,
     'all_pitch_df': all_pitch_df,
@@ -236,14 +250,13 @@ def test_read_note_csv():
     assert df.equals(all_pitch_df_track_name_change)
     df = read_note_csv('./all_pitch_df.csv', track='track')
     assert df.equals(all_pitch_df)
-    df = read_note_csv('./all_pitch_df_tracks.csv', track='track', sort=False)
+    df = read_note_csv('./all_pitch_df_tracks.csv', sort=False)
     assert df.equals(all_pitch_df_tracks[NOTE_DF_SORT_ORDER]), (
             f"{df}\n\n\n{all_pitch_df_tracks[NOTE_DF_SORT_ORDER]}")
-    df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', track='track',
-                       sort=False)
+    df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', sort=False)
     comp_df = all_pitch_df_tracks_sparecol[NOTE_DF_SORT_ORDER + ['sparecol']]
     assert df.equals(comp_df.drop('sparecol', axis=1))
-    df = read_note_csv('./all_pitch_df_tracks_sparecol.csv', track='track')
+    df = read_note_csv('./all_pitch_df_tracks_sparecol.csv')
     assert not df.equals(comp_df.drop('sparecol', axis=1))  # sorting
     assert df.equals(
             (comp_df
@@ -252,8 +265,13 @@ def test_read_note_csv():
                  .reset_index(drop=True)
             )[NOTE_DF_SORT_ORDER])  # sorting
     df = read_note_csv('./all_pitch_df_tracks_sparecol_weirdorder.csv',
-                       track='track', sort=False)
+                       sort=False)
     assert df.equals(comp_df.drop('sparecol', axis=1))
+    assert (
+        read_note_csv('./note_df_with_silence.csv').equals(
+            read_note_csv('./note_df_odd_names.csv', onset='note_on',
+                          track='ch', pitch='midinote', dur='duration'))
+        )
     
 
 def test_check_overlap():
