@@ -7,7 +7,8 @@ import pandas as pd
 
 import pretty_midi
 
-from data_structures import NOTE_DF_SORT_ORDER, check_note_df
+from mdtk.data_structures import NOTE_DF_SORT_ORDER, check_note_df
+
 
 
 COLNAMES = NOTE_DF_SORT_ORDER
