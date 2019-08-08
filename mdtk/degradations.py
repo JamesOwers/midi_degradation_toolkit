@@ -1,6 +1,4 @@
 """Code to perform the degradations i.e. edits to the midi data"""
-from typing import Optional, Union, Callable, Iterable
-from functools import wraps
 import numpy as np
 import warnings
 from numpy.random import randint, uniform, choice
@@ -14,9 +12,7 @@ MAX_PITCH = 127
 
 
 
-def set_random_seed(func: Callable,
-                    seed: Optional[int] = None
-                    ) -> Callable:
+def set_random_seed(func, seed=None):
     """This is a function decorator which just adds the keyword argument `seed`
     to the end of the supplied function that it decorates. It seeds numpy's
     random state with the provided value before the call of the function.
@@ -35,7 +31,6 @@ def set_random_seed(func: Callable,
         The originally supplied function, but now with an aditional optional
         seed keyword argument.
     """
-    @wraps(func)
     def seeded_func(*args, seed=seed, **kwargs):
         if seed is not None:
             np.random.seed(seed)
@@ -81,11 +76,8 @@ def split_range_sample(split_range, p=None):
 
 
 @set_random_seed
-def pitch_shift(excerpt: Composition,
-                min_pitch: int = MIN_PITCH,
-                max_pitch: int = MAX_PITCH,
-                distribution: Optional[Iterable[float]] = None
-                ) -> Union[Composition, None]:
+def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
+                distribution=None):
     """
     Shift the pitch of one note from the given excerpt.
 
