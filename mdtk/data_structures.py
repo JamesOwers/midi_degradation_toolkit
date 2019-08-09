@@ -21,7 +21,7 @@ NR_MIDINOTES = 128
 
 
 
-def read_note_csv(path, onset='onset', pitch='pitch', dur='dur', track='ch',
+def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
                   sort=True, header='infer', monophonic_tracks=None,
                   max_note_len=None):
     """Read a csv and create a standard note event DataFrame - a `note_df`.

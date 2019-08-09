@@ -7,9 +7,11 @@ import pandas as pd
 
 import pretty_midi
 
+from mdtk.data_structures import NOTE_DF_SORT_ORDER, check_note_df
 
 
-COLNAMES = ['onset', 'track', 'pitch', 'dur']
+
+COLNAMES = NOTE_DF_SORT_ORDER
 
 
 
@@ -54,7 +56,6 @@ def midi_to_csv(midi_path, csv_path):
     df_to_csv(midi_to_df(midi_path), csv_path)
 
 
-
 def midi_to_df(midi_path):
     """
     Get the data from a MIDI file and load it into a pandas DataFrame.
@@ -87,8 +88,9 @@ def midi_to_df(midi_path):
 
     df = pd.DataFrame(notes)[COLNAMES]
     df = df.sort_values(COLNAMES)
-    return df.reset_index(drop=True)
-
+    df = df.reset_index(drop=True)
+    check_note_df(df)
+    return df
 
 
 def df_to_csv(df, csv_path):
