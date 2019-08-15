@@ -805,7 +805,7 @@ class Composition:
         onset='onset',
         pitch='pitch',
         dur='dur',
-        track='ch',
+        track='track',
         sort=True,
         header='infer'
     )
