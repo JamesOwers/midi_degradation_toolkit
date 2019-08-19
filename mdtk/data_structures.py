@@ -97,9 +97,6 @@ def check_overlap(note_df):
     if all(note_off <= next_note_on):
         return False
     else:
-        for p, n in zip(list(note_df.iterrows())[:-1], list(note_df.iterrows())[1:]):
-            if p[1]['offset'] > n[1]['onset']:
-                print(f'OVERLAP: {p} {n}')
         return True
 
 
@@ -118,7 +115,6 @@ def check_overlapping_pitch(note_df, return_info=False):
     bad_track = []
     bad_pitch = []
     overlapping_pitch = False
-    note_df['offset']=note_df['onset']+note_df['dur']
     for track, track_df in note_df.groupby('track'):
         for pitch, pitch_df in track_df.groupby('pitch'):
             overlap = check_overlap(pitch_df)
