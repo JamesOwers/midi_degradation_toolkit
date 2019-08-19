@@ -2,6 +2,7 @@
 for converting between different data formats.
 """
 import copy
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -157,9 +158,10 @@ def check_note_df(note_df, raise_error=True):
         overlapping_pitch, (bad_track, bad_pitch) = check_overlapping_pitch(
             note_df, return_info=True
         )
-        assert not overlapping_pitch, (f'Track(s) {bad_track} '
-            f'has an overlapping note at pitch(es) {bad_pitch}, i.e. there is '
-            'a note which overlaps another at the same pitch')
+        if overlapping_pitch:
+            warnings.warn(f'WARNING: Track(s) {bad_track} has an overlapping '
+                          f'note at pitch(es) {bad_pitch}. This can lead to '
+                          'unexpected results.', category=UserWarning)
     except AssertionError as e:
         is_note_df = False
         if raise_error:
