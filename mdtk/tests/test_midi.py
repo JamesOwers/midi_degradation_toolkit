@@ -13,24 +13,24 @@ TEST_MID = f"{MIDI_PATH}{os.path.sep}test.mid"
 ALB_MID = f"{MIDI_PATH}{os.path.sep}alb_se2.mid"
 
 
-#def test_midi_rounding():
-#    df = midi.midi_to_df(ALB_MID)
+def test_midi_rounding():
+    df = midi.midi_to_df(ALB_MID)
 
 
 def test_df_to_csv():
     notes = []
-    notes.append({'onset': 0.0,
+    notes.append({'onset': 0,
                   'track': 1,
                   'pitch': 42,
-                  'dur': 1.5})
-    notes.append({'onset': 0.3,
+                  'dur': 1})
+    notes.append({'onset': 0,
                   'track': 1,
                   'pitch': 40,
-                  'dur': 1.07})
-    notes.append({'onset': 0.3,
+                  'dur': 1})
+    notes.append({'onset': 1,
                   'track': 2,
                   'pitch': 56,
-                  'dur': 1.11})
+                  'dur': 1})
     
     df = pd.DataFrame(notes)
     
@@ -48,20 +48,20 @@ def test_df_to_csv():
     with open(csv_name, 'r') as file:
         for i, line in enumerate(file):
             split = line.split(',')
-            assert float(split[0]) == notes[i]['onset'], ("Onset time of " +
-                   f"note {i} ({notes[i]}) not equal to csv's written onset " +
-                   f"time of {float(split[0])}")
+            assert int(split[0]) == notes[i]['onset'], ("Onset time of "
+                   f"note {i} ({notes[i]}) not equal to csv's written onset "
+                   f"time of {int(split[0])}")
             assert split[1].isdigit(), f"Track {split[1]} is not an int."
-            assert int(split[1]) == notes[i]['track'], ("Track of " +
-                   f"note {i} ({notes[i]}) not equal to csv's written track " +
+            assert int(split[1]) == notes[i]['track'], ("Track of "
+                   f"note {i} ({notes[i]}) not equal to csv's written track "
                    f"of {int(split[1])}")
             assert split[2].isdigit(), f"Pitch {split[2]} is not an int."
-            assert int(split[2]) == notes[i]['pitch'], ("Pitch of " +
-                   f"note {i} ({notes[i]}) not equal to csv's written pitch " +
+            assert int(split[2]) == notes[i]['pitch'], ("Pitch of "
+                   f"note {i} ({notes[i]}) not equal to csv's written pitch "
                    f"of {int(split[2])}")
-            assert float(split[3]) == notes[i]['dur'], ("Duration of " +
-                   f"note {i} ({notes[i]}) not equal to csv's written " +
-                   f"duration of {float(split[3])}")
+            assert int(split[3]) == notes[i]['dur'], ("Duration of "
+                   f"note {i} ({notes[i]}) not equal to csv's written "
+                   f"duration of {int(split[3])}")
             
             
             
@@ -73,10 +73,11 @@ def test_midi_to_df():
     midi_notes = []
     for i, instrument in enumerate(m.instruments):
         for note in instrument.notes:
-            midi_notes.append({'onset': note.start * 1000,
+            midi_notes.append({'onset': int(round(note.start * 1000)),
                                'track': i,
                                'pitch': note.pitch,
-                               'dur': (note.end - note.start) * 1000})
+                               'dur': int(round(note.end * 1000) -
+                                          round(note.start * 1000))})
     
     df_notes = df.to_dict('records')
     
@@ -123,19 +124,24 @@ def test_midi_to_csv():
     midi_notes = []
     for i, instrument in enumerate(m.instruments):
         for note in instrument.notes:
-            midi_notes.append({'onset': note.start * 1000,
+            midi_notes.append({'onset': int(round(note.start * 1000)),
                                'track': i,
                                'pitch': note.pitch,
-                               'dur': (note.end - note.start) * 1000})
+                               'dur': int(round(note.end * 1000) -
+                                          round(note.start * 1000))})
+            
+            print(type(note.start))
+            
+    print(midi_notes)
             
     # Check that notes were written correctly
     with open(csv_path, 'r') as file:
         for i, line in enumerate(file):
             split = line.split(',')
-            note = {'onset': float(split[0]),
+            note = {'onset': int(split[0]),
                     'track': int(split[1]),
                     'pitch': int(split[2]),
-                    'dur': float(split[3])}
+                    'dur': int(split[3])}
             assert note in midi_notes, (f"csv note {note} not in list " +
                                         "of MIDI notes from pretty_midi " +
                                         "(or was duplicated).")
@@ -150,7 +156,8 @@ def test_midi_dir_to_csv():
     midi_dir = os.path.dirname(TEST_MID)
     csv_dir = TEST_CACHE_PATH
     csv_paths = [csv_dir + os.path.sep + 'test.csv',
-                 csv_dir + os.path.sep + 'test2.csv']
+                 csv_dir + os.path.sep + 'test2.csv',
+                 csv_dir + os.path.sep + 'alb_se2.csv']
     
     for csv_path in csv_paths:
         try:
@@ -174,10 +181,11 @@ def test_midi_dir_to_csv():
     midi_notes2 = []
     for i, instrument in enumerate(m.instruments):
         for note in instrument.notes:
-            midi_notes.append({'onset': note.start * 1000,
+            midi_notes.append({'onset': int(round(note.start * 1000)),
                                'track': i,
                                'pitch': note.pitch,
-                               'dur': (note.end - note.start) * 1000})
+                               'dur': int(round(note.end * 1000) -
+                                          round(note.start * 1000))})
             midi_notes2.append(midi_notes[-1])
             
     # Check that notes were written correctly
@@ -185,10 +193,10 @@ def test_midi_dir_to_csv():
         with open(csv_path, 'r') as file:
             for i, line in enumerate(file):
                 split = line.split(',')
-                note = {'onset': float(split[0]),
+                note = {'onset': int(split[0]),
                         'track': int(split[1]),
                         'pitch': int(split[2]),
-                        'dur': float(split[3])}
+                        'dur': int(split[3])}
                 assert note in notes, (f"csv note {note} not in list " +
                                        "of MIDI notes from pretty_midi " +
                                        "(or was duplicated).")
