@@ -7,7 +7,15 @@ import mdtk.midi as midi
 
 USER_HOME = os.path.expanduser('~')
 TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
-MIDI_PATH = f"mdtk{os.path.sep}tests{os.path.sep}test.mid"
+MIDI_PATH = f"mdtk{os.path.sep}tests"
+
+TEST_MID = f"{MIDI_PATH}{os.path.sep}test.mid"
+ALB_MID = f"{MIDI_PATH}{os.path.sep}alb_se2.mid"
+
+
+#def test_midi_rounding():
+#    df = midi.midi_to_df(ALB_MID)
+
 
 def test_df_to_csv():
     notes = []
@@ -58,10 +66,10 @@ def test_df_to_csv():
             
             
 def test_midi_to_df():
-    df = midi.midi_to_df(MIDI_PATH)
+    df = midi.midi_to_df(TEST_MID)
     
     # This relies on pretty_midi being correct
-    m = pretty_midi.PrettyMIDI(MIDI_PATH)
+    m = pretty_midi.PrettyMIDI(TEST_MID)
     midi_notes = []
     for i, instrument in enumerate(m.instruments):
         for note in instrument.notes:
@@ -108,10 +116,10 @@ def test_midi_to_csv():
     except:
         pass
     
-    midi.midi_to_csv(MIDI_PATH, csv_path)
+    midi.midi_to_csv(TEST_MID, csv_path)
     
     # This relies on pretty_midi being correct
-    m = pretty_midi.PrettyMIDI(MIDI_PATH)
+    m = pretty_midi.PrettyMIDI(TEST_MID)
     midi_notes = []
     for i, instrument in enumerate(m.instruments):
         for note in instrument.notes:
@@ -139,7 +147,7 @@ def test_midi_to_csv():
     
     
 def test_midi_dir_to_csv():
-    midi_dir = os.path.dirname(MIDI_PATH)
+    midi_dir = os.path.dirname(TEST_MID)
     csv_dir = TEST_CACHE_PATH
     csv_paths = [csv_dir + os.path.sep + 'test.csv',
                  csv_dir + os.path.sep + 'test2.csv']
@@ -150,8 +158,8 @@ def test_midi_dir_to_csv():
         except:
             pass
     
-    midi2_path = os.path.dirname(MIDI_PATH) + os.path.sep + 'test2.mid'
-    shutil.copyfile(MIDI_PATH, midi2_path)
+    midi2_path = os.path.dirname(TEST_MID) + os.path.sep + 'test2.mid'
+    shutil.copyfile(TEST_MID, midi2_path)
     
     midi.midi_dir_to_csv(midi_dir, csv_dir)
     
@@ -161,7 +169,7 @@ def test_midi_dir_to_csv():
         assert os.path.exists(csv_path), f"{csv_path} was not created."
     
     # This relies on pretty_midi being correct
-    m = pretty_midi.PrettyMIDI(MIDI_PATH)
+    m = pretty_midi.PrettyMIDI(TEST_MID)
     midi_notes = []
     midi_notes2 = []
     for i, instrument in enumerate(m.instruments):
