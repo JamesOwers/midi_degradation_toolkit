@@ -514,8 +514,47 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-def split_note(excerpt, params):
-    """Split a note into two notes."""
+def split_note(excerpt, min_duration=50, num_splits=1):
+    """
+    Split one note from the excerpt into two or more notes of equal
+    duration.
+    
+    Parameters
+    ----------
+    excerpt : Composition
+        A Composition object of an excerpt from a piece of music.
+        
+    min_duration : int
+        The minimum length for any of the resulting notes.
+        
+    num_splits : int
+        The number of splits to make in the chosen note. The note will
+        be split into (num_splits+1) shorter notes.
+        
+    Returns
+    -------
+    degraded : Composition
+        A copy of the given excerpt, with one note split.
+    """
+    if excerpt.note_df.shape[0] == 0:
+        warnings.warn('WARNING: No notes to split. Returning None.',
+                      category=UserWarning)
+        return None
+    
+    # Find all splitable notes
+    valid_notes = []
+    
+    # Use indices because saving the df.loc objects creates copies
+    for note_index in range(excerpt.note_df.shape[0]):
+        if excerpt.note_df[note_index]['dur'] > (min_duration *
+                                                 (num_splits + 1)):
+            valid_notes.append(note_index)
+    
+    if len(valid_notes) == 0:
+        warnings.warn('WARNING: No valid notes to split. Returning ' +
+                      'None.', category=UserWarning)
+        return None
+    
     raise NotImplementedError()
 
 
