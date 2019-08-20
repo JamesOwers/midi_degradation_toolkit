@@ -531,6 +531,10 @@ def split_note(excerpt, min_duration=50, num_splits=1):
         The number of splits to make in the chosen note. The note will
         be split into (num_splits+1) shorter notes.
         
+    seed : int
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
+        
     Returns
     -------
     degraded : Composition
@@ -546,8 +550,8 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     
     # Use indices because saving the df.loc objects creates copies
     for note_index in range(excerpt.note_df.shape[0]):
-        if excerpt.note_df[note_index]['dur'] > (min_duration *
-                                                 (num_splits + 1)):
+        if excerpt.note_df[note_index]['dur'] >= (min_duration *
+                                                  (num_splits + 1)):
             valid_notes.append(note_index)
     
     if len(valid_notes) == 0:
@@ -557,7 +561,7 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     
     note_index = valid_notes[randint(len(valid_notes))]
     
-    degraded = excerpt.note_df.copy()
+    degraded = excerpt.copy()
     
     short_duration_float = (degraded.note_df[note_index, 'dur'] /
                             (num_splits + 1))
@@ -585,9 +589,68 @@ def split_note(excerpt, min_duration=50, num_splits=1):
 
 
 @set_random_seed
-def join_notes(excerpt, params):
-    """Combine two notes into one note."""
-    raise NotImplementedError()
+def join_notes(excerpt, max_gap=200):
+    """
+    Combine two notes of the same pitch and track into one.
+    
+    Parameters
+    ----------
+    excerpt : Composition
+        A Composition object of an excerpt from a piece of music.
+        
+    max_gap : int
+        The maximum gap length, in ms, for 2 notes to be able to be joined.
+        (They must always share the same pitch and track).
+        
+    seed : int
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
+        
+    Returns
+    -------
+    degraded : Composition
+        A copy of the given excerpt, with one note split.
+    """
+    if excerpt.note_df.shape[0] < 2:
+        warnings.warn('WARNING: No notes to join. Returning None.',
+                      category=UserWarning)
+        return None
+    
+    valid_notes = []
+    
+    for _, track_df in excerpt.note_df.groupby('track'):
+        for _, pitch_df in track_df.groupby('pitch'):
+            notes = list(pitch_df.iterrows())
+            for prev_note, next_note in zip(notes[:-1], notes[1:]):
+                (prev_i, prev_n) = prev_note
+                (next_i, next_n) = next_note
+                
+                # Check if gap is small enough
+                if (prev_n['onset'] + prev_n['dur'] + max_gap <=
+                    next_n['onset']):
+                    valid_notes.append((prev_i, prev_n, next_i, next_n))
+                    
+    if len(valid_notes) == 0:
+        warnings.warn('WARNING: No valid notes to split. Returning ' +
+                      'None.', category=UserWarning)
+        return None
+    
+    (prev_i,
+     prev_n,
+     next_i,
+     next_n) = valid_notes[randint(len(valid_notes))]
+    
+    degraded = excerpt.copy()
+    
+    # Extend first note
+    degraded.note_df[prev_i, 'dur'] = (next_n['onset'] + next_n['dur'] -
+                                       prev_n['onset'])
+    
+    # Drop 2nd note
+    degraded.note_df.drop(next_i, inplace=True)
+    degraded.note_df.reset_index(drop=True, inplace=True)
+    
+    return degraded
 
 
 
