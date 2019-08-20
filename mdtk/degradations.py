@@ -555,7 +555,32 @@ def split_note(excerpt, min_duration=50, num_splits=1):
                       'None.', category=UserWarning)
         return None
     
-    raise NotImplementedError()
+    note_index = valid_notes[randint(len(valid_notes))]
+    
+    degraded = excerpt.note_df.copy()
+    
+    short_duration_float = (degraded.note_df[note_index, 'dur'] /
+                            (num_splits + 1))
+    pitch = degraded.note_df[note_index, 'pitch']
+    track = degraded.note_df[note_index, 'track']
+    this_onset = degraded.note_df[note_index, 'onset']
+    next_onset = this_onset + short_duration_float
+    
+    # Shorten original note
+    degraded.note_df[note_index, 'dur'] = int(round(short_duration))
+    
+    # Add next notes (taking care to round correctly)
+    for i in range(num_splits):
+        this_onset = next_onset
+        next_onset += short_duration_float
+        degraded.note_df = degraded.note_df.append({
+            'pitch': pitch,
+            'onset': int(round(this_onset)),
+            'dur': int(round(next_onset)) - int(round(this_onset)),
+            'track': track},
+            ignore_index=True)
+    
+    return degraded
 
 
 
