@@ -304,8 +304,9 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     was monophic before monophonic - i.e. a fix is performed.
     """
     df = df.copy()
+    offset = df.onset + df.dur
     df.onset = np.around(df.onset * quantization).astype(int)
-    df.dur = np.around(df.dur * quantization).astype(int)
+    df.dur = np.around(offset * quantization).astype(int) - df.onset
     df.loc[df['dur']==0, 'dur'] = 1  # minimum duration is 1 quantum
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
