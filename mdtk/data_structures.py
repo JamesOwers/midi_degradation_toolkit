@@ -480,6 +480,7 @@ class Pianoroll():
             raise ValueError('Supply either quant_df or pianoroll_array, '
                              'not both')
         elif quant_df is not None:
+            quant_df = quant_df.copy()
             expected_cols = ['onset', 'pitch', 'dur']
             assert all([col in quant_df.columns for col in expected_cols]), (
                 f'quant_df is expected to have columns {expected_cols}')
@@ -490,11 +491,11 @@ class Pianoroll():
             quant_df_note_off = quant_df.onset + quant_df.dur
             self.first_note_on = quant_df.onset.min()
             self.nr_timesteps = quant_df_note_off.max() - self.first_note_on
+            quant_df['onset'] = quant_df['onset'] - self.first_note_on
             try:
                 self.track_names = quant_df.track.unique()
                 self.nr_tracks = len(self.track_names)
             except AttributeError:
-                quant_df = quant_df.copy()
                 quant_df['track'] = 1
                 self.track_names = np.array([1])
                 self.nr_tracks = 1
