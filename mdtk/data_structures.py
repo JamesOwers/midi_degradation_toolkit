@@ -73,7 +73,7 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
 
 
     if max_note_len is not None:
-        df.loc[df['dur'] > max_note_len] = max_note_len
+        df.loc[df['dur'] > max_note_len, 'dur'] = max_note_len
 
     if sort:
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
