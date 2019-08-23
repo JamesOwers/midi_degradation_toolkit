@@ -3,9 +3,12 @@
 import sys
 import json
 import argparse
+from glob import glob
+
+from tqdm import tqdm
 
 from mdtk import degradations, downloaders, data_structures, midi
-from mdtk.filesystem_utils import make_directory
+from mdtk.filesystem_utils import make_directory, copy_file
 
 # For dev mode warnings...
 if not sys.warnoptions:
@@ -67,10 +70,10 @@ def parse_args(args_input=None):
                         'input_data in the current directory')
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
-                        'include in the dataset')
+                        'include in the dataset', default=[])
     parser.add_argument('--local-csv-dirs', metavar='csv_dir', type=str,
                         nargs='*', help='directories containing csv files to '
-                        'include in the dataset')
+                        'include in the dataset', default=[])
     parser.add_argument('--datasets', metavar='dataset_name',
                         nargs='*', choices=downloaders.DATASETS,
                         default=downloaders.DATASETS,
@@ -126,7 +129,9 @@ if __name__ == '__main__':
     # TODO: warn user they specified kwargs for degradation not being used
     # TODO: bomb out if degradation-dist is a diff length to degradations
     
-    # TODO: handle csv downloading if available
+    
+    # TODO: handle csv downloading if csv data is available in downloader...
+    #       then there's no need for midi conversion
     
     # Instantiate downloaders =================================================
     OVERWRITE=None
@@ -138,23 +143,55 @@ if __name__ == '__main__':
                  )
         for ds_name in ds_names
     }
-    input_dirs = {name: os.path.join(args.input_dir, 'midi', name)
-                  for name in ds_names}
+    midi_input_dirs = {name: os.path.join(args.input_dir, 'midi', name)
+                       for name in ds_names}
+    csv_input_dirs = {name: os.path.join(args.input_dir, 'csv', name)
+                       for name in ds_names}
     
     # Set up directories ======================================================
-    for path in input_dirs.values():
+    for path in midi_input_dirs.values():
+        make_directory(path)
+    for path in csv_input_dirs.values():
         make_directory(path)
     make_directory(args.output_dir)
     
     # Download data ===========================================================
     for name in downloader_dict:
         downloader = downloader_dict[name]
-        output_path = input_dirs[name]
+        output_path = midi_input_dirs[name]
         downloader.download_midi(output_path=output_path,
                                  overwrite=OVERWRITE)
+    
+    # Copy over user midi =====================================================
+    for path in args.local_midi_dirs:
+        dirname = os.path.basename(path)
+        outdir = os.path.join(args.input_dir, 'csv', dirname)
+        for filepath in glob(os.path.join(path, '*.mid')):
+            copy_file(filepath, outdir)
+    
+    
+    # Convert from midi to csv ================================================
+#    for name in midi_input_dirs:
+#        midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name])
+    
+    
     # Create all Composition objects and write clean data to output ===========
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
+    csv_paths = glob(os.path.join(args.input_dir, 'csv', '*', '*.csv'))
+    read_note_csv_kwargs = dict(
+        onset=0,
+        pitch=2,
+        dur=3,
+        track=1,
+        sort=False,
+        header=None,
+        overlap_check=False
+    )
+    compositions = [data_structures.Composition(
+                        csv_path=csv_path,
+                        read_note_csv_kwargs=read_note_csv_kwargs) 
+                    for csv_path in tqdm(csv_paths)]
     
     # Perform degradations and write degraded data to output ==================
     # Because we have already written clean data, we can do this in place
