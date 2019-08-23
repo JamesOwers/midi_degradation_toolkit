@@ -24,7 +24,7 @@ NR_MIDINOTES = 128
 
 def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
                   sort=True, header='infer', monophonic_tracks=None,
-                  max_note_len=None):
+                  max_note_len=None, overlap_check=True):
     """Read a csv and create a standard note event DataFrame - a `note_df`.
 
     Parameters
@@ -65,13 +65,13 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
     df.rename(columns=cols, inplace=True)
     if track is None:
         df.loc[:, 'track'] = 0
-
-    # Check no overlapping notes of the same pitch
-    df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
+    
+    if overlap_check is True:
+        # Check no overlapping notes of the same pitch
+        df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
 
     if monophonic_tracks is not None:
         df = make_monophonic(df, tracks=monophonic_tracks)
-
 
     if max_note_len is not None:
         df.loc[df['dur'] > max_note_len, 'dur'] = max_note_len
