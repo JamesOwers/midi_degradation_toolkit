@@ -266,7 +266,8 @@ def make_monophonic(df, tracks='all'):
 
 
 # Quantization ================================================================
-def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
+def quantize_df(df, quantization, inplace=False,
+                keep_monophonic=True, by='offset'):
     """Quantization is number of divisions per integer. Will return onsets and
     durations as an integer number of quanta.
 
@@ -281,6 +282,10 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     keep_monophonic : list(int), True, or False
         Track names to ensure stay monophonic. If False, performs no action. If
         If True, keeps all tracks monophonic.
+    by : str
+        Either 'offset', or 'dur': if 'offset', quantizes durations by first
+        calculating the offset time. If 'dur', simply quantizes the existing
+        durations.
     
     Returns
     -------
@@ -304,9 +309,15 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     was monophic before monophonic - i.e. a fix is performed.
     """
     df = df.copy()
-    offset = df.onset + df.dur
-    df.onset = np.around(df.onset * quantization).astype(int)
-    df.dur = np.around(offset * quantization).astype(int) - df.onset
+    if by == 'offset':
+        offset = df.onset + df.dur
+        df.onset = np.around(df.onset * quantization).astype(int)
+        df.dur = np.around(offset * quantization).astype(int) - df.onset
+    elif by == 'dur':
+        df.onset = np.around(df.onset * quantization).astype(int)
+        df.dur = np.around(df.dur * quantization).astype(int)
+    else:
+        raise ValueError(f'by should be either dur or offset, not "{by}"')
     df.loc[df['dur']==0, 'dur'] = 1  # minimum duration is 1 quantum
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
