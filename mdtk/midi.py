@@ -4,6 +4,7 @@ to csvs."""
 import os
 import glob
 import pandas as pd
+import numpy as np
 
 import pretty_midi
 
@@ -81,10 +82,11 @@ def midi_to_df(midi_path):
     notes = []
     for index, instrument in enumerate(midi.instruments):
         for note in instrument.notes:
-            notes.append({'onset': note.start * 1000,
+            notes.append({'onset': int(round(note.start * 1000)),
                           'track': index,
                           'pitch': note.pitch,
-                          'dur': (note.end - note.start) * 1000})
+                          'dur': int(round(note.end * 1000) -
+                                     round(note.start * 1000))})
 
     df = pd.DataFrame(notes)[COLNAMES]
     df = df.sort_values(COLNAMES)
