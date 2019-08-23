@@ -5,6 +5,7 @@ import json
 import argparse
 
 from mdtk import degradations, downloaders, data_structures, midi
+from mdtk.filesystem_utils import make_directory
 
 # For dev mode warnings...
 if not sys.warnoptions:
@@ -72,6 +73,7 @@ def parse_args(args_input=None):
                         'include in the dataset')
     parser.add_argument('--datasets', metavar='dataset_name',
                         nargs='*', choices=downloaders.DATASETS,
+                        default=downloaders.DATASETS,
                         help='datasets to download and use. Must match names '
                         'of classes in the downloaders module. By default, '
                         'will use cached downloaded data if available, see '
@@ -124,10 +126,32 @@ if __name__ == '__main__':
     # TODO: warn user they specified kwargs for degradation not being used
     # TODO: bomb out if degradation-dist is a diff length to degradations
     
+    # TODO: handle csv downloading if available
+    
+    # Instantiate downloaders =================================================
+    OVERWRITE=None
+    ds_names = args.datasets
+    # Instantiated downloader classes
+    downloader_dict = {
+        ds_name: getattr(downloaders, ds_name)(
+                     cache_path=args.download_cache_dir
+                 )
+        for ds_name in ds_names
+    }
+    input_dirs = {name: os.path.join(args.input_dir, 'midi', name)
+                  for name in ds_names}
+    
     # Set up directories ======================================================
+    for path in input_dirs.values():
+        make_directory(path)
+    make_directory(args.output_dir)
     
     # Download data ===========================================================
-    
+    for name in downloader_dict:
+        downloader = downloader_dict[name]
+        output_path = input_dirs[name]
+        downloader.download_midi(output_path=output_path,
+                                 overwrite=OVERWRITE)
     # Create all Composition objects and write clean data to output ===========
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
