@@ -2,6 +2,7 @@
 for converting between different data formats.
 """
 import copy
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -73,7 +74,7 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
 
 
     if max_note_len is not None:
-        df.loc[df['dur'] > max_note_len] = max_note_len
+        df.loc[df['dur'] > max_note_len, 'dur'] = max_note_len
 
     if sort:
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
@@ -157,9 +158,10 @@ def check_note_df(note_df, raise_error=True):
         overlapping_pitch, (bad_track, bad_pitch) = check_overlapping_pitch(
             note_df, return_info=True
         )
-        assert not overlapping_pitch, (f'Track(s) {bad_track} '
-            f'has an overlapping note at pitch(es) {bad_pitch}, i.e. there is '
-            'a note which overlaps another at the same pitch')
+        if overlapping_pitch:
+            warnings.warn(f'WARNING: Track(s) {bad_track} has an overlapping '
+                          f'note at pitch(es) {bad_pitch}. This can lead to '
+                          'unexpected results.', category=UserWarning)
     except AssertionError as e:
         is_note_df = False
         if raise_error:
@@ -264,7 +266,8 @@ def make_monophonic(df, tracks='all'):
 
 
 # Quantization ================================================================
-def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
+def quantize_df(df, quantization, inplace=False,
+                keep_monophonic=True, by='offset'):
     """Quantization is number of divisions per integer. Will return onsets and
     durations as an integer number of quanta.
 
@@ -279,7 +282,11 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     keep_monophonic : list(int), True, or False
         Track names to ensure stay monophonic. If False, performs no action. If
         If True, keeps all tracks monophonic.
-
+    by : str
+        Either 'offset', or 'dur': if 'offset', quantizes durations by first
+        calculating the offset time. If 'dur', simply quantizes the existing
+        durations.
+    
     Returns
     -------
     df : DataFrame
@@ -302,8 +309,15 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     was monophic before monophonic - i.e. a fix is performed.
     """
     df = df.copy()
-    df.onset = np.around(df.onset * quantization).astype(int)
-    df.dur = np.around(df.dur * quantization).astype(int)
+    if by == 'offset':
+        offset = df.onset + df.dur
+        df.onset = np.around(df.onset * quantization).astype(int)
+        df.dur = np.around(offset * quantization).astype(int) - df.onset
+    elif by == 'dur':
+        df.onset = np.around(df.onset * quantization).astype(int)
+        df.dur = np.around(df.dur * quantization).astype(int)
+    else:
+        raise ValueError(f'by should be either dur or offset, not "{by}"')
     df.loc[df['dur']==0, 'dur'] = 1  # minimum duration is 1 quantum
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
@@ -480,6 +494,7 @@ class Pianoroll():
             raise ValueError('Supply either quant_df or pianoroll_array, '
                              'not both')
         elif quant_df is not None:
+            quant_df = quant_df.copy()
             expected_cols = ['onset', 'pitch', 'dur']
             assert all([col in quant_df.columns for col in expected_cols]), (
                 f'quant_df is expected to have columns {expected_cols}')
@@ -490,11 +505,11 @@ class Pianoroll():
             quant_df_note_off = quant_df.onset + quant_df.dur
             self.first_note_on = quant_df.onset.min()
             self.nr_timesteps = quant_df_note_off.max() - self.first_note_on
+            quant_df['onset'] = quant_df['onset'] - self.first_note_on
             try:
                 self.track_names = quant_df.track.unique()
                 self.nr_tracks = len(self.track_names)
             except AttributeError:
-                quant_df = quant_df.copy()
                 quant_df['track'] = 1
                 self.track_names = np.array([1])
                 self.nr_tracks = 1

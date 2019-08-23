@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import numpy as np
+import pytest
+import re
 from mdtk.data_structures import (
     Composition, Pianoroll, read_note_csv, fix_overlapping_notes,
     check_overlap, check_monophonic, check_overlapping_pitch, check_note_df,
@@ -169,12 +171,9 @@ sort_err = (f"note_df must be sorted by {NOTE_DF_SORT_ORDER} and columns "
 missing_col_err = (f"note_df must contain all columns in {NOTE_DF_SORT_ORDER}")
 col_order_err = (f"note_df colums must be in order: {NOTE_DF_SORT_ORDER}")
 extra_col_err = (f"note_df must only contain columns in {NOTE_DF_SORT_ORDER}")
-overlap_err = ('Track(s) {bad_tracks} has an overlapping note at pitch(es) '
-               '{bad_pitches}, i.e. there is a note which overlaps another '
-               'at the same pitch')
+
 ASSERTION_ERRORS = {
-    'note_df_overlapping_pitch': overlap_err.format(bad_tracks=[0],
-                                                    bad_pitches=[60]),
+    'note_df_overlapping_pitch': None,
     'note_df_overlapping_note': None,
     'note_df_2pitch_aligned': sort_err,
     'note_df_ms': sort_err,
@@ -191,6 +190,15 @@ ASSERTION_ERRORS = {
     'df_all_mono': None,
     'df_some_mono': None,
     'df_all_poly': None
+}
+
+overlap_warn = ('WARNING: Track(s) {bad_tracks} has an overlapping note '
+                'at pitch(es) {bad_pitches}. This can lead to '
+                'unexpected results.')
+
+WARNINGS = {
+    'note_df_overlapping_pitch': overlap_warn.format(bad_tracks=[0],
+                                                     bad_pitches=[60])
 }
 
 def fix_sort(df):
@@ -299,6 +307,9 @@ def test_check_note_df():
                 assert e.args == (err,), (f'{name} did error but the '
                     'assertion text was incorrect')
             assert correctly_errored, f'{name} did not error and it should'
+        elif name in WARNINGS:
+            with pytest.warns(UserWarning, match=re.escape(WARNINGS[name])):
+                check_note_df(df)
         # Check the corrected version *does* pass
         assert check_note_df(ALL_VALID_DF[name]), (f'Fixed version of {name} '
             'should pass the tests but does not')
