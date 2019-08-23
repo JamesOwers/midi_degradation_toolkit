@@ -3,6 +3,8 @@ to csvs."""
 
 import os
 import glob
+import warnings
+
 import pandas as pd
 import numpy as np
 
@@ -87,7 +89,10 @@ def midi_to_df(midi_path):
                           'pitch': note.pitch,
                           'dur': int(round(note.end * 1000) -
                                      round(note.start * 1000))})
-
+    if len(notes) == 0:
+        warnings.warn(f'WARNING: the midi file located at {midi_path} is '
+                       'empty. Returning None.', category=UserWarning)
+        return None
     df = pd.DataFrame(notes)[COLNAMES]
     df = df.sort_values(COLNAMES)
     df = df.reset_index(drop=True)
@@ -115,6 +120,8 @@ def df_to_csv(df, csv_path):
         will be printed, and the rows will be printed in the current order of the
         DataFrame. Any nested directories will be created.
     """
+    if df is None or len(df) == 0:
+        return None
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Enforce column order
     df[COLNAMES].to_csv(csv_path, index=None, header=False)
