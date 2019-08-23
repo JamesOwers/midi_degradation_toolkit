@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import re
+import pytest
 
 import mdtk.data_structures as ds
 import mdtk.degradations as deg
@@ -21,8 +23,10 @@ BASIC_DF = pd.DataFrame({
 def test_pitch_shift():
     comp = ds.Composition(EMPTY_DF)
     
-    assert deg.pitch_shift(comp) == None, ("Pitch shifting with empty data frame"
-                                           " did not return None.")
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No notes to pitch "
+                                                   "shift. Returning None.")):
+        assert deg.pitch_shift(comp) == None, ("Pitch shifting with empty data "
+                                               "frame did not return None.")
     
     comp = ds.Composition(BASIC_DF)
     
@@ -39,8 +43,8 @@ def test_pitch_shift():
                                                           f"resulted in \n{comp2.note_df}\n"
                                                           f"instead of \n{basic_res}")
         
-        assert comp != comp2 and (BASIC_DF != comp2.note_df).any().any(), ("Composition or note_df"
-                                                             " was not cloned.")
+        changed = comp != comp2 and (BASIC_DF != comp2.note_df).any().any()
+        assert changed, "Composition or note_df was not cloned."
         
     
     # Truly random testing
@@ -54,5 +58,5 @@ def test_pitch_shift():
         assert equal['onset'].all(), "Pitch shift changed some onset time."
         assert equal['track'].all(), "Pitch shift changed some track."
         assert equal['dur'].all(), "Pitch shift changed some duration."
-        assert (1 - equal['pitch']).sum() == 1, ("Pitch shift did not change exactly "
-                                                 "one pitch.")
+        assert (1 - equal['pitch']).sum() == 1, ("Pitch shift did not change "
+                                                 "exactly one pitch.")
