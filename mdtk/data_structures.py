@@ -2,6 +2,7 @@
 for converting between different data formats.
 """
 import copy
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -25,7 +26,7 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
                   sort=True, header='infer', monophonic_tracks=None,
                   max_note_len=None):
     """Read a csv and create a standard note event DataFrame - a `note_df`.
-    
+
     Parameters
     ----------
     path : str
@@ -59,22 +60,22 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
     integer_colspec = all(isinstance(vv, str) for vv in cols.keys())
     assert string_colspec or integer_colspec, ('All column specifications '
         'must be either all strings or all integers.')
-    
+
     df = pd.read_csv(path, header=header, usecols=list(cols.keys()))
     df.rename(columns=cols, inplace=True)
     if track is None:
         df.loc[:, 'track'] = 0
-    
+
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
-    
-    if monophonic_tracks is not None:
-        df = make_monophonic(df, tracks=monophonic_tracks)    
 
-            
+    if monophonic_tracks is not None:
+        df = make_monophonic(df, tracks=monophonic_tracks)
+
+
     if max_note_len is not None:
-        df.loc[df['dur'] > max_note_len] = max_note_len
-        
+        df.loc[df['dur'] > max_note_len, 'dur'] = max_note_len
+
     if sort:
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
         df.reset_index(drop=True, inplace=True)
@@ -104,7 +105,7 @@ def check_overlapping_pitch(note_df, return_info=False):
     """Checks whether the note_df has a note which overlaps another at the same
     pitch - it shouldn't be possible for an instrument to create a new note
     at the same pitch before the previous has ended.
-    
+
     Parameters
     ----------
     note_df : pd.DataFrame
@@ -152,14 +153,15 @@ def check_note_df(note_df, raise_error=True):
                 .equals(note_df)
             ), (f'note_df must be sorted by {NOTE_DF_SORT_ORDER} and columns '
                 'ordered')
-        
+
         # Check no overlapping notes of the same pitch
         overlapping_pitch, (bad_track, bad_pitch) = check_overlapping_pitch(
             note_df, return_info=True
         )
-        assert not overlapping_pitch, (f'Track(s) {bad_track} '
-            f'has an overlapping note at pitch(es) {bad_pitch}, i.e. there is '
-            'a note which overlaps another at the same pitch')
+        if overlapping_pitch:
+            warnings.warn(f'WARNING: Track(s) {bad_track} has an overlapping '
+                          f'note at pitch(es) {bad_pitch}. This can lead to '
+                          'unexpected results.', category=UserWarning)
     except AssertionError as e:
         is_note_df = False
         if raise_error:
@@ -264,7 +266,8 @@ def make_monophonic(df, tracks='all'):
 
 
 # Quantization ================================================================
-def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
+def quantize_df(df, quantization, inplace=False,
+                keep_monophonic=True, by='offset'):
     """Quantization is number of divisions per integer. Will return onsets and
     durations as an integer number of quanta.
 
@@ -279,6 +282,10 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     keep_monophonic : list(int), True, or False
         Track names to ensure stay monophonic. If False, performs no action. If
         If True, keeps all tracks monophonic.
+    by : str
+        Either 'offset', or 'dur': if 'offset', quantizes durations by first
+        calculating the offset time. If 'dur', simply quantizes the existing
+        durations.
     
     Returns
     -------
@@ -291,19 +298,26 @@ def quantize_df(df, quantization, inplace=False, keep_monophonic=True):
     were monophonic before. If the result of the onset or duration multiplied
     by the quantization results in an exact .5 value, np.around will round to
     the nearest even number.
-    
+
     For example, if the quantization level is 3, and the notes have onsets of 1
     and 1.5, these will quantize to 3 and 4 (because 1.5 * 3 = 4.5 and then
     np.around rounds to nearest even). If these notes have durations of 0.5 and
     1 before, these will quantize to 2 and 3. The first note now overlaps the
-    second note, whereas it did not before. 
-    
+    second note, whereas it did not before.
+
     However, the default behaviour of the function is to keep any track that
     was monophic before monophonic - i.e. a fix is performed.
     """
     df = df.copy()
-    df.onset = np.around(df.onset * quantization).astype(int)
-    df.dur = np.around(df.dur * quantization).astype(int)
+    if by == 'offset':
+        offset = df.onset + df.dur
+        df.onset = np.around(df.onset * quantization).astype(int)
+        df.dur = np.around(offset * quantization).astype(int) - df.onset
+    elif by == 'dur':
+        df.onset = np.around(df.onset * quantization).astype(int)
+        df.dur = np.around(df.dur * quantization).astype(int)
+    else:
+        raise ValueError(f'by should be either dur or offset, not "{by}"')
     df.loc[df['dur']==0, 'dur'] = 1  # minimum duration is 1 quantum
     # Check no overlapping notes of the same pitch
     df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
@@ -333,7 +347,7 @@ def plot_from_df_track(df, ax=None, pitch_spacing=0.05, patch_kwargs=None):
         ax = plt.gca()
 
     note_boxes = []
-    
+
     for _, row in df.iterrows():
         onset, pitch, dur = row[['onset', 'pitch', 'dur']]
         box_height = 1 - 2*pitch_spacing
@@ -348,7 +362,7 @@ def plot_from_df_track(df, ax=None, pitch_spacing=0.05, patch_kwargs=None):
     if patch_kwargs is not None:
         kwargs.update(patch_kwargs)
     pc = PatchCollection(note_boxes, **kwargs)
-    
+
     ax.add_collection(pc)
     ax.autoscale()  # required for boxes to be seen
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
@@ -356,15 +370,15 @@ def plot_from_df_track(df, ax=None, pitch_spacing=0.05, patch_kwargs=None):
     return pc
 
 
-def plot_from_df(df, ax=None, pitch_spacing=0.05, 
+def plot_from_df(df, ax=None, pitch_spacing=0.05,
                  axes_labels=['onset', 'pitch'], track_patch_kwargs=None,
                  tracks='all'):
     if ax is None:
         ax = plt.gca()
-    
+
     if tracks == 'all':
         tracks = df.track.unique()
-    
+
     if track_patch_kwargs is None:
         track_patch_kwargs = {}
         for ii, track in enumerate(tracks):
@@ -420,7 +434,7 @@ def note_df_to_pretty_midi(note_df, bpm=100, inst_name='Acoustic Grand Piano'):
     tracks = note_df.track.unique()
     if isinstance(inst_name, str):
         inst_name = {track: inst_name for track in tracks}
-    for track, track_df in note_df.groupby('track'): 
+    for track, track_df in note_df.groupby('track'):
         track_inst_name = inst_name[track]
         inst_program = pretty_midi.instrument_name_to_program(track_inst_name)
         inst = pretty_midi.Instrument(program=inst_program)
@@ -442,7 +456,7 @@ def synthesize_from_quant_df(quant_df, bpm=100, fs=16000,
     note_df.onset = note_df.onset / quantization
     note_df.dur = note_df.dur / quantization
     return synthesize_from_note_df(note_df, bpm, fs, inst_name)
-    
+
 
 
 def synthesize_from_note_df(note_df, bpm=100, fs=16000,
@@ -459,13 +473,13 @@ class Pianoroll():
     Wrapper class for arrays representing a pianoroll of some description. It
     is callable and will return an array. It only stores the matrices, and is
     initialised with a standard note dataframe or a pianoroll array
-    
+
     It expects to recieve a dataframe with integer onset times i.e. you have
     already quantized the data.
-    
+
     Parameters
     ----------
-    
+
     """
     def __init__(self, quant_df=None, pianoroll_array=None, note_off=False,
                  first_note_on=None, quantization=None):
@@ -474,12 +488,13 @@ class Pianoroll():
         self._pianoroll = None
         self._shape = None
         # -----
-        
+
         self.first_note_on = None
         if (quant_df is not None) and (pianoroll_array is not None):
             raise ValueError('Supply either quant_df or pianoroll_array, '
                              'not both')
         elif quant_df is not None:
+            quant_df = quant_df.copy()
             expected_cols = ['onset', 'pitch', 'dur']
             assert all([col in quant_df.columns for col in expected_cols]), (
                 f'quant_df is expected to have columns {expected_cols}')
@@ -490,11 +505,11 @@ class Pianoroll():
             quant_df_note_off = quant_df.onset + quant_df.dur
             self.first_note_on = quant_df.onset.min()
             self.nr_timesteps = quant_df_note_off.max() - self.first_note_on
+            quant_df['onset'] = quant_df['onset'] - self.first_note_on
             try:
                 self.track_names = quant_df.track.unique()
                 self.nr_tracks = len(self.track_names)
             except AttributeError:
-                quant_df = quant_df.copy()
                 quant_df['track'] = 1
                 self.track_names = np.array([1])
                 self.nr_tracks = 1
@@ -523,18 +538,18 @@ class Pianoroll():
         else:
             raise ValueError('Supply at least one of quant_df or '
                              'pianoroll_array')
-        
+
         if self.first_note_on is None:
             self.first_note_on = first_note_on
         elif first_note_on is not None:  # specifying a note_on time overrides
             self.first_note_on = first_note_on
-        
+
         self.quantization = quantization
-    
-    
+
+
     def __call__(self, channels=['sounding', 'note_on'], tracks='all'):
         """Upon call, the object will present as a numpy array.
-            
+
         Parameters
         ----------
         channels: list
@@ -543,12 +558,12 @@ class Pianoroll():
             available to the class.
         tracks: list or 'all'
             Which instrument tracks to include
-        
+
         Returns
         -------
         pianoroll: np.array
             In general, the output array will be of shape:
-            (nr_tracks, nr_channels, nr_pitches, nr_timesteps) 
+            (nr_tracks, nr_channels, nr_pitches, nr_timesteps)
         """
         if tracks == 'all':
             tracks = np.arange(self.nr_tracks)
@@ -563,8 +578,8 @@ class Pianoroll():
             array = getattr(self, attr_name)
             pianoroll[:, ii, :, :] = array
         return pianoroll
-    
-    
+
+
     def __repr__(self):
         """String representation of the composition - the note_df"""
         return self.pianoroll.__repr__()
@@ -573,20 +588,20 @@ class Pianoroll():
     def __str__(self):
         """String representation of the composition - the note_df"""
         return self.pianoroll.__str__()
-    
-    
+
+
     def __getitem__(self, key):
         return self.pianoroll.__getitem__(key)
-    
-    
+
+
     def __len__(self):
         return self.nr_timesteps
 
 
     def __eq__(self, other):
         return self.pianoroll == other
-    
-    
+
+
     # Properties ==============================================================
     @property
     def note_off(self, df=None):
@@ -597,19 +612,19 @@ class Pianoroll():
             else:
                 self._note_off = self.get_note_off(df)
         return self._note_off
-    
+
     @property
     def pianoroll(self):
         """Only create upon first get. No set method - will error if set."""
         if self._pianoroll is None:
             self._pianoroll = self()
         return self._pianoroll
-    
+
     @property
     def shape(self):
         """Only create upon first get. No set method - will error if set."""
         return self.pianoroll.shape
-    
+
     # Note_df methods =========================================================
     def get_sounding_note_on(self, df):
         df_ = df.set_index('track', append=True).reorder_levels([1, 0])
@@ -623,8 +638,8 @@ class Pianoroll():
                 note_off = row.onset + row.dur
                 sounding[ii, row.pitch, row.onset:note_off] = 1
         return sounding, note_on
-    
-    
+
+
     def get_note_off(self, df):
         df_ = df.set_index('track', append=True).reorder_levels([1, 0])
         note_off = np.zeros((self.nr_tracks, NR_MIDINOTES, self.nr_timesteps),
@@ -633,8 +648,8 @@ class Pianoroll():
             for idx, row in df_.loc[track].iterrows():
                 note_off[ii, row.pitch, row.onset+row.dur] = 1
         return note_off
-    
-    
+
+
     # Internal methods ========================================================
     def get_note_off_from_pianoroll(self):
         note_off = np.zeros_like(self.sounding, dtype='uint8')
@@ -647,26 +662,26 @@ class Pianoroll():
         note_off[np.logical_and(self.sounding == 1,
                                 note_on_back_1 == 1)] = 1
         return note_off
-    
-    
+
+
     def get_note_on_from_sounding(self):
         note_on = np.zeros_like(self.sounding, dtype='uint8')
         sounding_fwd_1 = np.zeros_like(self.sounding, dtype='uint8')
         sounding_fwd_1[:, :, 1:] = self.sounding[:, :, :-1]
         note_on[np.logical_and(self.sounding == 1, sounding_fwd_1 == 0)] = 1
         return note_on
-    
-   
+
+
     def get_note_df(self, first_note_on=None, quantization=None):
         """Return a DataFrame object describing the note events in a pianoroll
-    
+
         Parameters
         ----------
         first_note_on : float
             A value to add to all the onsets in the resulting DataFrame
         quantization : int
             The number of divisions per integer there are in the pianoroll
-    
+
         Returns
         -------
         df : DataFrame
@@ -676,7 +691,7 @@ class Pianoroll():
             first_note_on = self.first_note_on
         if quantization is None:
             quantization = self.quantization
-        
+
         track, pitch, note_on = np.where(self.note_on)
         _, _, note_off = np.where(self.note_off)
         # We can do this because we know the order is fixed and that every
@@ -689,15 +704,15 @@ class Pianoroll():
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
         df.reset_index(drop=True, inplace=True)
         check_note_df(df)
-        
+
         if quantization:
             df.onset = df.onset / quantization
             df.dur = df.dur / quantization
         if first_note_on:
             df.onset = df.onset + first_note_on
         return df
-    
-    
+
+
     # Plotting ================================================================
     def plot(self, first_note_on=None, quantization=None,
              **plot_from_df_kwargs):
@@ -705,8 +720,8 @@ class Pianoroll():
                               quantization=quantization)
         ax = plot_from_df(df, **plot_from_df_kwargs)
         return ax
-    
-    
+
+
     # Synthesis ===============================================================
     def synthesize(
             self,
@@ -718,21 +733,21 @@ class Pianoroll():
         """Create a waveform array"""
         df = self.get_note_df(first_note_on=0, quantization=quantization)
         return synthesize_from_note_df(df, bpm=bpm, fs=fs, inst_name=inst_name)
-    
-    
+
+
     # Functional ==============================================================
     def copy(self):
         """Returns a deep copy of the object."""
         return copy.deepcopy(self)
-    
-    
+
+
 
 class Composition:
     """Wrapper class for note csv data. Takes as input either and already
     imported pandas DataFrame, or the location of a csv to be imported. For the
     former case, checks are done to ensure this is a valid `note_df`. In the
     latter case, this is handled automatically.
-    
+
     The definition of a valid `note_df`:
         * has columns ['onset', 'track', 'pitch', 'dur'] which describe
             * onset - the time a note begins
@@ -741,20 +756,20 @@ class Composition:
             * dur   - the duration of the note
         * is sorted by ['onset', 'track', 'pitch', 'dur']
         * has an increasing integer index
-    
+
     Anything involving pianorolls will require a quanitization of the
     `note_df`. The default quantization is 12 divisions per integer note onset,
     which is good if the onset column describes the number of quarter notes
     (crotchets), but if the onset column describes seconds, or miliseconds,
     this may require adjustment.
-    
+
     The Composition class has methods to plot, synthesize, quantize, and
     convert this data between required formats e.g. pianoroll, note streams,
     etc.
 
     Additionally there are class methods for import from other formats e.g.
     directly from csv files with the expected columns.
-    
+
     Parameters
     ----------
     note_df : pd.DataFrame
@@ -816,7 +831,7 @@ class Composition:
         self.quantization = quantization
         self.monophonic_tracks = monophonic_tracks
         self.max_note_len = max_note_len
-        
+
         # Create note_df from either the path or supplied df
         if csv_path and (note_df is not None):  # Don't supply both!
             raise ValueError('Supply either csv_path or note_df, not both')
@@ -850,10 +865,10 @@ class Composition:
                 raise e
         else:
             raise ValueError('Supply at least one of csv_path or note_df')
-        
-        self.track_names = note_df.track.unique()
+
+        self.track_names = self.note_df.track.unique()
         self.nr_tracks = len(self.track_names)
-        
+
         # Properties - only created upon first get
         self._quant_df = None
         self._pianoroll = None
@@ -924,7 +939,7 @@ class Composition:
         return c
 
     @classmethod
-    def from_pianoroll_array(cls, pianoroll_array, first_note_on=None, 
+    def from_pianoroll_array(cls, pianoroll_array, first_note_on=None,
                              quantization=None, **kwargs):
         """Method for instantiation from an array representing a pianoroll. The
         array is expected to be of shape (tracks, channels, pitches, timesteps)
@@ -941,8 +956,8 @@ class Composition:
         # set directly to avoid re-computation
         c._pianoroll = pianoroll
         return c
-    
-    
+
+
     # Plotting ================================================================
     def plot(self, quantized=True, axes_labels=None, **kwargs):
         """Convenience method for plotting either a quantized or note level
