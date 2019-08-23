@@ -111,7 +111,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         A copy of the given excerpt, with the pitch of one note changed.
     """
     if excerpt.note_df.shape[0] == 0:
-        warnings.warn('WARNING: No notes to remove. Returning None.',
+        warnings.warn('WARNING: No notes to pitch shift. Returning None.',
                       category=UserWarning)
         return None
     
