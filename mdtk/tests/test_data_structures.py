@@ -247,7 +247,58 @@ ALL_CSV = [f'./{name}.csv' for name in ALL_DF.keys()]
 ALL_CSV += ['./all_pitch_df_tracks_sparecol_noheader.csv',
             './all_pitch_df_tracks_sparecol_weirdorder.csv']
 
+default_read_note_csv_kwargs = dict(
+    onset='onset',
+    pitch='pitch',
+    dur='dur',
+    track='track',
+    sort=True,
+    header='infer'
+)
 
+ALL_CSV_KWARGS = {
+    './note_df_overlapping_pitch.csv': default_read_note_csv_kwargs,
+    './note_df_overlapping_note.csv': default_read_note_csv_kwargs,
+    './note_df_2pitch_aligned.csv': default_read_note_csv_kwargs,
+    './note_df_odd_names.csv': dict(
+        onset='note_on',
+        pitch='midinote',
+        dur='duration',
+        track='ch',
+        sort=True,
+        header='infer'
+    ),
+    './note_df_2pitch_weird_times.csv': default_read_note_csv_kwargs,
+    './note_df_2pitch_weird_times_quant.csv': default_read_note_csv_kwargs,
+    './note_df_with_silence.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_notrack.csv': dict(
+        onset='onset',
+        pitch='pitch',
+        dur='dur',
+        track=None,
+        sort=True,
+        header='infer'
+    ),
+    './all_pitch_df_wrongorder.csv': default_read_note_csv_kwargs,
+    './all_pitch_df.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks_overlaps.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks_sparecol.csv': default_read_note_csv_kwargs,
+    './df_all_mono.csv': default_read_note_csv_kwargs,
+    './df_some_mono.csv': default_read_note_csv_kwargs,
+    './df_all_poly.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks_sparecol_noheader.csv':
+        dict(
+            onset=0,
+            pitch=2,
+            dur=3,
+            track=1,
+            sort=True,
+            header=None
+        ),
+    './all_pitch_df_tracks_sparecol_weirdorder.csv':
+        default_read_note_csv_kwargs
+}
 
 # Function tests ==============================================================
 def test_read_note_csv():
@@ -462,7 +513,8 @@ def test_all_composition_methods_and_attributes():
         comp.synthesize()
 
 def test_composition_read_csv():
-    compositions = [Composition(csv_path=csv_path)
+    compositions = [Composition(csv_path=csv_path,
+                                read_note_csv_kwargs=ALL_CSV_KWARGS[csv_path])
                     for csv_path in ALL_CSV]
     for comp in compositions:
         comp.csv_path
