@@ -115,8 +115,11 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                       category=UserWarning)
         return None
     
+    # Assume all notes can be shifted initially
     valid_notes = list(range(excerpt.note_df.shape[0]))
     
+    # If distribution is being used, check which notes are valid with
+    # distribution and the given pitch range.
     if distribution is not None:
         middle = len(distribution) // 2
         distribution[middle] = 0

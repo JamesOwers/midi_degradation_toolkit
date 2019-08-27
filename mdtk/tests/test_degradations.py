@@ -99,3 +99,19 @@ def test_pitch_shift():
                                                    'given min_pitch')):
         comp2 = deg.pitch_shift(comp, min_pitch=-50, max_pitch=-20, distribution=[1, 0, 1])
         assert comp2 == None, "Pitch shifting with invalid distribution returned something."
+        
+    comp2 = deg.pitch_shift(comp, min_pitch=BASIC_DF.min('pitch') - 1,
+                            max_pitch=BASIC_DF.min('pitch') - 1, distribution=[1, 0, 0])
+    assert comp2 is not None, "Valid shift down of 1 pitch returned None."
+    
+    comp2 = deg.pitch_shift(comp, min_pitch=BASIC_DF.min('pitch') - 2,
+                            max_pitch=BASIC_DF.min('pitch') - 2, distribution=[1, 0, 0])
+    assert comp2 is None, "Invalid shift down of 2 pitch returned something."
+    
+    comp2 = deg.pitch_shift(comp, max_pitch=BASIC_DF.max('pitch') + 1,
+                            max_pitch=BASIC_DF.max('pitch') + 1, distribution=[0, 0, 1])
+    assert comp2 is not None, "Valid shift up of 1 pitch returned None."
+    
+    comp2 = deg.pitch_shift(comp, min_pitch=BASIC_DF.min('pitch') + 2,
+                            max_pitch=BASIC_DF.min('pitch') + 2, distribution=[0, 0, 1])
+    assert comp2 is None, "Invalid shift up of 2 pitch returned something."
