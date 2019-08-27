@@ -115,10 +115,40 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                       category=UserWarning)
         return None
     
+    valid_notes = list(range(excerpt.note_df.shape[0]))
+    
+    if distribution is not None:
+        middle = len(distribution) // 2
+        distribution[middle] = 0
+        
+        if np.sum(distribution) == 0:
+            warnings.warn('WARNING: distribution contains only 0s after'
+                          ' setting middle value to 0. Returning None.')
+            return None
+        
+        nonzero = list(np.where(np.array(distribution) > 0, 1, 0))
+        
+        lowest_index = nonzero.index(1)
+        highest_index = len(nonzero) - 1 - nonzero[-1::-1].index(1)
+        
+        max_to_sample = max_pitch + (middle - lowest_index)
+        min_to_sample = min_pitch - (highest_index - middle)
+        
+        valid_notes = excerpt.note_df.index[excerpt.note_df['pitch']
+                                            .between(min_to_sample,
+                                                     max_to_sample)].tolist()
+        
+        if len(valid_notes) == 0:
+            warnings.warn('WARNING: No valid pitches to shift given '
+                          f'min_pitch {min_pitch}, max_pitch {max_pitch}, '
+                          f'and distribution {distribution} (after setting'
+                          ' middle to 0). Returning None.')
+            return None
+        
     degraded = excerpt.copy()
 
     # Sample a random note
-    note_index = randint(0, degraded.note_df.shape[0])
+    note_index = valid_notes[randint(len(valid_notes))]
     pitch = degraded.note_df.loc[note_index, 'pitch']
     
     # Shift its pitch
