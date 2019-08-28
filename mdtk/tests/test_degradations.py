@@ -119,3 +119,64 @@ def test_pitch_shift():
         comp2 = deg.pitch_shift(comp, min_pitch=BASIC_DF['pitch'].max() + 2,
                                 max_pitch=BASIC_DF['pitch'].max() + 2, distribution=[0, 0, 1])
         assert comp2 is None, "Invalid shift up of 2 pitch returned something."
+
+
+
+def test_time_shift():
+    comp = ds.Composition(EMPTY_DF)
+    
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to time "
+                                                   "shift. Returning None.")):
+        assert deg.time_shift(comp) == None, ("Time shifting with empty data "
+                                              "frame did not return None.")
+    
+    comp = ds.Composition(BASIC_DF)
+    
+    # Deterministic testing
+    for i in range(2):
+        comp2 = deg.time_shift(comp, seed=1)
+    
+        basic_res = pd.DataFrame({'onset': [0, 158, 200, 200],
+                                  'track': [0, 1, 0, 1],
+                                  'pitch': [10, 20, 30, 40],
+                                  'dur': [100, 100, 100, 100]})
+        
+        assert (comp2.note_df == basic_res).all().all(), (f"Time shifting \n{BASIC_DF}\n"
+                                                          f"resulted in \n{comp2.note_df}\n"
+                                                          f"instead of \n{basic_res}")
+        
+        changed = comp != comp2 and (BASIC_DF != comp2.note_df).any().any()
+        assert changed, "Composition or note_df was not cloned."
+        
+    # Truly random testing
+    for i in range(10):
+        np.random.seed()
+        
+        comp2 = deg.time_shift(comp, min_shift=10 * i, max_shift=10 * (i + 1))
+        
+        equal = (comp2.note_df == BASIC_DF)
+        
+        # Check that only things that should have changed have changed
+        assert equal['track'].all(), "Time shift changed some track."
+        assert equal['pitch'].all(), "Time shift changed some pitch."
+        assert equal['dur'].all(), "Time shift changed some duration."
+        assert (1 - equal['onset']).sum() == 1, ("Time shift did not change "
+                                                 "exactly one onset.")
+        
+        # Check that changed onset is within given range
+        changed_onset = comp2.note_df[(comp2.note_df['onset'] !=
+                                       BASIC_DF['onset'])]['onset'].iloc[0]
+        original_onset = BASIC_DF[(comp2.note_df['onset'] !=
+                                   BASIC_DF['onset'])]['onset'].iloc[0]
+        shift = abs(changed_onset - original_onset)
+        assert 10 * i <= shift <= 10 * (i + 1), (f"Shift {shift} outside of range"
+                                                 f" [{10 * i}, {10 * (i + 1)}].")
+        
+    # Check for range too large warning
+    with pytest.warns(UserWarning, match=re.escape('WARNING: No valid notes to '
+                                                   'time shift.')):
+        comp2 = deg.time_shift(comp, min_shift=201, max_shift=202)
+        assert comp2 is None, "Invalid time shift of 201 returned something."
+    
+    comp2 = deg.time_shift(comp, min_shift=200, max_shift=201)
+    assert comp2 is not None, "Valid time shift of 200 returned None."

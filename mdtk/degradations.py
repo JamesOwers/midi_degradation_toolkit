@@ -70,7 +70,7 @@ def split_range_sample(split_range, p=None):
         total_range = sum(range_sizes)
         p = [range_size / total_range for range_size in range_sizes]
     index = choice(range(len(split_range)), p=p)
-    samp = uniform(split_range[index][0], split_range[index][1])
+    samp = randint(split_range[index][0], split_range[index][1])
     return samp
 
 
@@ -216,13 +216,15 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         offset = onset + excerpt.note_df.loc[note_index, 'dur']
         
         # Early-shift bounds (decrease onset)
-        earliest_earlier_onset = max(onset - max_shift, 0)
-        latest_earlier_onset = onset - min_shift
+        earliest_earlier_onset = max(onset - max_shift + 1, 0)
+        latest_earlier_onset = max(onset - min_shift + 1,
+                                   earliest_earlier_onset)
         
         # Late-shift bounds (increase onset)
-        earliest_later_onset = onset + min_shift
         latest_later_onset = onset + min(max_shift,
-                                         end_time - offset)
+                                         end_time - offset + 1)
+        earliest_later_onset = min(onset + min_shift,
+                                   latest_later_onset)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_earlier_onset < latest_earlier_onset or
@@ -254,7 +256,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     
     degraded = excerpt.copy()
     
-    degraded.note_df.loc[note_index, 'onset'] = onset
+    degraded.note_df.loc[note_index, 'onset'] = int(round(onset))
     
     return degraded
 
