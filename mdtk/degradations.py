@@ -219,12 +219,14 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         earliest_earlier_onset = max(onset - max_shift + 1, 0)
         latest_earlier_onset = max(onset - min_shift + 1,
                                    earliest_earlier_onset)
+        latest_earlier_onset = min(latest_earlier_onset, onset)
         
         # Late-shift bounds (increase onset)
         latest_later_onset = onset + min(max_shift,
                                          end_time - offset + 1)
         earliest_later_onset = min(onset + min_shift,
                                    latest_later_onset)
+        earliest_later_onset = max(earliest_later_onset, onset + 1)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_earlier_onset < latest_earlier_onset or
@@ -256,7 +258,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     
     degraded = excerpt.copy()
     
-    degraded.note_df.loc[note_index, 'onset'] = int(round(onset))
+    degraded.note_df.loc[note_index, 'onset'] = onset
     
     return degraded
 

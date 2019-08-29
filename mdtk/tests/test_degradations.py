@@ -43,7 +43,7 @@ def test_pitch_shift():
                                                           f"resulted in \n{comp2.note_df}\n"
                                                           f"instead of \n{basic_res}")
         
-        changed = comp != comp2 and (BASIC_DF != comp2.note_df).any().any()
+        changed = comp != comp2 and BASIC_DF is not comp2.note_df
         assert changed, "Composition or note_df was not cloned."
         
     
@@ -145,7 +145,7 @@ def test_time_shift():
                                                           f"resulted in \n{comp2.note_df}\n"
                                                           f"instead of \n{basic_res}")
         
-        changed = comp != comp2 and (BASIC_DF != comp2.note_df).any().any()
+        changed = comp != comp2 and BASIC_DF is not comp2.note_df
         assert changed, "Composition or note_df was not cloned."
         
     # Truly random testing
@@ -180,3 +180,67 @@ def test_time_shift():
     
     comp2 = deg.time_shift(comp, min_shift=200, max_shift=201)
     assert comp2 is not None, "Valid time shift of 200 returned None."
+    
+
+    
+def test_onset_shift():
+    pass
+
+
+
+def test_offset_shift():
+    pass
+
+
+
+def test_remove_note():
+    comp = ds.Composition(EMPTY_DF)
+    
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No notes to "
+                                                   "remove. Returning None.")):
+        assert deg.remove_note(comp) == None, ("Remove note with empty data "
+                                               "frame did not return None.")
+        
+    comp = ds.Composition(BASIC_DF)
+        
+    # Deterministic testing
+    for i in range(2):
+        comp2 = deg.remove_note(comp, seed=1)
+    
+        basic_res = pd.DataFrame({'onset': [0, 200, 200],
+                                  'track': [0, 0, 1],
+                                  'pitch': [10, 30, 40],
+                                  'dur': [100, 100, 100]})
+        
+        assert (comp2.note_df == basic_res).all().all(), (f"Removing note from \n"
+                                                          f"{BASIC_DF}\n resulted"
+                                                          f" in \n{comp2.note_df}\n"
+                                                          f"instead of \n{basic_res}")
+        
+        changed = comp != comp2 and BASIC_DF is not comp2.note_df
+        assert changed, "Composition or note_df was not cloned."
+        
+    # Random testing
+    for i in range(10):
+        np.random.seed()
+        
+        comp2 = deg.remove_note(comp)
+        merged = pd.merge(BASIC_DF, comp2.note_df)
+        
+        assert merged.shape[0] == BASIC_DF.shape[0] - 1, ("Remove note did not remove"
+                                                          " exactly 1 note.")
+
+
+
+def test_add_note():
+    pass
+
+
+
+def test_split_note():
+    pass
+
+
+
+def test_join_notes():
+    pass
