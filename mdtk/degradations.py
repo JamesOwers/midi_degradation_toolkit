@@ -277,18 +277,18 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
         
-    min_shift : float
+    min_shift : int
         The minimum amount by which the onset time will be changed. Defaults
         to 50.
         
-    max_shift : float
+    max_shift : int
         The maximum amount by which the onset time will be changed. Defaults
         to infinity.
         
-    min_duration : float
+    min_duration : int
         The minimum duration for the resulting note. Defaults to 50.
         
-    max_duration : float
+    max_duration : int
         The maximum duration for the resulting note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
@@ -304,6 +304,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     """
     # Find all editable notes
     valid_notes = []
+    print("READY")
     
     # Use indices because saving the df.loc objects creates copies
     for note_index in range(excerpt.note_df.shape[0]):
@@ -314,12 +315,21 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         earliest_lengthened_onset = max(offset - max_duration,
                                         onset - max_shift,
                                         0)
-        latest_lengthened_onset = onset - min_shift
+        latest_lengthened_onset = min(onset - min_shift,
+                                      offset - min_duration,
+                                      onset - 1) + 1
+        latest_lengthened_onset = max(latest_lengthened_onset,
+                                      earliest_lengthened_onset)
         
         # Shorten bounds (increase onset)
-        earliest_shortened_onset = onset + min_shift
         latest_shortened_onset = min(offset - min_duration,
                                      onset + max_shift)
+        earliest_shortened_onset = max(onset + min_shift,
+                                       offset - max_duration,
+                                       onset + 1)
+        latest_shortened_onset += 1
+        earliest_shortened_onset = min(earliest_shortened_onset,
+                                       latest_shortened_onset)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_lengthened_onset < latest_lengthened_onset or
