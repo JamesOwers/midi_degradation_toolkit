@@ -61,7 +61,7 @@ def split_range_sample(split_range, p=None):
         
     Returns
     -------
-    samp : float
+    samp : int
         A value sampled uniformly from the given split range.
     """    
     if p is not None:
@@ -187,10 +187,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
 
-    min_shift : float
+    min_shift : int
         The minimum amount by which the note will be shifted. Defaults to 50.
         
-    max_shift : float
+    max_shift : int
         The maximum amount by which the note will be shifted. Defaults to
         infinity.
 
@@ -508,9 +508,9 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         The minimum pitch at which a note may be added.
     max_pitch : int
         The maximum pitch at which a note may be added.
-    min_duration : float
+    min_duration : int
         The minimum duration for the note to be added. Defaults to 50.
-    max_duration : float
+    max_duration : int
         The maximum duration for the added note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
