@@ -255,6 +255,8 @@ def test_add_note():
         
     # Random testing
     for i in range(10):
+        np.random.seed()
+        
         min_pitch = i * 10
         max_pitch = (i + 1) * 10
         min_duration = i * 10
@@ -317,6 +319,8 @@ def test_split_note():
         
     # Random testing
     for i in range(8):
+        np.random.seed()
+        
         num_splits = i + 1
         num_notes = num_splits + 1
         
@@ -372,4 +376,103 @@ def test_split_note():
 
 
 def test_join_notes():
-    pass
+    comp = ds.Composition(EMPTY_DF)
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No notes to "
+                                                   "join. Returning None.")):
+        assert deg.join_notes(comp) == None, ("Join notes with empty data "
+                                              "frame did not return None.")
+    
+    comp = ds.Composition(BASIC_DF)
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
+                                                   " join. Returning None.")):
+        assert deg.join_notes(comp) == None, ("Joining notes with none back-to"
+                                              "back didn't return None.")
+    
+    join_df = pd.DataFrame({
+        'onset': [0, 100, 200, 200],
+        'track': [0, 0, 0, 1],
+        'pitch': [10, 10, 10, 40],
+        'dur': [100, 100, 100, 100]
+    })
+    comp = ds.Composition(join_df)
+    
+    # Deterministic testing
+    for i in range(2):
+        comp2 = deg.join_notes(comp, seed=1)
+        
+        join_res = pd.DataFrame({
+            'onset': [0, 100, 200],
+            'track': [0, 0, 1],
+            'pitch': [10, 10, 40],
+            'dur': [100, 200, 100]
+        })
+        
+        assert (comp2.note_df == join_res).all().all(), (f"Joining \n{join_df}\n"
+                                                         f"resulted in \n{comp2.note_df}\n"
+                                                         f"instead of \n{join_res}")
+        
+        changed = comp != comp2 and join_df is not comp2.note_df
+        assert changed, "Composition or note_df was not cloned."
+        
+    # Check different pitch and track
+    join_df.loc[1]['pitch'] = 20
+    comp = ds.Composition(join_df)
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
+                                                   " join. Returning None.")):
+        assert deg.join_notes(comp) == None, ("Joining notes with different "
+                                              "pitches didn't return None.")
+    
+    join_df.loc[1]['pitch'] = 10
+    join_df.loc[1]['track'] = 1
+    comp = ds.Composition(join_df)
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
+                                                   " join. Returning None.")):
+        assert deg.join_notes(comp) == None, ("Joining notes with different "
+                                              "tracks didn't return None.")
+        
+    # Check some with different max_gaps
+    join_df.loc[1]['track'] = 0
+    for i in range(10):
+        np.random.seed()
+        
+        max_gap = i * 10
+        
+        join_df.loc[0]['dur'] = join_df.loc[1]['onset'] - max_gap - join_df.loc[0]['onset']
+        join_df.loc[1]['dur'] = join_df.loc[2]['onset'] - max_gap - join_df.loc[1]['onset']
+        comp = ds.Composition(join_df)
+        
+        comp2 = deg.join_notes(comp, max_gap=max_gap)
+        
+        # Gap should work
+        diff = pd.concat([comp2.note_df, join_df]).drop_duplicates(keep=False)
+        new_note = pd.merge(diff, comp2.note_df).reset_index()
+        joined_notes = pd.merge(diff, join_df).reset_index()
+        unchanged_notes = pd.merge(comp2.note_df, join_df).reset_index()
+        
+        assert unchanged_notes.shape[0] == join_df.shape[0] - 2, ("Joining notes changed "
+                                                                  "too many notes.")
+        assert new_note.shape[0] == 1, ("Joining notes resulted in more than 1 new note.")
+        assert joined_notes.shape[0] == 2, "Joining notes changed too many notes."
+        
+        assert (new_note.loc[0]['onset'] ==
+                joined_notes.loc[0]['onset']), "Joined onset not equal to original onset."
+        assert (new_note.loc[0]['pitch'] ==
+                joined_notes.loc[0]['pitch']), "Joined pitch not equal to original pitch."
+        assert (new_note.loc[0]['track'] ==
+                joined_notes.loc[0]['track']), "Joined track not equal to original pitch."
+        assert (new_note.loc[0]['dur'] ==
+                joined_notes.loc[1]['dur'] + joined_notes.loc[1]['onset'] -
+                joined_notes.loc[0]['onset']), ("Joined duration not equal to original "
+                                                "durations plus gap.")
+        
+        join_df.loc[0]['dur'] -= 1
+        join_df.loc[1]['dur'] -= 1
+        
+        # Gap too large
+        comp = ds.Composition(join_df)
+        with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
+                                                       " join. Returning None.")):
+            assert deg.join_notes(comp, max_gap=max_gap) == None, ("Joining notes with too"
+                                                                   "large of a gap didn't "
+                                                                   "return None.")
+

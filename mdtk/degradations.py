@@ -634,7 +634,7 @@ def split_note(excerpt, min_duration=50, num_splits=1):
 
 
 @set_random_seed
-def join_notes(excerpt, max_gap=200):
+def join_notes(excerpt, max_gap=50):
     """
     Combine two notes of the same pitch and track into one.
     
@@ -671,12 +671,12 @@ def join_notes(excerpt, max_gap=200):
                 (next_i, next_n) = next_note
                 
                 # Check if gap is small enough
-                if (prev_n['onset'] + prev_n['dur'] + max_gap <=
+                if (prev_n['onset'] + prev_n['dur'] + max_gap >=
                     next_n['onset']):
                     valid_notes.append((prev_i, prev_n, next_i, next_n))
                     
     if len(valid_notes) == 0:
-        warnings.warn('WARNING: No valid notes to split. Returning ' +
+        warnings.warn('WARNING: No valid notes to join. Returning ' +
                       'None.', category=UserWarning)
         return None
     
@@ -688,8 +688,8 @@ def join_notes(excerpt, max_gap=200):
     degraded = excerpt.copy()
     
     # Extend first note
-    degraded.note_df[prev_i, 'dur'] = (next_n['onset'] + next_n['dur'] -
-                                       prev_n['onset'])
+    degraded.note_df.loc[prev_i]['dur'] = (next_n['onset'] + next_n['dur'] -
+                                           prev_n['onset'])
     
     # Drop 2nd note
     degraded.note_df.drop(next_i, inplace=True)
