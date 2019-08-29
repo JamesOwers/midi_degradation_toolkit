@@ -233,7 +233,62 @@ def test_remove_note():
 
 
 def test_add_note():
-    pass
+    comp = ds.Composition(EMPTY_DF)
+    assert deg.add_note(comp) is not None, ("Add note to empty data "
+                                        "frame returned None.")
+    
+    comp = ds.Composition(BASIC_DF)
+    
+    # Deterministic testing
+    for i in range(2):
+        comp2 = deg.add_note(comp, seed=1)
+    
+        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 235],
+                                  'track': [0, 1, 0, 1, 0],
+                                  'pitch': [10, 20, 30, 40, 37],
+                                  'dur': [100, 100, 100, 100, 62]})
+        
+        assert (comp2.note_df == basic_res).all().all(), (f"Adding note to \n"
+                                                          f"{BASIC_DF}\n resulted"
+                                                          f" in \n{comp2.note_df}\n"
+                                                          f"instead of \n{basic_res}")
+        
+    # Random testing
+    for i in range(10):
+        min_pitch = i * 10
+        max_pitch = (i + 1) * 10
+        min_duration = i * 10
+        max_duration = (i + 1) * 10
+        
+        comp2 = deg.add_note(comp, min_pitch=min_pitch, max_pitch=max_pitch,
+                             min_duration=min_duration, max_duration=max_duration)
+        
+        assert (comp2.note_df[:BASIC_DF.shape[0]] == BASIC_DF).all().all(), ("Adding a note"
+                                                                             "changed an "
+                                                                             "existing note.")
+        assert comp2.note_df.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
+        
+        note = comp2.note_df.loc[BASIC_DF.shape[0]]
+        assert min_pitch <= note['pitch'] <= max_pitch, (f"Added note's pitch ({note.pitch})"
+                                                         f" not within range "
+                                                         f" [{min_pitch}, {max_pitch}].")
+        assert min_duration <= note['dur'] <= max_duration, (f"Added note's duration "
+                                                             f"({note.pitch}) not within"
+                                                             f" range [{min_duration}, "
+                                                             f"{max_duration}].")
+        assert (note['onset'] >= 0 and note['onset'] + note['dur'] <=
+                BASIC_DF[['onset', 'dur']].sum(axis=1).max()), ("Added note's onset and "
+                                                                "duration do not lie within"
+                                                                " bounds of given dataframe.")
+        
+    # Test min_duration too large
+    comp2 = deg.add_note(comp, min_duration=500)
+    assert (comp2.note_df.loc[BASIC_DF.shape[0]]['onset'] == 0 and
+            comp2.note_df.loc[BASIC_DF.shape[0]]['dur'] == 500), ("Adding note with large "
+                                                                  "min_duration does not set"
+                                                                  " to full dataframe length.")
+        
+        
 
 
 

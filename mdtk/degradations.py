@@ -1,6 +1,7 @@
 """Code to perform the degradations i.e. edits to the midi data"""
 import numpy as np
 import warnings
+import sys
 from numpy.random import randint, uniform, choice
 
 from mdtk.data_structures import Composition
@@ -528,18 +529,25 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
 
     pitch = randint(min_pitch, max_pitch + 1)
+    track = None
 
     if min_duration > end_time:
         onset = 0
         duration = min_duration
+    elif degraded.note_df.shape[0] == 0:
+        onset = 0
+        duration = randint(min_duration, min(max_duration + 1, sys.maxsize))
     else:
-        onset = uniform(degraded.note_df['onset'].min(),
+        onset = randint(degraded.note_df['onset'].min(),
                         end_time - min_duration)
-        duration = uniform(min_duration,
-                           min(end_time - onset, max_duration))
+        duration = randint(min_duration,
+                           min(end_time - onset, max_duration + 1))
 
     # Track is random one of existing tracks
-    track = choice(degraded.note_df['track'].unique())
+    try:
+        track = choice(degraded.note_df['track'].unique())
+    except:
+        track = 0
 
     degraded.note_df = degraded.note_df.append({'pitch': pitch,
                                                 'onset': onset,
