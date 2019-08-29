@@ -235,7 +235,7 @@ def test_remove_note():
 def test_add_note():
     comp = ds.Composition(EMPTY_DF)
     assert deg.add_note(comp) is not None, ("Add note to empty data "
-                                        "frame returned None.")
+                                            "frame returned None.")
     
     comp = ds.Composition(BASIC_DF)
     
@@ -288,12 +288,86 @@ def test_add_note():
                                                                   "min_duration does not set"
                                                                   " to full dataframe length.")
         
-        
 
 
 
 def test_split_note():
-    pass
+    comp = ds.Composition(EMPTY_DF)
+    
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No notes to "
+                                                   "split. Returning None.")):
+        assert deg.split_note(comp) == None, ("Split note with empty data "
+                                              "frame did not return None.")
+    
+    comp = ds.Composition(BASIC_DF)
+    
+    # Deterministic testing
+    for i in range(2):
+        comp2 = deg.split_note(comp, seed=1)
+    
+        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 150],
+                                  'track': [0, 1, 0, 1, 1],
+                                  'pitch': [10, 20, 30, 40, 20],
+                                  'dur': [100, 50, 100, 100, 50]})
+        
+        assert (comp2.note_df == basic_res).all().all(), (f"Splitting note in \n"
+                                                          f"{BASIC_DF}\n resulted"
+                                                          f" in \n{comp2.note_df}\n"
+                                                          f"instead of \n{basic_res}")
+        
+    # Random testing
+    for i in range(8):
+        num_splits = i + 1
+        num_notes = num_splits + 1
+        
+        comp2 = deg.split_note(comp, min_duration=10, num_splits=num_splits)
+        
+        diff = pd.concat([comp2.note_df, BASIC_DF]).drop_duplicates(keep=False)
+        new_notes = pd.merge(diff, comp2.note_df).reset_index()
+        changed_notes = pd.merge(diff, BASIC_DF).reset_index()
+        unchanged_notes = pd.merge(comp2.note_df, BASIC_DF).reset_index()
+        
+        assert changed_notes.shape[0] == 1, "More than 1 note changed when splitting."
+        assert unchanged_notes.shape[0] == BASIC_DF.shape[0] - 1, ("More than 1 note "
+                                                                   "changed when "
+                                                                   "splitting.")
+        assert new_notes.shape[0] == num_notes, f"Did not split into {num_notes} notes."
+        
+        # Check first new note
+        assert (new_notes.loc[0]['pitch'] ==
+                changed_notes.loc[0]['pitch']), "Pitch changed when splitting."
+        assert (new_notes.loc[0]['track'] ==
+                changed_notes.loc[0]['track']), "Track changed when splitting."
+        assert (new_notes.loc[0]['onset'] ==
+                changed_notes.loc[0]['onset']), "Onset changed when splitting."
+        
+        # Check duration and remainder of notes
+        total_duration = new_notes.loc[0]['dur']
+        
+        notes = list(new_notes.iterrows())
+        for prev_note, next_note in zip(notes[:-1], notes[1:]):
+            total_duration += next_note[1]['dur']
+            
+            assert prev_note[1]['pitch'] == next_note[1]['pitch'], ("Pitch changed "
+                                                                    "when splitting.")
+            assert prev_note[1]['track'] == next_note[1]['track'], ("Track changed "
+                                                                    "when splitting.")
+            assert (prev_note[1]['onset'] + prev_note[1]['dur']
+                    == next_note[1]['onset']), ("Offset/onset times of split notes "
+                                                "not aligned.")
+            
+            
+        assert total_duration == changed_notes.loc[0]['dur'], ("Duration changed "
+                                                               "when splitting.")
+        
+    # Test min_duration too large for num_splits
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
+                                                   " split. Returning None.")):
+        assert deg.split_note(comp,
+                              min_duration=10,
+                              num_splits=10) == None, ("Splitting note into "
+                                                       "too many pieces didn't"
+                                                       " return None.")
 
 
 

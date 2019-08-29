@@ -595,8 +595,8 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     
     # Use indices because saving the df.loc objects creates copies
     for note_index in range(excerpt.note_df.shape[0]):
-        if excerpt.note_df[note_index]['dur'] >= (min_duration *
-                                                  (num_splits + 1)):
+        if (excerpt.note_df.loc[note_index]['dur'] >=
+            (min_duration * (num_splits + 1))):
             valid_notes.append(note_index)
     
     if len(valid_notes) == 0:
@@ -608,15 +608,15 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     
     degraded = excerpt.copy()
     
-    short_duration_float = (degraded.note_df[note_index, 'dur'] /
+    short_duration_float = (degraded.note_df.loc[note_index, 'dur'] /
                             (num_splits + 1))
-    pitch = degraded.note_df[note_index, 'pitch']
-    track = degraded.note_df[note_index, 'track']
-    this_onset = degraded.note_df[note_index, 'onset']
+    pitch = degraded.note_df.loc[note_index, 'pitch']
+    track = degraded.note_df.loc[note_index, 'track']
+    this_onset = degraded.note_df.loc[note_index, 'onset']
     next_onset = this_onset + short_duration_float
     
     # Shorten original note
-    degraded.note_df[note_index, 'dur'] = int(round(short_duration))
+    degraded.note_df.loc[note_index]['dur'] = int(round(short_duration_float))
     
     # Add next notes (taking care to round correctly)
     for i in range(num_splits):
