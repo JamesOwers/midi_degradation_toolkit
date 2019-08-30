@@ -534,7 +534,7 @@ class Pianoroll():
                 '(track, channel, pitch, time)')
             if pianoroll_array.shape[1] == 1:
                 # This is a flat pianoroll with just 'sounding' channel
-                self.sounding = pianoroll_array.squeeze()
+                self.sounding = pianoroll_array[:, 0, :, :]
                 self.note_on = self.get_note_on_from_sounding()
             elif pianoroll_array.shape[1] == 2:
                 # This is a pianoroll with channels 'sounding', 'note_on'
