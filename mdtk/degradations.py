@@ -304,7 +304,6 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     """
     # Find all editable notes
     valid_notes = []
-    print("READY")
     
     # Use indices because saving the df.loc objects creates copies
     for note_index in range(excerpt.note_df.shape[0]):

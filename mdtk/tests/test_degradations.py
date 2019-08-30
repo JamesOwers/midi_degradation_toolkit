@@ -304,6 +304,14 @@ def test_onset_shift():
                                 min_duration=min_duration, max_duration=max_duration)
         check_onset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
                                  max_duration)
+        
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
+                                                   " onset shift. Returning "
+                                                   "None.")):
+        comp2 = deg.onset_shift(comp, min_shift=300)
+        assert comp2 == None, ("Onset shifting with empty data min_shift greater "
+                               "than possible additional duration did not return "
+                               "None.")
 
 
 
@@ -433,6 +441,14 @@ def test_offset_shift():
                                  min_duration=min_duration, max_duration=max_duration)
         check_offset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
                                   max_duration)
+        
+    with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
+                                                   " offset shift. Returning "
+                                                   "None.")):
+        comp2 = deg.offset_shift(comp, min_shift=300)
+        assert comp2 == None, ("Offset shifting with empty data min_shift greater "
+                               "than possible additional note duration did not "
+                               "return None.")
 
 
 
