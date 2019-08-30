@@ -62,7 +62,7 @@ def split_range_sample(split_range, p=None):
     Returns
     -------
     samp : int
-        A value sampled uniformly from the given split range.
+        An integer sampled from the given split range.
     """    
     if p is not None:
         p = p / np.sum(p)
@@ -381,18 +381,18 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
         
-    min_shift : float
+    min_shift : int
         The minimum amount by which the offset time will be changed. Defaults
         to 50.
         
-    max_shift : float
+    max_shift : int
         The maximum amount by which the offset time will be changed. Defaults
         to infinity.
         
-    min_duration : float
+    min_duration : int
         The minimum duration for the resulting note. Defaults to 50.
         
-    max_duration : float
+    max_duration : int
         The maximum duration for the resulting note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
@@ -418,17 +418,23 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         duration = excerpt.note_df.loc[note_index, 'dur']
         
         # Lengthen bounds (increase duration)
+        shortest_lengthened_dur = max(duration + min_shift,
+                                      min_duration,
+                                      duration + 1)
         longest_lengthened_dur = min(duration + max_shift,
                                      end_time - onset,
-                                     max_duration)
-        shortest_lengthened_dur = max(duration + min_shift,
-                                      min_duration)
+                                     max_duration) + 1
+        longest_lengthened_dur = max(longest_lengthened_dur,
+                                     shortest_lengthened_dur)
         
         # Shorten bounds (decrease duration)
-        longest_shortened_dur = min(duration - min_shift,
-                                    max_duration)
         shortest_shortened_dur = max(duration - max_shift,
                                      min_duration)
+        longest_shortened_dur = min(duration - min_shift,
+                                    max_duration,
+                                    duration - 1) + 1
+        longest_shortened_dur = max(shortest_shortened_dur,
+                                    longest_shortened_dur)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (shortest_lengthened_dur < longest_lengthened_dur or
