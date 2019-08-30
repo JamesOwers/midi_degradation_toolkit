@@ -182,6 +182,32 @@ def test_time_shift():
 
     
 def test_onset_shift():
+    def check_onset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
+                                 max_duration):
+        diff = pd.concat([comp2.note_df, BASIC_DF]).drop_duplicates(keep=False)
+        new_note = pd.merge(diff, comp2.note_df).reset_index()
+        changed_note = pd.merge(diff, BASIC_DF).reset_index()
+        unchanged_notes = pd.merge(comp2.note_df, BASIC_DF).reset_index()
+        
+        assert unchanged_notes.shape[0] == BASIC_DF.shape[0] - 1, ("More or less than 1 note"
+                                                                   " changed when shifting"
+                                                                   " onset.")
+        assert changed_note.shape[0] == 1, "More than 1 note changed when shifting onset."
+        assert new_note.shape[0] == 1, "More than 1 new note added when shifting onset."
+        assert min_duration <= new_note.loc[0]['dur'] <= max_duration, ("Note duration not"
+                                                                        " within bounds "
+                                                                        "when onset shifting.")
+        assert (min_shift <=
+                abs(new_note.loc[0]['onset'] - changed_note.loc[0]['onset']) <=
+                max_shift), "Note shifted outside of bounds when onset shifting."
+        assert new_note.loc[0]['pitch'] == changed_note.loc[0]['pitch'], ("Pitch changed when"
+                                                                          " onset shifting.")
+        assert new_note.loc[0]['track'] == changed_note.loc[0]['track'], ("Track changed when"
+                                                                          " onset shifting.")
+        assert (changed_note.loc[0]['onset'] + changed_note.loc[0]['dur'] ==
+                new_note.loc[0]['onset'] + new_note.loc[0]['dur']), ("Duration changed when "
+                                                                     "onset shifting.")
+        
     comp = ds.Composition(EMPTY_DF)
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " onset shift. Returning "
@@ -219,31 +245,8 @@ def test_onset_shift():
         max_duration = 100 + min_shift + 5
         comp2 = deg.onset_shift(comp, min_shift=min_shift, max_shift=max_shift,
                                 min_duration=min_duration, max_duration=max_duration)
-        
-        diff = pd.concat([comp2.note_df, BASIC_DF]).drop_duplicates(keep=False)
-        new_note = pd.merge(diff, comp2.note_df).reset_index()
-        changed_note = pd.merge(diff, BASIC_DF).reset_index()
-        unchanged_notes = pd.merge(comp2.note_df, BASIC_DF).reset_index()
-        
-        assert unchanged_notes.shape[0] == BASIC_DF.shape[0] - 1, ("More or less than 1 note"
-                                                                   " changed when shifting"
-                                                                   " onset.")
-        assert changed_note.shape[0] == 1, "More than 1 note changed when shifting onset."
-        assert new_note.shape[0] == 1, "More than 1 new note added when shifting onset."
-        assert min_duration <= new_note.loc[0]['dur'] <= max_duration, ("Note duration not"
-                                                                        " within bounds "
-                                                                        "when onset shifting.")
-        assert (min_shift <=
-                abs(new_note.loc[0]['onset'] - changed_note.loc[0]['onset']) <=
-                max_shift), "Note shifted outside of bounds when onset shifting."
-        assert new_note.loc[0]['pitch'] == changed_note.loc[0]['pitch'], ("Pitch changed when"
-                                                                          " onset shifting.")
-        assert new_note.loc[0]['track'] == changed_note.loc[0]['track'], ("Track changed when"
-                                                                          " onset shifting.")
-        assert (changed_note.loc[0]['onset'] + changed_note.loc[0]['dur'] ==
-                new_note.loc[0]['onset'] + new_note.loc[0]['dur']), ("Duration changed when "
-                                                                     "onset shifting.")
-        
+        check_onset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
+                                 max_duration)
         
         # Duration is too short
         min_duration = 0
@@ -262,30 +265,8 @@ def test_onset_shift():
         max_duration = 100 - max_shift
         comp2 = deg.onset_shift(comp, min_shift=min_shift, max_shift=max_shift,
                                 min_duration=min_duration, max_duration=max_duration)
-        
-        diff = pd.concat([comp2.note_df, BASIC_DF]).drop_duplicates(keep=False)
-        new_note = pd.merge(diff, comp2.note_df).reset_index()
-        changed_note = pd.merge(diff, BASIC_DF).reset_index()
-        unchanged_notes = pd.merge(comp2.note_df, BASIC_DF).reset_index()
-        
-        assert unchanged_notes.shape[0] == BASIC_DF.shape[0] - 1, ("More or less than 1 note"
-                                                                   " changed when shifting"
-                                                                   " onset.")
-        assert changed_note.shape[0] == 1, "More than 1 note changed when shifting onset."
-        assert new_note.shape[0] == 1, "More than 1 new note added when shifting onset."
-        assert min_duration <= new_note.loc[0]['dur'] <= max_duration, ("Note duration not"
-                                                                        " within bounds "
-                                                                        "when onset shifting.")
-        assert (min_shift <=
-                abs(new_note.loc[0]['onset'] - changed_note.loc[0]['onset']) <=
-                max_shift), "Note shifted outside of bounds when onset shifting."
-        assert new_note.loc[0]['pitch'] == changed_note.loc[0]['pitch'], ("Pitch changed when"
-                                                                          " onset shifting.")
-        assert new_note.loc[0]['track'] == changed_note.loc[0]['track'], ("Track changed when"
-                                                                          " onset shifting.")
-        assert (changed_note.loc[0]['onset'] + changed_note.loc[0]['dur'] ==
-                new_note.loc[0]['onset'] + new_note.loc[0]['dur']), ("Duration changed when "
-                                                                     "onset shifting.")
+        check_onset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
+                                 max_duration)
         
         # Duration is too long
         min_duration = 100 + max_shift + 1
@@ -304,93 +285,24 @@ def test_onset_shift():
         max_duration = np.inf
         comp2 = deg.onset_shift(comp, min_shift=min_shift, max_shift=max_shift,
                                 min_duration=min_duration, max_duration=max_duration)
-        
-        diff = pd.concat([comp2.note_df, BASIC_DF]).drop_duplicates(keep=False)
-        new_note = pd.merge(diff, comp2.note_df).reset_index()
-        changed_note = pd.merge(diff, BASIC_DF).reset_index()
-        unchanged_notes = pd.merge(comp2.note_df, BASIC_DF).reset_index()
-        
-        assert unchanged_notes.shape[0] == BASIC_DF.shape[0] - 1, ("More or less than 1 note"
-                                                                   " changed when shifting"
-                                                                   " onset.")
-        assert changed_note.shape[0] == 1, "More than 1 note changed when shifting onset."
-        assert new_note.shape[0] == 1, "More than 1 new note added when shifting onset."
-        assert min_duration <= new_note.loc[0]['dur'] <= max_duration, ("Note duration not"
-                                                                        " within bounds "
-                                                                        "when onset shifting.")
-        assert (min_shift <=
-                abs(new_note.loc[0]['onset'] - changed_note.loc[0]['onset']) <=
-                max_shift), "Note shifted outside of bounds when onset shifting."
-        assert new_note.loc[0]['pitch'] == changed_note.loc[0]['pitch'], ("Pitch changed when"
-                                                                          " onset shifting.")
-        assert new_note.loc[0]['track'] == changed_note.loc[0]['track'], ("Track changed when"
-                                                                          " onset shifting.")
-        assert (changed_note.loc[0]['onset'] + changed_note.loc[0]['dur'] ==
-                new_note.loc[0]['onset'] + new_note.loc[0]['dur']), ("Duration changed when "
-                                                                     "onset shifting.")
+        check_onset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
+                                 max_duration)
         
         # Duration is shortest half of shift
         min_duration = 0
         max_duration = 100 - min_shift - 5
         comp2 = deg.onset_shift(comp, min_shift=min_shift, max_shift=max_shift,
                                 min_duration=min_duration, max_duration=max_duration)
-        
-        diff = pd.concat([comp2.note_df, BASIC_DF]).drop_duplicates(keep=False)
-        new_note = pd.merge(diff, comp2.note_df).reset_index()
-        changed_note = pd.merge(diff, BASIC_DF).reset_index()
-        unchanged_notes = pd.merge(comp2.note_df, BASIC_DF).reset_index()
-        
-        assert unchanged_notes.shape[0] == BASIC_DF.shape[0] - 1, ("More or less than 1 note"
-                                                                   " changed when shifting"
-                                                                   " onset.")
-        assert changed_note.shape[0] == 1, "More than 1 note changed when shifting onset."
-        assert new_note.shape[0] == 1, "More than 1 new note added when shifting onset."
-        assert min_duration <= new_note.loc[0]['dur'] <= max_duration, ("Note duration not"
-                                                                        " within bounds "
-                                                                        "when onset shifting.")
-        assert (min_shift <=
-                abs(new_note.loc[0]['onset'] - changed_note.loc[0]['onset']) <=
-                max_shift), "Note shifted outside of bounds when onset shifting."
-        assert new_note.loc[0]['pitch'] == changed_note.loc[0]['pitch'], ("Pitch changed when"
-                                                                          " onset shifting.")
-        assert new_note.loc[0]['track'] == changed_note.loc[0]['track'], ("Track changed when"
-                                                                          " onset shifting.")
-        assert (changed_note.loc[0]['onset'] + changed_note.loc[0]['dur'] ==
-                new_note.loc[0]['onset'] + new_note.loc[0]['dur']), ("Duration changed when "
-                                                                     "onset shifting.")
+        check_onset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
+                                 max_duration)
         
         # Duration is longest half of shift
         min_duration = 100 + min_shift + 5
         max_duration = np.inf
         comp2 = deg.onset_shift(comp, min_shift=min_shift, max_shift=max_shift,
                                 min_duration=min_duration, max_duration=max_duration)
-        
-        diff = pd.concat([comp2.note_df, BASIC_DF]).drop_duplicates(keep=False)
-        new_note = pd.merge(diff, comp2.note_df).reset_index()
-        changed_note = pd.merge(diff, BASIC_DF).reset_index()
-        unchanged_notes = pd.merge(comp2.note_df, BASIC_DF).reset_index()
-        
-        assert unchanged_notes.shape[0] == BASIC_DF.shape[0] - 1, ("More or less than 1 note"
-                                                                   " changed when shifting"
-                                                                   " onset.")
-        assert changed_note.shape[0] == 1, "More than 1 note changed when shifting onset."
-        assert new_note.shape[0] == 1, "More than 1 new note added when shifting onset."
-        assert min_duration <= new_note.loc[0]['dur'] <= max_duration, ("Note duration not"
-                                                                        " within bounds "
-                                                                        "when onset shifting.")
-        assert (min_shift <=
-                abs(new_note.loc[0]['onset'] - changed_note.loc[0]['onset']) <=
-                max_shift), "Note shifted outside of bounds when onset shifting."
-        assert (min_shift <=
-                abs(new_note.loc[0]['onset'] - changed_note.loc[0]['onset']) <=
-                max_shift), "Note shifted outside of bounds when onset shifting."
-        assert new_note.loc[0]['pitch'] == changed_note.loc[0]['pitch'], ("Pitch changed when"
-                                                                          " onset shifting.")
-        assert new_note.loc[0]['track'] == changed_note.loc[0]['track'], ("Track changed when"
-                                                                          " onset shifting.")
-        assert (changed_note.loc[0]['onset'] + changed_note.loc[0]['dur'] ==
-                new_note.loc[0]['onset'] + new_note.loc[0]['dur']), ("Duration changed when "
-                                                                     "onset shifting.")
+        check_onset_shift_result(comp, comp2, min_shift, max_shift, min_duration,
+                                 max_duration)
 
 
 
