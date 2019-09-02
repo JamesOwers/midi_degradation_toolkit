@@ -1,10 +1,8 @@
 """Code to perform the degradations i.e. edits to the midi data"""
-import numpy as np
-import warnings
 import sys
-from numpy.random import randint, uniform, choice
-
-from mdtk.data_structures import Composition
+import warnings
+import numpy as np
+from numpy.random import randint, choice
 
 
 
@@ -63,7 +61,7 @@ def split_range_sample(split_range, p=None):
     -------
     samp : int
         An integer sampled from the given split range.
-    """    
+    """
     if p is not None:
         p = p / np.sum(p)
     else:
@@ -142,7 +140,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                                             .between(min_to_sample,
                                                      max_to_sample)].tolist()
         
-        if len(valid_notes) == 0:
+        if not valid_notes:
             warnings.warn('WARNING: No valid pitches to shift given '
                           f'min_pitch {min_pitch}, max_pitch {max_pitch}, '
                           f'and distribution {distribution} (after setting'
@@ -231,7 +229,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_earlier_onset < latest_earlier_onset or
-            earliest_later_onset < latest_later_onset):
+                earliest_later_onset < latest_later_onset):
             valid_notes.append((note_index,
                                 onset,
                                 earliest_earlier_onset,
@@ -239,7 +237,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
                                 earliest_later_onset,
                                 latest_later_onset))
             
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to time shift. Returning ' +
                       'None.', category=UserWarning)
         return None
@@ -263,7 +261,6 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     
     return degraded
 
-    
 
 
 @set_random_seed
@@ -332,7 +329,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_lengthened_onset < latest_lengthened_onset or
-            earliest_shortened_onset < latest_shortened_onset):
+                earliest_shortened_onset < latest_shortened_onset):
             valid_notes.append((note_index,
                                 onset,
                                 offset,
@@ -341,7 +338,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                                 earliest_shortened_onset,
                                 latest_shortened_onset))
             
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to onset shift. Returning ' +
                       'None.', category=UserWarning)
         return None
@@ -371,7 +368,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 @set_random_seed
 def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                max_duration=np.inf):
+                 max_duration=np.inf):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -437,7 +434,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (shortest_lengthened_dur < longest_lengthened_dur or
-            shortest_shortened_dur < longest_shortened_dur):
+                shortest_shortened_dur < longest_shortened_dur):
             valid_notes.append((note_index,
                                 duration,
                                 longest_lengthened_dur,
@@ -445,7 +442,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                                 longest_shortened_dur,
                                 shortest_shortened_dur))
             
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to offset shift. Returning ' +
                       'None.', category=UserWarning)
         return None
@@ -561,7 +558,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     # Track is random one of existing tracks
     try:
         track = choice(degraded.note_df['track'].unique())
-    except:
+    except KeyError:
         track = 0
 
     degraded.note_df = degraded.note_df.append({'pitch': pitch,
@@ -611,10 +608,10 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     # Use indices because saving the df.loc objects creates copies
     for note_index in range(excerpt.note_df.shape[0]):
         if (excerpt.note_df.loc[note_index]['dur'] >=
-            (min_duration * (num_splits + 1))):
+                (min_duration * (num_splits + 1))):
             valid_notes.append(note_index)
     
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to split. Returning ' +
                       'None.', category=UserWarning)
         return None
@@ -637,12 +634,15 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     for i in range(num_splits):
         this_onset = next_onset
         next_onset += short_duration_float
-        degraded.note_df = degraded.note_df.append({
-            'pitch': pitch,
-            'onset': int(round(this_onset)),
-            'dur': int(round(next_onset)) - int(round(this_onset)),
-            'track': track},
-            ignore_index=True)
+        degraded.note_df = degraded.note_df.append(
+            {
+                'pitch': pitch,
+                'onset': int(round(this_onset)),
+                'dur': int(round(next_onset)) - int(round(this_onset)),
+                'track': track
+            },
+            ignore_index=True
+        )
     
     return degraded
 
@@ -687,10 +687,10 @@ def join_notes(excerpt, max_gap=50):
                 
                 # Check if gap is small enough
                 if (prev_n['onset'] + prev_n['dur'] + max_gap >=
-                    next_n['onset']):
+                        next_n['onset']):
                     valid_notes.append((prev_i, prev_n, next_i, next_n))
                     
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to join. Returning ' +
                       'None.', category=UserWarning)
         return None
