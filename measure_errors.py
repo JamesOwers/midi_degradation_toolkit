@@ -29,7 +29,20 @@ def get_proportions(gt, trans):
         The rough proportion of each degradation present in the transcription,
         in the order given by mdtk.degradations.get_degradations().
     """
+    proportions = np.zeros(len(degradations.get_degradations()))
+    gt = pretty_midi.PrettyMIDI(gt)
+    midi = pretty_midi.PrettyMIDI(trans)
+    
+    # Match notes
+    
+    
+    # Measure error for each matched note
+    
+    
+    # Divide number of errors by length of piece
+    
     pass
+
 
 
 def parse_args(args_input=None):
