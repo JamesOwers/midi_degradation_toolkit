@@ -5,7 +5,31 @@ import argparse
 import glob
 import os
 
+import pretty_midi
+
 from mdtk import degradations
+
+
+def get_proportions(gt, trans):
+    """
+    Get the proportions of each degradation given a ground truth file and its
+    transcription.
+    
+    Parameters
+    ----------
+    gt : string
+        The filename of a ground truth musical score.
+        
+    trans : string
+        The filename of a transciption of the given ground truth.
+        
+    Returns
+    -------
+    proportions : list(float)
+        The rough proportion of each degradation present in the transcription,
+        in the order given by mdtk.degradations.get_degradations().
+    """
+    pass
 
 
 def parse_args(args_input=None):
