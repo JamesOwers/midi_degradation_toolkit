@@ -559,7 +559,9 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     # Track is random one of existing tracks
     try:
         track = choice(degraded.note_df['track'].unique())
-    except KeyError:
+    except KeyError:  # No track col in df
+        track = 0
+    except ValueError:  # Empty dataframe
         track = 0
 
     degraded.note_df = degraded.note_df.append({'pitch': pitch,
