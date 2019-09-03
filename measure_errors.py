@@ -9,7 +9,7 @@ import pickle
 
 import pretty_midi
 
-from mdtk import degradations, midi
+from mdtk import degradations, midi, data_structures
 
 FILE_TYPES = ['mid', 'pkl', 'csv']
 
@@ -34,9 +34,7 @@ def load_file(filename):
         return midi.mid_to_df(filename)
     
     if ext == 'csv':
-        df = pd.read_from_csv(filename)
-        # TODO ensure column structure, etc.
-        return df
+        return data_structures.read_note_csv(filename)
     
     if ext == 'pkl':
         with open(filename, 'rb') as file:
