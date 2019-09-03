@@ -38,11 +38,12 @@ def test_pitch_shift():
                                   'pitch': [10, 107, 30, 40],
                                   'dur': [100, 100, 100, 100]})
         
-        assert (comp2.note_df == basic_res).all().all(), (f"Pitch shifting \n{BASIC_DF}\n"
-                                                          f"resulted in \n{comp2.note_df}\n"
-                                                          f"instead of \n{basic_res}")
+        assert comp2.note_df.equals(basic_res), (
+            f"Pitch shifting \n{BASIC_DF}\n resulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
         
-        changed = comp != comp2 and BASIC_DF is not comp2.note_df
+        changed = (comp != comp2) and (not BASIC_DF.equals(comp2.note_df))
         assert changed, "Composition or note_df was not cloned."
         
     
@@ -88,9 +89,12 @@ def test_pitch_shift():
                                       f"length 50 list of 0's with 1 at index {sample}.")
         
     # Check for distribution warnings
-    with pytest.warns(UserWarning, match=re.escape('WARNING: distribution contains only '
-                                                   '0s after setting middle value to 0. '
-                                                   'Returning None.')):
+    with pytest.warns(
+                UserWarning,
+                match=re.escape('WARNING: distribution contains only 0s after '
+                                'setting distribution[zero_idx] value to 0. '
+                                'Returning None.')
+            ):
         comp2 = deg.pitch_shift(comp, distribution=[0, 1, 0])
         assert comp2 == None, "Pitch shifting with distribution of 0s returned something."
         
