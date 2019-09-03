@@ -130,10 +130,6 @@ def test_midi_to_csv():
                                'dur': int(round(note.end * 1000) -
                                           round(note.start * 1000))})
             
-            print(type(note.start))
-            
-    print(midi_notes)
-            
     # Check that notes were written correctly
     with open(csv_path, 'r') as file:
         for i, line in enumerate(file):
@@ -150,6 +146,13 @@ def test_midi_to_csv():
     # Test that all MIDI notes were in the df
     assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
                                   f"not found in the DataFrame: {midi_notes}")
+    
+    # Check writing without any directory
+    midi.midi_to_csv(TEST_MID, 'test.csv')
+    try:
+        os.remove('test.csv')
+    except:
+        pass
     
     
 def test_midi_dir_to_csv():
