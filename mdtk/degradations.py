@@ -117,9 +117,14 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     # Assume all notes can be shifted initially
     valid_notes = list(range(excerpt.note_df.shape[0]))
     
-    # If distribution is being used, check which notes are valid with
-    # distribution and the given pitch range.
+    # If distribution is being used, some notes may not be possible to pitch
+    # shift. This is because the distribution supplied would only allow them
+    # to be shifted outside of the supplied (min, max) pitch range. For example
+    # A distribution [0, 0, 1] always shifts up one semitone; a note with
+    # pitch equal to max_pitch can't be shifted with this distribution.
     if distribution is not None:
+        assert all([dd >= 0 for dd in distribution]), ('A value in supplied '
+                       'distribution is negative.')
         zero_idx = len(distribution) // 2
         distribution[zero_idx] = 0
         
@@ -129,13 +134,16 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                           'Returning None.')
             return None
         
-        nonzero = list(np.where(np.array(distribution) > 0, 1, 0))
+        nonzero_indices = np.nonzero(distribution)[0]
         
-        lowest_index = nonzero.index(1)
-        highest_index = len(nonzero) - 1 - nonzero[-1::-1].index(1)
+        lowest_idx = nonzero_indices[0]
+        highest_idx = nonzero_indices[-1]
         
-        max_to_sample = max_pitch + (zero_idx - lowest_index)
-        min_to_sample = min_pitch - (highest_index - zero_idx)
+        min_pitch_shift = zero_idx - lowest_idx
+        max_pitch_shift = highest_idx - zero_idx
+        
+        max_to_sample = max_pitch + min_pitch_shift
+        min_to_sample = min_pitch - max_pitch_shift
         
         valid_notes = excerpt.note_df.index[excerpt.note_df['pitch']
                                             .between(min_to_sample,
