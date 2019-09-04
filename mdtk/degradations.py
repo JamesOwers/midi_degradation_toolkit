@@ -488,7 +488,7 @@ def remove_note(excerpt):
     degraded = excerpt.copy()
 
     # Sample a random note
-    note_index = randint(0, degraded.note_df.shape[0])
+    note_index = choice(list(degraded.note_df.index))
 
     # Remove that note
     degraded.note_df.drop(note_index, inplace=True)
