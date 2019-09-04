@@ -76,7 +76,7 @@ def split_range_sample(split_range, p=None):
 
 @set_random_seed
 def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
-                distribution=None):
+                distribution=None, inplace=False):
     """
     Shift the pitch of one note from the given excerpt.
 
@@ -98,6 +98,10 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         range [min_pitch, max_pitch] will also be set to 0. The distribution
         will then be normalized to sum to 1, and used to generate a new
         pitch. Defaults to None, which implies a uniform distribution.
+        
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -107,7 +111,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with the pitch of one note changed.
+        A degradation of the excerpt, with the pitch of one note changed.
     """
     if excerpt.note_df.shape[0] == 0:
         warnings.warn('WARNING: No notes to pitch shift. Returning None.',
@@ -156,7 +160,10 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                           'distribution[zero_idx] to 0). Returning None.')
             return None
         
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
 
     # Sample a random note
     note_index = valid_notes[randint(len(valid_notes))]
@@ -184,7 +191,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-def time_shift(excerpt, min_shift=50, max_shift=np.inf):
+def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
     """
     Shift the onset and offset times of one note from the given excerpt,
     leaving its duration unchanged.
@@ -200,6 +207,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     max_shift : int
         The maximum amount by which the note will be shifted. Defaults to
         infinity.
+        
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -209,7 +220,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with the timing of one note changed,
+        A degradation of the excerpt, with the timing of one note changed,
         or None if there are no notes that can be changed given the
         parameters.
     """
@@ -248,7 +259,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     
     onset = split_range_sample([(eeo, leo), (elo, llo)])
     
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
     
     degraded.note_df.loc[index, 'onset'] = onset
     
@@ -258,7 +272,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
 
 @set_random_seed
 def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                max_duration=np.inf):
+                max_duration=np.inf, inplace=False):
     """
     Shift the onset time of one note from the given excerpt.
 
@@ -282,6 +296,10 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         The maximum duration for the resulting note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
+        
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -290,7 +308,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with the onset time of one note changed.
+        A degradation of the excerpt, with the onset time of one note changed.
     """
     min_shift = max(min_shift, 1)
     min_duration -= 1
@@ -331,7 +349,10 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     
     onset = split_range_sample([(elo, llo), (eso, lso)])
     
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
     
     degraded.note_df.loc[index, 'onset'] = onset
     degraded.note_df.loc[index, 'dur'] = offset[index] - onset
@@ -342,7 +363,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 @set_random_seed
 def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                 max_duration=np.inf):
+                 max_duration=np.inf, inplace=False):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -366,6 +387,10 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         The maximum duration for the resulting note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
+        
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -375,7 +400,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with the offset time of one note changed.
+        A degradation of the excerpt, with the offset time of one note changed.
     """
     min_shift = max(min_shift, 1)
     max_duration += 1
@@ -415,7 +440,10 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     
     duration = split_range_sample([(ssd, lsd), (sld, lld)])
         
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
     
     degraded.note_df.loc[index, 'dur'] = duration
     
@@ -424,7 +452,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
-def remove_note(excerpt):
+def remove_note(excerpt, inplace=False):
     """
     Remove one note from the given excerpt.
 
@@ -432,6 +460,10 @@ def remove_note(excerpt):
     ----------
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
+        
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -441,14 +473,17 @@ def remove_note(excerpt):
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with one note removed.
+        A degradation of the excerpt, with one note removed.
     """
     if excerpt.note_df.shape[0] == 0:
         warnings.warn('WARNING: No notes to remove. Returning None.',
                       category=UserWarning)
         return None
         
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
 
     # Sample a random note
     note_index = choice(list(degraded.note_df.index))
@@ -463,7 +498,7 @@ def remove_note(excerpt):
 
 @set_random_seed
 def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
-             min_duration=50, max_duration=np.inf):
+             min_duration=50, max_duration=np.inf, inplace=False):
     """
     Add one note to the given excerpt.
 
@@ -481,6 +516,9 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         The maximum duration for the added note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
         leaves numpy's random state unchanged.
@@ -489,9 +527,12 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with one note added.
+        A degradation of the excerpt, with one note added.
     """
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
 
     end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
 
@@ -528,7 +569,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-def split_note(excerpt, min_duration=50, num_splits=1):
+def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
     """
     Split one note from the excerpt into two or more notes of equal
     duration.
@@ -545,6 +586,10 @@ def split_note(excerpt, min_duration=50, num_splits=1):
         The number of splits to make in the chosen note. The note will
         be split into (num_splits+1) shorter notes.
         
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
+        
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
         leaves numpy's random state unchanged.
@@ -552,7 +597,7 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with one note split.
+        A degradation of the excerpt, with one note split.
     """
     if excerpt.note_df.shape[0] == 0:
         warnings.warn('WARNING: No notes to split. Returning None.',
@@ -570,7 +615,10 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     
     note_index = choice(valid_notes)
     
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
     
     short_duration_float = (degraded.note_df.loc[note_index, 'dur'] /
                             (num_splits + 1))
@@ -601,7 +649,7 @@ def split_note(excerpt, min_duration=50, num_splits=1):
 
 
 @set_random_seed
-def join_notes(excerpt, max_gap=50):
+def join_notes(excerpt, max_gap=50, inplace=False):
     """
     Combine two notes of the same pitch and track into one.
     
@@ -614,6 +662,10 @@ def join_notes(excerpt, max_gap=50):
         The maximum gap length, in ms, for 2 notes to be able to be joined.
         (They must always share the same pitch and track).
         
+    inplace : boolean
+        True to edit the given DataFrame in place. False to create a copy.
+        The result is returned either way.
+        
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
         leaves numpy's random state unchanged.
@@ -621,7 +673,7 @@ def join_notes(excerpt, max_gap=50):
     Returns
     -------
     degraded : Composition
-        A copy of the given excerpt, with one note split.
+        A degradation of the excerpt, with one note split.
     """
     if excerpt.note_df.shape[0] < 2:
         warnings.warn('WARNING: No notes to join. Returning None.',
@@ -657,7 +709,10 @@ def join_notes(excerpt, max_gap=50):
     prev_i = valid_prev[index]
     next_i = valid_next[index]
     
-    degraded = excerpt.copy()
+    if inplace:
+        degraded = excerpt
+    else:
+        degraded = excerpt.copy()
     
     # Extend first note
     degraded.note_df.loc[prev_i]['dur'] = (degraded.note_df.loc[next_i]['onset'] +
