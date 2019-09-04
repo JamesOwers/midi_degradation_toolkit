@@ -84,7 +84,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     Parameters
     ----------
     excerpt : pd.DataFrame
-        An excerpt from a piece of music.
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place if the degradation is possible.
 
     min_pitch : int
         The minimum pitch to which a note may be shifted.
@@ -101,8 +102,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         pitch. Defaults to None, which implies a uniform distribution.
         
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -201,7 +202,8 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
     Parameters
     ----------
     excerpt : pd.DataFrame
-        A Composition object of an excerpt from a piece of music.
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place if the degradation is possible.
 
     min_shift : int
         The minimum amount by which the note will be shifted. Defaults to 50.
@@ -211,8 +213,8 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
         infinity.
         
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -281,8 +283,9 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     Parameters
     ----------
-    excerpt : Composition
-        A Composition object of an excerpt from a piece of music.
+    excerpt : df.DataFrame
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place if the degradation is possible.
         
     min_shift : int
         The minimum amount by which the onset time will be changed. Defaults
@@ -301,8 +304,8 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         in the excerpt.)
         
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -310,8 +313,9 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     Returns
     -------
-    degraded : Composition
-        A degradation of the excerpt, with the onset time of one note changed.
+    degraded : df.DataFrame
+        A degradation of the excerpt, with the onset time of one note changed,
+        or None if inplace=True or no notes can be onset shifted.
     """
     min_shift = max(min_shift, 1)
     min_duration -= 1
@@ -373,8 +377,9 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     Parameters
     ----------
-    excerpt : Composition
-        A Composition object of an excerpt from a piece of music.
+    excerpt : df.DataFrame
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place if the degradation is possible.
         
     min_shift : int
         The minimum amount by which the offset time will be changed. Defaults
@@ -393,8 +398,8 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         in the excerpt.)
         
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -403,8 +408,9 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     Returns
     -------
-    degraded : Composition
-        A degradation of the excerpt, with the offset time of one note changed.
+    degraded : df.DataFrame
+        A degradation of the excerpt, with the offset time of one note changed,
+        or None if inplace=True or no notes can be offset shifted.
     """
     min_shift = max(min_shift, 1)
     max_duration += 1
@@ -463,22 +469,23 @@ def remove_note(excerpt, inplace=False):
 
     Parameters
     ----------
-    excerpt : Composition
-        A Composition object of an excerpt from a piece of music.
+    excerpt : df.DataFrame
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place if the degradation is possible.
         
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
         leaves numpy's random state unchanged.
 
-
     Returns
     -------
-    degraded : Composition
-        A degradation of the excerpt, with one note removed.
+    degraded : df.DataFrame
+        A degradation of the excerpt, with one note removed, or None if
+        inplace=True or no notes are in the excerpt.
     """
     if excerpt.shape[0] == 0:
         warnings.warn('WARNING: No notes to remove. Returning None.',
@@ -510,8 +517,9 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     Parameters
     ----------
-    excerpt : Composition
-        A Composition object of an excerpt from a piece of music.
+    excerpt : df.DataFrame
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place.
     min_pitch : int
         The minimum pitch at which a note may be added.
     max_pitch : int
@@ -523,8 +531,9 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         (The offset time will never go beyond the current last offset
         in the excerpt.)
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy. Note that inplace=True will potentially make this method
+        less efficient.
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
         leaves numpy's random state unchanged.
@@ -532,8 +541,9 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     Returns
     -------
-    degraded : Composition
-        A degradation of the excerpt, with one note added.
+    degraded : df.DataFrame
+        A degradation of the excerpt, with one note added, or None if
+        inplace=True.
     """
     end_time = excerpt[['onset', 'dur']].sum(axis=1).max()
 
@@ -567,16 +577,16 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         else:
             index = 0
         degraded.loc[index] = {'pitch': pitch,
-                                       'onset': onset,
-                                       'dur': duration,
-                                       'track': track}
+                               'onset': onset,
+                               'dur': duration,
+                               'track': track}
     else:
         degraded = excerpt.copy()
         degraded = degraded.append({'pitch': pitch,
-                                                    'onset': onset,
-                                                    'dur': duration,
-                                                    'track': track},
-                                                   ignore_index=True)
+                                    'onset': onset,
+                                    'dur': duration,
+                                    'track': track},
+                                   ignore_index=True)
         
     if not inplace:
         return degraded
@@ -591,8 +601,9 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
     
     Parameters
     ----------
-    excerpt : Composition
-        A Composition object of an excerpt from a piece of music.
+    excerpt : df.DataFrame
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place if the degradation is possible.
         
     min_duration : int
         The minimum length for any of the resulting notes.
@@ -602,8 +613,9 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
         be split into (num_splits+1) shorter notes.
         
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy. Note that inplace=True will potentially make this method
+        less efficient because rows must be appended to the data frame.
         
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -611,8 +623,9 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
         
     Returns
     -------
-    degraded : Composition
-        A degradation of the excerpt, with one note split.
+    degraded : df.DataFrame
+        A degradation of the excerpt, with one note split, or None if
+        inplace=True or no notes can be split.
     """
     if excerpt.shape[0] == 0:
         warnings.warn('WARNING: No notes to split. Returning None.',
@@ -658,9 +671,9 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
         
         for note_idx, df_idx in enumerate(range(start, start + num_splits)):
             degraded.loc[df_idx] = {'onset': onsets[note_idx],
-                                            'track': tracks[note_idx],
-                                            'pitch': pitches[note_idx],
-                                            'dur': durs[note_idx]}
+                                    'track': tracks[note_idx],
+                                    'pitch': pitches[note_idx],
+                                    'dur': durs[note_idx]}
     else:
         degraded = excerpt.copy()
         new_df = pd.DataFrame({'onset': onsets,
@@ -684,16 +697,17 @@ def join_notes(excerpt, max_gap=50, inplace=False):
     
     Parameters
     ----------
-    excerpt : Composition
-        A Composition object of an excerpt from a piece of music.
+    excerpt : df.DataFrame
+        An excerpt from a piece of music. If inplace=True, this object
+        will be changed in place if the degradation is possible.
         
     max_gap : int
         The maximum gap length, in ms, for 2 notes to be able to be joined.
         (They must always share the same pitch and track).
         
     inplace : boolean
-        True to edit the given DataFrame in place. False to create a copy.
-        The result is returned either way.
+        True to edit the given excerpt in place. False to create and return
+        a copy.
         
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -701,8 +715,9 @@ def join_notes(excerpt, max_gap=50, inplace=False):
         
     Returns
     -------
-    degraded : Composition
-        A degradation of the excerpt, with one note split.
+    degraded : df.DataFrame
+        A degradation of the excerpt, with one note split, or None
+        if inplace=True or no notes can be joined.
     """
     if excerpt.shape[0] < 2:
         warnings.warn('WARNING: No notes to join. Returning None.',
@@ -745,8 +760,8 @@ def join_notes(excerpt, max_gap=50, inplace=False):
     
     # Extend first note
     degraded.loc[prev_i]['dur'] = (degraded.loc[next_i]['onset'] +
-                                           degraded.loc[next_i]['dur'] -
-                                           degraded.loc[prev_i]['onset'])
+                                   degraded.loc[next_i]['dur'] -
+                                   degraded.loc[prev_i]['onset'])
     
     # Drop 2nd note
     degraded.drop(next_i, inplace=True)
