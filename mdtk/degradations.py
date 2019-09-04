@@ -291,44 +291,28 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     degraded : Composition
         A copy of the given excerpt, with the onset time of one note changed.
     """
-    # Find all editable notes
-    valid_notes = []
+    onset = excerpt.note_df['onset']
+    offset = onset + excerpt.note_df['dur']
     
-    # Use indices because saving the df.loc objects creates copies
-    for note_index in range(excerpt.note_df.shape[0]):
-        onset = excerpt.note_df.loc[note_index, 'onset']
-        offset = onset + excerpt.note_df.loc[note_index, 'dur']
-        
-        # Lengthen bounds (decrease onset)
-        earliest_lengthened_onset = max(offset - max_duration,
-                                        onset - max_shift,
-                                        0)
-        latest_lengthened_onset = min(onset - min_shift,
-                                      offset - min_duration,
-                                      onset - 1) + 1
-        latest_lengthened_onset = max(latest_lengthened_onset,
-                                      earliest_lengthened_onset)
-        
-        # Shorten bounds (increase onset)
-        latest_shortened_onset = min(offset - min_duration,
-                                     onset + max_shift)
-        earliest_shortened_onset = max(onset + min_shift,
-                                       offset - max_duration,
-                                       onset + 1)
-        latest_shortened_onset += 1
-        earliest_shortened_onset = min(earliest_shortened_onset,
-                                       latest_shortened_onset)
-        
-        # Check that sampled note is valid (can be lengthened or shortened)
-        if (earliest_lengthened_onset < latest_lengthened_onset or
-                earliest_shortened_onset < latest_shortened_onset):
-            valid_notes.append((note_index,
-                                onset,
-                                offset,
-                                earliest_lengthened_onset,
-                                latest_lengthened_onset,
-                                earliest_shortened_onset,
-                                latest_shortened_onset))
+    # Lengthen bounds (decrease onset)
+    earliest_lengthened_onset = ((offset - max_duration)
+                                     .clip(lower=onset - max_shift)
+                                     .clip(lower=0))
+    latest_lengthened_onset = ((((onset - max(min_shift, 1))
+                                     .clip(upper=offset - min_duration)) + 1)
+                               .clip(lower=earliest_lengthened_onset))
+    
+    # Shorten bounds (increase onset)
+    latest_shortened_onset = ((offset - min_duration)
+                                  .clip(upper=onset + max_shift)) + 1
+    earliest_shortened_onset = ((onset + max(min_shift, 1))
+                                    .clip(lower=offset - max_duration,
+                                          upper=latest_shortened_onset))
+    
+    # Find valid notes
+    valid = ((earliest_lengthened_onset < latest_lengthened_onset) |
+                (earliest_shortened_onset < latest_shortened_onset))
+    valid_notes = list(valid.index[valid])
             
     if not valid_notes:
         warnings.warn('WARNING: No valid notes to onset shift. Returning ' +
@@ -336,23 +320,16 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         return None
     
     # Sample a random note
-    (note_index,
-     onset,
-     offset,
-     earliest_lengthened_onset,
-     latest_lengthened_onset,
-     earliest_shortened_onset,
-     latest_shortened_onset) = valid_notes[randint(len(valid_notes))]
-    
-    onset = split_range_sample([(earliest_lengthened_onset,
-                                 latest_lengthened_onset),
-                                (earliest_shortened_onset,
-                                 latest_shortened_onset)])
+    index = choice(valid_notes)
+    onset = split_range_sample([(earliest_lengthened_onset[index],
+                                 latest_lengthened_onset[index]),
+                                (earliest_shortened_onset[index],
+                                 latest_shortened_onset[index])])
     
     degraded = excerpt.copy()
     
-    degraded.note_df.loc[note_index, 'onset'] = onset
-    degraded.note_df.loc[note_index, 'dur'] = offset - onset
+    degraded.note_df.loc[index, 'onset'] = onset
+    degraded.note_df.loc[index, 'dur'] = offset[index] - onset
     
     return degraded
 
