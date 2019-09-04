@@ -213,22 +213,20 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         or None if there are no notes that can be changed given the
         parameters.
     """
+    min_shift = max(min_shift, 1)
+    
     onset = excerpt.note_df['onset']
     offset = onset + excerpt.note_df['dur']
     end_time = offset.max()
     
     # Shift earlier
     earliest_earlier_onset = (onset - (max_shift - 1)).clip(lower=0)
-    latest_earlier_onset = ((onset - (min_shift - 1))
-                                .clip(lower=earliest_earlier_onset,
-                                      upper=onset))
+    latest_earlier_onset = onset - (min_shift - 1)
     
     # Shift later
     latest_later_onset = onset + (((end_time + 1) - offset)
                                       .clip(upper=max_shift))
-    earliest_later_onset = ((onset + min_shift)
-                                .clip(lower=onset + 1,
-                                      upper=latest_later_onset))
+    earliest_later_onset = onset + min_shift
     
     # Find valid notes
     valid = ((earliest_earlier_onset < latest_earlier_onset) |
@@ -242,10 +240,13 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     
     # Sample a random note
     index = choice(valid_notes)
-    onset = split_range_sample([(earliest_earlier_onset[index],
-                                 latest_earlier_onset[index]),
-                                (earliest_later_onset[index],
-                                 latest_later_onset[index])])
+    
+    eeo = earliest_earlier_onset[index]
+    leo = max(latest_earlier_onset[index], eeo)
+    elo = earliest_later_onset[index]
+    llo = max(latest_later_onset[index], elo)
+    
+    onset = split_range_sample([(eeo, leo), (elo, llo)])
     
     degraded = excerpt.copy()
     
@@ -291,6 +292,9 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     degraded : Composition
         A copy of the given excerpt, with the onset time of one note changed.
     """
+    min_shift = max(min_shift, 1)
+    min_duration -= 1
+    
     onset = excerpt.note_df['onset']
     offset = onset + excerpt.note_df['dur']
     
@@ -298,16 +302,14 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     earliest_lengthened_onset = ((offset - max_duration)
                                      .clip(lower=onset - max_shift)
                                      .clip(lower=0))
-    latest_lengthened_onset = ((onset - max(min_shift - 1, 0))
-                                   .clip(upper=offset - (min_duration - 1),
-                                         lower=earliest_lengthened_onset))
+    latest_lengthened_onset = ((onset - (min_shift - 1))
+                                   .clip(upper=offset - min_duration))
     
     # Shorten bounds (increase onset)
-    latest_shortened_onset = ((offset - (min_duration - 1))
+    latest_shortened_onset = ((offset - min_duration)
                                   .clip(upper=onset + (max_shift + 1)))
-    earliest_shortened_onset = ((onset + max(min_shift, 1))
-                                    .clip(lower=offset - max_duration,
-                                          upper=latest_shortened_onset))
+    earliest_shortened_onset = ((onset + min_shift)
+                                    .clip(lower=offset - max_duration))
     
     # Find valid notes
     valid = ((earliest_lengthened_onset < latest_lengthened_onset) |
@@ -321,10 +323,13 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     
     # Sample a random note
     index = choice(valid_notes)
-    onset = split_range_sample([(earliest_lengthened_onset[index],
-                                 latest_lengthened_onset[index]),
-                                (earliest_shortened_onset[index],
-                                 latest_shortened_onset[index])])
+    
+    elo = earliest_lengthened_onset[index]
+    llo = max(latest_lengthened_onset[index], elo)
+    eso = earliest_shortened_onset[index]
+    lso = max(latest_shortened_onset[index], eso)
+    
+    onset = split_range_sample([(elo, llo), (eso, lso)])
     
     degraded = excerpt.copy()
     
@@ -372,24 +377,23 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     degraded : Composition
         A copy of the given excerpt, with the offset time of one note changed.
     """
+    min_shift = max(min_shift, 1)
+    max_duration += 1
+    
     onset = excerpt.note_df['onset']
     duration = excerpt.note_df['dur']
     end_time = (onset + duration).max()
 
     # Lengthen bounds (increase duration)
-    shortest_lengthened_dur = ((duration + max(min_shift, 1))
-                                   .clip(lower=min_duration))
+    shortest_lengthened_dur = (duration + min_shift).clip(lower=min_duration)
     longest_lengthened_dur = ((duration + (max_shift + 1))
                                   .clip(upper=(end_time + 1) - onset)
-                                  .clip(upper=max_duration + 1)
-                                  .clip(lower=shortest_lengthened_dur))
+                                  .clip(upper=max_duration))
     
     # Shorten bounds (decrease duration)
     shortest_shortened_dur = (duration - max_shift).clip(lower=min_duration)
     longest_shortened_dur = ((duration - (min_shift - 1))
-                                 .clip(upper=duration)
-                                 .clip(lower=shortest_shortened_dur,
-                                       upper=max_duration + 1))
+                                 .clip(upper=max_duration))
     
     # Find valid notes
     valid = ((shortest_lengthened_dur < longest_lengthened_dur) |
@@ -404,10 +408,12 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     # Sample a random note
     index = choice(valid_notes)
     
-    duration = split_range_sample([(shortest_shortened_dur[index],
-                                    longest_shortened_dur[index]),
-                                   (shortest_lengthened_dur[index],
-                                    longest_lengthened_dur[index])])
+    ssd = shortest_shortened_dur[index]
+    lsd = max(longest_shortened_dur[index], ssd)
+    sld = shortest_lengthened_dur[index]
+    lld = max(longest_lengthened_dur[index], sld)
+    
+    duration = split_range_sample([(ssd, lsd), (sld, lld)])
         
     degraded = excerpt.copy()
     
