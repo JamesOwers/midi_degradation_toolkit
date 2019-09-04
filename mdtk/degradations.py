@@ -665,35 +665,41 @@ def join_notes(excerpt, max_gap=50):
                       category=UserWarning)
         return None
     
-    valid_notes = []
+    valid_prev = []
+    valid_next = []
     
     for _, track_df in excerpt.note_df.groupby('track'):
         for _, pitch_df in track_df.groupby('pitch'):
-            notes = list(pitch_df.iterrows())
-            for prev_note, next_note in zip(notes[:-1], notes[1:]):
-                (prev_i, prev_n) = prev_note
-                (next_i, next_n) = next_note
+            if len(pitch_df) < 2:
+                continue
                 
-                # Check if gap is small enough
-                if (prev_n['onset'] + prev_n['dur'] + max_gap >=
-                        next_n['onset']):
-                    valid_notes.append((prev_i, prev_n, next_i, next_n))
+            # Get note gaps
+            onset = pitch_df['onset']
+            offset = onset + pitch_df['dur']
+            gap_after = onset.shift(-1) - offset
+            gap_after.iloc[-1] = np.inf
+            
+            # Save index of note before and after gap
+            valid = gap_after <= max_gap
+            valid_prev = list(valid.index[valid])
+            valid_next = list(valid.index[valid.shift(1)==True])
                     
-    if not valid_notes:
+    if not valid_prev:
         warnings.warn('WARNING: No valid notes to join. Returning ' +
                       'None.', category=UserWarning)
         return None
     
-    (prev_i,
-     prev_n,
-     next_i,
-     next_n) = valid_notes[randint(len(valid_notes))]
+    index = randint(len(valid_prev))
+    
+    prev_i = valid_prev[index]
+    next_i = valid_next[index]
     
     degraded = excerpt.copy()
     
     # Extend first note
-    degraded.note_df.loc[prev_i]['dur'] = (next_n['onset'] + next_n['dur'] -
-                                           prev_n['onset'])
+    degraded.note_df.loc[prev_i]['dur'] = (degraded.note_df.loc[next_i]['onset'] +
+                                           degraded.note_df.loc[next_i]['dur'] -
+                                           degraded.note_df.loc[prev_i]['onset'])
     
     # Drop 2nd note
     degraded.note_df.drop(next_i, inplace=True)
