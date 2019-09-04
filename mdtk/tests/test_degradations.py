@@ -31,6 +31,23 @@ def test_pitch_shift():
     
     # Deterministic testing
     for i in range(2):
+        comp2 = deg.pitch_shift(comp, seed=1, inplace=True)
+    
+        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
+                                  'track': [0, 1, 0, 1],
+                                  'pitch': [10, 107, 30, 40],
+                                  'dur': [100, 100, 100, 100]})
+        
+        assert comp2.note_df.equals(basic_res), (
+            f"Pitch shifting \n{BASIC_DF}\n resulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
+        
+        changed = (comp == comp2) and BASIC_DF.equals(comp2.note_df)
+        assert changed, "Composition or note_df was not cloned."
+    
+    # Deterministic testing
+    for i in range(2):
         comp2 = deg.pitch_shift(comp, seed=1)
     
         basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
