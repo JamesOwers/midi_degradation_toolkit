@@ -214,7 +214,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         parameters.
     """
     onset = excerpt.note_df['onset']
-    offset = excerpt.note_df[['onset', 'dur']].sum(axis=1)
+    offset = onset + excerpt.note_df['dur']
     end_time = offset.max()
     
     # Shift earlier
