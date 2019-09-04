@@ -218,16 +218,16 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     end_time = offset.max()
     
     # Shift earlier
-    earliest_earlier_onset = (onset - max_shift + 1).clip(lower=0)
-    latest_earlier_onset = ((onset - min_shift + 1)
+    earliest_earlier_onset = (onset - (max_shift - 1)).clip(lower=0)
+    latest_earlier_onset = ((onset - (min_shift - 1))
                                 .clip(lower=earliest_earlier_onset,
                                       upper=onset))
     
     # Shift later
-    latest_later_onset = onset + ((end_time - offset + 1)
+    latest_later_onset = onset + (((end_time + 1) - offset)
                                       .clip(upper=max_shift))
     earliest_later_onset = ((onset + min_shift)
-                                .clip(lower=onset+1,
+                                .clip(lower=onset + 1,
                                       upper=latest_later_onset))
     
     # Find valid notes
@@ -298,13 +298,13 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     earliest_lengthened_onset = ((offset - max_duration)
                                      .clip(lower=onset - max_shift)
                                      .clip(lower=0))
-    latest_lengthened_onset = ((((onset - max(min_shift, 1))
-                                     .clip(upper=offset - min_duration)) + 1)
-                               .clip(lower=earliest_lengthened_onset))
+    latest_lengthened_onset = ((onset - max(min_shift - 1, 0))
+                                   .clip(upper=offset - (min_duration - 1),
+                                         lower=earliest_lengthened_onset))
     
     # Shorten bounds (increase onset)
-    latest_shortened_onset = ((offset - min_duration)
-                                  .clip(upper=onset + max_shift)) + 1
+    latest_shortened_onset = ((offset - (min_duration - 1))
+                                  .clip(upper=onset + (max_shift + 1)))
     earliest_shortened_onset = ((onset + max(min_shift, 1))
                                     .clip(lower=offset - max_duration,
                                           upper=latest_shortened_onset))
