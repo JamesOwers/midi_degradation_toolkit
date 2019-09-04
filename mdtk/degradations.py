@@ -597,20 +597,15 @@ def split_note(excerpt, min_duration=50, num_splits=1):
         return None
     
     # Find all splitable notes
-    valid_notes = []
-    
-    # Use indices because saving the df.loc objects creates copies
-    for note_index in range(excerpt.note_df.shape[0]):
-        if (excerpt.note_df.loc[note_index]['dur'] >=
-                (min_duration * (num_splits + 1))):
-            valid_notes.append(note_index)
+    long_enough = excerpt.note_df['dur'] >= min_duration * (num_splits + 1)
+    valid_notes = list(long_enough.index[long_enough])
     
     if not valid_notes:
         warnings.warn('WARNING: No valid notes to split. Returning ' +
                       'None.', category=UserWarning)
         return None
     
-    note_index = valid_notes[randint(len(valid_notes))]
+    note_index = choice(valid_notes)
     
     degraded = excerpt.copy()
     
