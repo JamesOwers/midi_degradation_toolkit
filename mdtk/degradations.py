@@ -120,7 +120,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         return None
     
     # Assume all notes can be shifted initially
-    valid_notes = list(range(excerpt.note_df.shape[0]))
+    valid_notes = list(excerpt.note_df.index)
     
     # If distribution is being used, some notes may not be possible to pitch
     # shift. This is because the distribution supplied would only allow them
