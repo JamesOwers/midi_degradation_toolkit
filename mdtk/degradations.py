@@ -529,12 +529,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     degraded : Composition
         A degradation of the excerpt, with one note added.
     """
-    if inplace:
-        degraded = excerpt
-    else:
-        degraded = excerpt.copy()
-
-    end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
+    end_time = excerpt.note_df[['onset', 'dur']].sum(axis=1).max()
 
     pitch = randint(min_pitch, max_pitch + 1)
     track = None
@@ -542,28 +537,41 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     if min_duration > end_time:
         onset = 0
         duration = min_duration
-    elif degraded.note_df.shape[0] == 0:
+    elif excerpt.note_df.shape[0] == 0:
         onset = 0
         duration = randint(min_duration, min(max_duration + 1, sys.maxsize))
     else:
-        onset = randint(degraded.note_df['onset'].min(),
+        onset = randint(excerpt.note_df['onset'].min(),
                         end_time - min_duration)
         duration = randint(min_duration,
                            min(end_time - onset, max_duration + 1))
 
     # Track is random one of existing tracks
     try:
-        track = choice(degraded.note_df['track'].unique())
+        track = choice(excerpt.note_df['track'].unique())
     except KeyError:  # No track col in df
         track = 0
     except ValueError:  # Empty dataframe
         track = 0
 
-    degraded.note_df = degraded.note_df.append({'pitch': pitch,
-                                                'onset': onset,
-                                                'dur': duration,
-                                                'track': track},
-                                               ignore_index=True)
+    if inplace:
+        degraded = excerpt
+        if len(degraded.note_df) > 0:
+            index = max(degraded.note_df.index) + 1
+        else:
+            index = 0
+        degraded.note_df.loc[index] = {'pitch': pitch,
+                                       'onset': onset,
+                                       'dur': duration,
+                                       'track': track}
+    else:
+        degraded = excerpt.copy()
+        degraded.note_df = degraded.note_df.append({'pitch': pitch,
+                                                    'onset': onset,
+                                                    'dur': duration,
+                                                    'track': track},
+                                                   ignore_index=True)
+        
     return degraded
 
 
