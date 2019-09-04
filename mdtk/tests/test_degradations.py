@@ -29,7 +29,9 @@ def test_pitch_shift():
     # In place testing
     for i in range(2):
         copy = BASIC_DF.copy()
-        deg.pitch_shift(copy, seed=1, inplace=True)
+        res = deg.pitch_shift(copy, seed=1, inplace=True)
+        
+        assert res is None, "Pitch shift with inplace=True returned something."
     
         basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
                                   'track': [0, 1, 0, 1],
@@ -145,7 +147,9 @@ def test_time_shift():
     # In place testing
     for i in range(2):
         copy = BASIC_DF.copy()
-        deg.time_shift(copy, seed=1, inplace=True)
+        res = deg.time_shift(copy, seed=1, inplace=True)
+        
+        assert res is None, "Time shift with inplace=True returned something."
     
         basic_res = pd.DataFrame({'onset': [0, 158, 200, 200],
                                   'track': [0, 1, 0, 1],
@@ -246,6 +250,8 @@ def test_onset_shift():
     for i in range(2):
         copy = BASIC_DF.copy()
         res = deg.onset_shift(copy, seed=1, inplace=True)
+        
+        assert res is None, "Onset shift with inplace=True returned something."
     
         basic_res = pd.DataFrame({'onset': [0, 150, 200, 200],
                                   'track': [0, 1, 0, 1],
@@ -392,7 +398,9 @@ def test_offset_shift():
     # In place testing
     for i in range(2):
         copy = BASIC_DF.copy()
-        deg.offset_shift(copy, seed=1, inplace=True)
+        res = deg.offset_shift(copy, seed=1, inplace=True)
+        
+        assert res is None, "Offset shift with inplace=True returned something."
     
         basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
                                   'track': [0, 1, 0, 1],
@@ -512,7 +520,9 @@ def test_remove_note():
     # In place testing
     for i in range(2):
         copy = BASIC_DF.copy()
-        deg.remove_note(copy, seed=1, inplace=True)
+        res = deg.remove_note(copy, seed=1, inplace=True)
+        
+        assert res is None, "Removing note with inplace=True returned something."
     
         basic_res = pd.DataFrame({'onset': [0, 200, 200],
                                   'track': [0, 0, 1],
@@ -559,7 +569,9 @@ def test_add_note():
     # In place testing
     for i in range(2):
         copy = BASIC_DF.copy()
-        deg.add_note(copy, seed=1, inplace=True)
+        res = deg.add_note(copy, seed=1, inplace=True)
+        
+        assert res is None, "Adding note with inplace=True returned something."
     
         basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 235],
                                   'track': [0, 1, 0, 1, 0],
@@ -636,7 +648,9 @@ def test_split_note():
     # In place testing
     for i in range(2):
         copy = BASIC_DF.copy()
-        deg.split_note(copy, seed=1, inplace=True)
+        res = deg.split_note(copy, seed=1, inplace=True)
+        
+        assert res is None, "Splitting with inplace=True returned something."
     
         basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 150],
                                   'track': [0, 1, 0, 1, 1],
@@ -743,7 +757,9 @@ def test_join_notes():
     # In place testing
     for i in range(2):
         copy = join_df.copy()
-        deg.join_notes(copy, seed=1, inplace=True)
+        res = deg.join_notes(copy, seed=1, inplace=True)
+        
+        assert res is None, "Joining with inplace=True returned something."
         
         join_res = pd.DataFrame({
             'onset': [0, 100, 200],
