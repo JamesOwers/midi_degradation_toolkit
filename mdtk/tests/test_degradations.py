@@ -27,10 +27,11 @@ def test_pitch_shift():
         assert deg.pitch_shift(comp) == None, ("Pitch shifting with empty data "
                                                "frame did not return None.")
     
-    comp = ds.Composition(BASIC_DF)
-    
-    # Deterministic testing
+    # In place testing
     for i in range(2):
+        copy = BASIC_DF.copy()
+        comp = ds.Composition(copy)
+        
         comp2 = deg.pitch_shift(comp, seed=1, inplace=True)
     
         basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
@@ -43,8 +44,10 @@ def test_pitch_shift():
             f"instead of \n{basic_res}"
         )
         
-        changed = (comp == comp2) and BASIC_DF.equals(comp2.note_df)
-        assert changed, "Composition or note_df was not cloned."
+        inplace = (comp == comp2) and (copy.equals(comp2.note_df))
+        assert inplace, "Excerpt was not changed in place."
+    
+    comp = ds.Composition(BASIC_DF)
     
     # Deterministic testing
     for i in range(2):
@@ -149,6 +152,26 @@ def test_time_shift():
         assert deg.time_shift(comp) == None, ("Time shifting with empty data "
                                               "frame did not return None.")
     
+    # In place testing
+    for i in range(2):
+        copy = BASIC_DF.copy()
+        comp = ds.Composition(copy)
+        
+        comp2 = deg.time_shift(comp, seed=1, inplace=True)
+    
+        basic_res = pd.DataFrame({'onset': [0, 158, 200, 200],
+                                  'track': [0, 1, 0, 1],
+                                  'pitch': [10, 20, 30, 40],
+                                  'dur': [100, 100, 100, 100]})
+        
+        assert comp2.note_df.equals(basic_res), (
+            f"Time shifting \n{BASIC_DF}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
+        
+        inplace = (comp == comp2) and (copy.equals(comp2.note_df))
+        assert inplace, "Excerpt was not changed in place."
+    
     comp = ds.Composition(BASIC_DF)
     
     # Deterministic testing
@@ -160,11 +183,12 @@ def test_time_shift():
                                   'pitch': [10, 20, 30, 40],
                                   'dur': [100, 100, 100, 100]})
         
-        assert (comp2.note_df == basic_res).all().all(), (f"Time shifting \n{BASIC_DF}\n"
-                                                          f"resulted in \n{comp2.note_df}\n"
-                                                          f"instead of \n{basic_res}")
+        assert comp2.note_df.equals(basic_res), (
+            f"Time shifting \n{BASIC_DF}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
         
-        changed = comp != comp2 and BASIC_DF is not comp2.note_df
+        changed = (comp != comp2) and (not BASIC_DF.equals(comp2.note_df))
         assert changed, "Composition or note_df was not cloned."
         
     # Truly random testing
@@ -237,6 +261,26 @@ def test_onset_shift():
         assert deg.onset_shift(comp) == None, ("Onset shifting with empty data "
                                                "frame did not return None.")
     
+    # In place testing
+    for i in range(2):
+        copy = BASIC_DF.copy()
+        comp = ds.Composition(copy)
+        
+        comp2 = deg.onset_shift(comp, seed=1, inplace=True)
+    
+        basic_res = pd.DataFrame({'onset': [0, 150, 200, 200],
+                                  'track': [0, 1, 0, 1],
+                                  'pitch': [10, 20, 30, 40],
+                                  'dur': [100, 50, 100, 100]})
+        
+        assert comp2.note_df.equals(basic_res), (
+            f"Onset shifting \n{BASIC_DF}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
+        
+        inplace = (comp == comp2) and copy.equals(comp2.note_df)
+        assert inplace, f"Excerpt was not changed in place."
+    
     comp = ds.Composition(BASIC_DF)
     
     # Deterministic testing
@@ -248,11 +292,12 @@ def test_onset_shift():
                                   'pitch': [10, 20, 30, 40],
                                   'dur': [100, 50, 100, 100]})
         
-        assert (comp2.note_df == basic_res).all().all(), (f"Onset shifting \n{BASIC_DF}\n"
-                                                          f"resulted in \n{comp2.note_df}\n"
-                                                          f"instead of \n{basic_res}")
+        assert comp2.note_df.equals(basic_res), (
+            f"Onset shifting \n{BASIC_DF}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
         
-        changed = comp != comp2 and BASIC_DF is not comp2.note_df
+        changed = (comp != comp2) and (not BASIC_DF.equals(comp2.note_df))
         assert changed, "Composition or note_df was not cloned."
         
     # Random testing
@@ -372,6 +417,26 @@ def test_offset_shift():
         assert deg.offset_shift(comp) == None, ("Offset shifting with empty data "
                                                 "frame did not return None.")
     
+    # In place testing
+    for i in range(2):
+        copy = BASIC_DF.copy()
+        comp = ds.Composition(copy)
+        
+        comp2 = deg.offset_shift(comp, seed=1, inplace=True)
+    
+        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
+                                  'track': [0, 1, 0, 1],
+                                  'pitch': [10, 20, 30, 40],
+                                  'dur': [100, 158, 100, 100]})
+        
+        assert comp2.note_df.equals(basic_res), (
+            f"Offset shifting \n{BASIC_DF}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
+        
+        inplace = comp == comp2 and copy.equals(comp2.note_df)
+        assert inplace, "Excerpt was not changed in place."
+    
     comp = ds.Composition(BASIC_DF)
     
     # Deterministic testing
@@ -383,11 +448,12 @@ def test_offset_shift():
                                   'pitch': [10, 20, 30, 40],
                                   'dur': [100, 158, 100, 100]})
         
-        assert (comp2.note_df == basic_res).all().all(), (f"Offset shifting \n{BASIC_DF}\n"
-                                                          f"resulted in \n{comp2.note_df}\n"
-                                                          f"instead of \n{basic_res}")
+        assert comp2.note_df.equals(basic_res), (
+            f"Offset shifting \n{BASIC_DF}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{basic_res}"
+        )
         
-        changed = comp != comp2 and BASIC_DF is not comp2.note_df
+        changed = (comp != comp2) and (not BASIC_DF.equals(comp2.note_df))
         assert changed, "Composition or note_df was not cloned."
         
     # Random testing
@@ -480,7 +546,27 @@ def test_remove_note():
                                                    "remove. Returning None.")):
         assert deg.remove_note(comp) == None, ("Remove note with empty data "
                                                "frame did not return None.")
+    
+    # In place testing
+    for i in range(2):
+        copy = BASIC_DF.copy()
+        comp = ds.Composition(copy)
         
+        comp2 = deg.remove_note(comp, seed=1, inplace=True)
+    
+        basic_res = pd.DataFrame({'onset': [0, 200, 200],
+                                  'track': [0, 0, 1],
+                                  'pitch': [10, 30, 40],
+                                  'dur': [100, 100, 100]})
+        
+        assert comp2.note_df.equals(basic_res), (
+            f"Removing note from \n{BASIC_DF}\n resulted in "
+            f"\n{comp2.note_df}\ninstead of \n{basic_res}"
+        )
+        
+        inplace = comp == comp2 and copy.equals(comp2.note_df)
+        assert inplace, "Excerpt was not changed in place."
+    
     comp = ds.Composition(BASIC_DF)
         
     # Deterministic testing
@@ -492,12 +578,12 @@ def test_remove_note():
                                   'pitch': [10, 30, 40],
                                   'dur': [100, 100, 100]})
         
-        assert (comp2.note_df == basic_res).all().all(), (f"Removing note from \n"
-                                                          f"{BASIC_DF}\n resulted"
-                                                          f" in \n{comp2.note_df}\n"
-                                                          f"instead of \n{basic_res}")
+        assert comp2.note_df.equals(basic_res), (
+            f"Removing note from \n{BASIC_DF}\n resulted in "
+            f"\n{comp2.note_df}\ninstead of \n{basic_res}"
+        )
         
-        changed = comp != comp2 and BASIC_DF is not comp2.note_df
+        changed = (comp != comp2) and (not BASIC_DF.equals(comp2.note_df))
         assert changed, "Composition or note_df was not cloned."
         
     # Random testing
@@ -517,6 +603,26 @@ def test_add_note():
     assert deg.add_note(comp) is not None, ("Add note to empty data "
                                             "frame returned None.")
     
+    # In place testing
+    for i in range(2):
+        copy = BASIC_DF.copy()
+        comp = ds.Composition(copy)
+        
+        comp2 = deg.add_note(comp, seed=1, inplace=True)
+    
+        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 235],
+                                  'track': [0, 1, 0, 1, 0],
+                                  'pitch': [10, 20, 30, 40, 37],
+                                  'dur': [100, 100, 100, 100, 62]})
+        
+        assert comp2.note_df.equals(basic_res), (
+            f"Adding note to \n{BASIC_DF}\n resulted in "
+            f"\n{comp2.note_df}\ninstead of \n{basic_res}"
+        )
+        
+        inplace = comp == comp2 and copy.equals(comp2.note_df)
+        assert inplace, f"Excerpt was not changed in place."
+    
     comp = ds.Composition(BASIC_DF)
     
     # Deterministic testing
@@ -528,10 +634,13 @@ def test_add_note():
                                   'pitch': [10, 20, 30, 40, 37],
                                   'dur': [100, 100, 100, 100, 62]})
         
-        assert (comp2.note_df == basic_res).all().all(), (f"Adding note to \n"
-                                                          f"{BASIC_DF}\n resulted"
-                                                          f" in \n{comp2.note_df}\n"
-                                                          f"instead of \n{basic_res}")
+        assert comp2.note_df.equals(basic_res), (
+            f"Adding note to \n{BASIC_DF}\n resulted in "
+            f"\n{comp2.note_df}\ninstead of \n{basic_res}"
+        )
+        
+        changed = (comp != comp2) and (not BASIC_DF.equals(comp2.note_df))
+        assert changed, "Composition or note_df was not cloned."
         
     # Random testing
     for i in range(10):
@@ -581,6 +690,26 @@ def test_split_note():
         assert deg.split_note(comp) == None, ("Split note with empty data "
                                               "frame did not return None.")
     
+    # In place testing
+    for i in range(2):
+        copy = BASIC_DF.copy()
+        comp = ds.Composition(copy)
+        
+        comp2 = deg.split_note(comp, seed=1, inplace=True)
+    
+        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 150],
+                                  'track': [0, 1, 0, 1, 1],
+                                  'pitch': [10, 20, 30, 40, 20],
+                                  'dur': [100, 50, 100, 100, 50]})
+        
+        assert comp2.note_df.equals(basic_res), (
+            f"Splitting note in \n{BASIC_DF}\n resulted in "
+            f"\n{comp2.note_df}\ninstead of \n{basic_res}"
+        )
+        
+        inplace = comp == comp2 and copy.equals(comp2.note_df)
+        assert inplace, "Excerpt was not changed in place."
+    
     comp = ds.Composition(BASIC_DF)
     
     # Deterministic testing
@@ -592,10 +721,13 @@ def test_split_note():
                                   'pitch': [10, 20, 30, 40, 20],
                                   'dur': [100, 50, 100, 100, 50]})
         
-        assert (comp2.note_df == basic_res).all().all(), (f"Splitting note in \n"
-                                                          f"{BASIC_DF}\n resulted"
-                                                          f" in \n{comp2.note_df}\n"
-                                                          f"instead of \n{basic_res}")
+        assert comp2.note_df.equals(basic_res), (
+            f"Splitting note in \n{BASIC_DF}\n resulted in "
+            f"\n{comp2.note_df}\ninstead of \n{basic_res}"
+        )
+        
+        changed = (comp != comp2) and (not BASIC_DF.equals(comp2.note_df))
+        assert changed, "Composition or note_df was not cloned."
         
     # Random testing
     for i in range(8):
@@ -674,6 +806,29 @@ def test_join_notes():
         'pitch': [10, 10, 10, 40],
         'dur': [100, 100, 100, 100]
     })
+    
+    # In place testing
+    for i in range(2):
+        copy = join_df.copy()
+        comp = ds.Composition(copy)
+        
+        comp2 = deg.join_notes(comp, seed=1, inplace=True)
+        
+        join_res = pd.DataFrame({
+            'onset': [0, 100, 200],
+            'track': [0, 0, 1],
+            'pitch': [10, 10, 40],
+            'dur': [100, 200, 100]
+        })
+        
+        assert comp2.note_df.equals(join_res), (
+            f"Joining \n{join_df}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{join_res}"
+        )
+        
+        inplace = comp == comp2 and copy.equals(comp2.note_df)
+        assert inplace, "Excerpt was not changed in place."
+    
     comp = ds.Composition(join_df)
     
     # Deterministic testing
@@ -687,11 +842,12 @@ def test_join_notes():
             'dur': [100, 200, 100]
         })
         
-        assert (comp2.note_df == join_res).all().all(), (f"Joining \n{join_df}\n"
-                                                         f"resulted in \n{comp2.note_df}\n"
-                                                         f"instead of \n{join_res}")
+        assert comp2.note_df.equals(join_res), (
+            f"Joining \n{join_df}\nresulted in \n{comp2.note_df}\n"
+            f"instead of \n{join_res}"
+        )
         
-        changed = comp != comp2 and join_df is not comp2.note_df
+        changed = (comp != comp2) and (not join_df.equals(comp2.note_df))
         assert changed, "Composition or note_df was not cloned."
         
     # Check different pitch and track
