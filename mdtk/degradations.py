@@ -2,6 +2,7 @@
 import sys
 import warnings
 import numpy as np
+import pandas as pd
 from numpy.random import randint, choice
 
 
@@ -623,34 +624,47 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
     
     note_index = choice(valid_notes)
     
-    if inplace:
-        degraded = excerpt
-    else:
-        degraded = excerpt.copy()
-    
-    short_duration_float = (degraded.note_df.loc[note_index, 'dur'] /
+    short_duration_float = (excerpt.note_df.loc[note_index, 'dur'] /
                             (num_splits + 1))
-    pitch = degraded.note_df.loc[note_index, 'pitch']
-    track = degraded.note_df.loc[note_index, 'track']
-    this_onset = degraded.note_df.loc[note_index, 'onset']
+    pitch = excerpt.note_df.loc[note_index, 'pitch']
+    track = excerpt.note_df.loc[note_index, 'track']
+    this_onset = excerpt.note_df.loc[note_index, 'onset']
     next_onset = this_onset + short_duration_float
     
-    # Shorten original note
-    degraded.note_df.loc[note_index]['dur'] = int(round(short_duration_float))
-    
     # Add next notes (taking care to round correctly)
+    pitches = [pitch] * num_splits
+    onsets = [0] * num_splits
+    durs = [0] * num_splits
+    tracks = [track] * num_splits
     for i in range(num_splits):
         this_onset = next_onset
         next_onset += short_duration_float
-        degraded.note_df = degraded.note_df.append(
-            {
-                'pitch': pitch,
-                'onset': int(round(this_onset)),
-                'dur': int(round(next_onset)) - int(round(this_onset)),
-                'track': track
-            },
-            ignore_index=True
-        )
+        
+        onsets[i] = int(round(this_onset))
+        durs[i] = int(round(next_onset)) - int(round(this_onset))
+        
+    if inplace:
+        degraded = excerpt
+        if len(degraded.note_df) > 0:
+            start = max(degraded.note_df.index) + 1
+        else:
+            start = 0
+        
+        for note_idx, df_idx in enumerate(range(start, start + num_splits)):
+            degraded.note_df.loc[df_idx] = {'onset': onsets[note_idx],
+                                            'track': tracks[note_idx],
+                                            'pitch': pitches[note_idx],
+                                            'dur': durs[note_idx]}
+    else:
+        degraded = excerpt.copy()
+        new_df = pd.DataFrame({'onset': onsets,
+                               'track': tracks,
+                               'pitch': pitches,
+                               'dur': durs})
+        degraded.note_df = degraded.note_df.append(new_df, ignore_index = True)
+        
+    # Shorten original note
+    degraded.note_df.loc[note_index]['dur'] = int(round(short_duration_float))
     
     return degraded
 
