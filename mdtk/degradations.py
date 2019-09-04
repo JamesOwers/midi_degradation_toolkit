@@ -213,60 +213,43 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         or None if there are no notes that can be changed given the
         parameters.
     """
-    end_time = excerpt.note_df[['onset', 'dur']].sum(axis=1).max()
+    onset = excerpt.note_df['onset']
+    offset = excerpt.note_df[['onset', 'dur']].sum(axis=1)
+    end_time = offset.max()
     
-    # Find all editable notes
-    valid_notes = []
+    # Shift earlier
+    earliest_earlier_onset = (onset - max_shift + 1).clip(lower=0)
+    latest_earlier_onset = ((onset - min_shift + 1)
+                                .clip(lower=earliest_earlier_onset,
+                                      upper=onset))
     
-    # Use indices because saving the df.loc objects creates copies
-    for note_index in range(excerpt.note_df.shape[0]):
-        onset = excerpt.note_df.loc[note_index, 'onset']
-        offset = onset + excerpt.note_df.loc[note_index, 'dur']
-        
-        # Early-shift bounds (decrease onset)
-        earliest_earlier_onset = max(onset - max_shift + 1, 0)
-        latest_earlier_onset = max(onset - min_shift + 1,
-                                   earliest_earlier_onset)
-        latest_earlier_onset = min(latest_earlier_onset, onset)
-        
-        # Late-shift bounds (increase onset)
-        latest_later_onset = onset + min(max_shift,
-                                         end_time - offset + 1)
-        earliest_later_onset = min(onset + min_shift,
-                                   latest_later_onset)
-        earliest_later_onset = max(earliest_later_onset, onset + 1)
-        
-        # Check that sampled note is valid (can be lengthened or shortened)
-        if (earliest_earlier_onset < latest_earlier_onset or
-                earliest_later_onset < latest_later_onset):
-            valid_notes.append((note_index,
-                                onset,
-                                earliest_earlier_onset,
-                                latest_earlier_onset,
-                                earliest_later_onset,
-                                latest_later_onset))
-            
+    # Shift later
+    latest_later_onset = onset + ((end_time - offset + 1)
+                                      .clip(upper=max_shift))
+    earliest_later_onset = ((onset + min_shift)
+                                .clip(lower=onset+1,
+                                      upper=latest_later_onset))
+    
+    # Find valid notes
+    valid = ((earliest_earlier_onset < latest_earlier_onset) |
+             (earliest_later_onset < latest_later_onset))
+    valid_notes = list(valid.index[valid])
+    
     if not valid_notes:
         warnings.warn('WARNING: No valid notes to time shift. Returning ' +
                       'None.', category=UserWarning)
         return None
     
     # Sample a random note
-    (note_index,
-     onset,
-     earliest_earlier_onset,
-     latest_earlier_onset,
-     earliest_later_onset,
-     latest_later_onset) = valid_notes[randint(len(valid_notes))]
-    
-    onset = split_range_sample([(earliest_earlier_onset,
-                                 latest_earlier_onset),
-                                (earliest_later_onset,
-                                 latest_later_onset)])
+    index = choice(valid_notes)
+    onset = split_range_sample([(earliest_earlier_onset[index],
+                                 latest_earlier_onset[index]),
+                                (earliest_later_onset[index],
+                                 latest_later_onset[index])])
     
     degraded = excerpt.copy()
     
-    degraded.note_df.loc[note_index, 'onset'] = onset
+    degraded.note_df.loc[index, 'onset'] = onset
     
     return degraded
 
