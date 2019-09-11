@@ -1,9 +1,8 @@
 """Code to perform the degradations i.e. edits to the midi data"""
-import numpy as np
+import sys
 import warnings
-from numpy.random import randint, uniform, choice
-
-from mdtk.data_structures import Composition
+import numpy as np
+from numpy.random import randint, choice
 
 
 
@@ -60,9 +59,9 @@ def split_range_sample(split_range, p=None):
         
     Returns
     -------
-    samp : float
-        A value sampled uniformly from the given split range.
-    """    
+    samp : int
+        An integer sampled from the given split range.
+    """
     if p is not None:
         p = p / np.sum(p)
     else:
@@ -70,7 +69,7 @@ def split_range_sample(split_range, p=None):
         total_range = sum(range_sizes)
         p = [range_size / total_range for range_size in range_sizes]
     index = choice(range(len(split_range)), p=p)
-    samp = uniform(split_range[index][0], split_range[index][1])
+    samp = randint(split_range[index][0], split_range[index][1])
     return samp
 
 
@@ -111,14 +110,56 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         A copy of the given excerpt, with the pitch of one note changed.
     """
     if excerpt.note_df.shape[0] == 0:
-        warnings.warn('WARNING: No notes to remove. Returning None.',
+        warnings.warn('WARNING: No notes to pitch shift. Returning None.',
                       category=UserWarning)
         return None
     
+    # Assume all notes can be shifted initially
+    valid_notes = list(range(excerpt.note_df.shape[0]))
+    
+    # If distribution is being used, some notes may not be possible to pitch
+    # shift. This is because the distribution supplied would only allow them
+    # to be shifted outside of the supplied (min, max) pitch range. For example
+    # A distribution [0, 0, 1] always shifts up one semitone; a note with
+    # pitch equal to max_pitch can't be shifted with this distribution.
+    if distribution is not None:
+        assert all([dd >= 0 for dd in distribution]), ('A value in supplied '
+                       'distribution is negative.')
+        zero_idx = len(distribution) // 2
+        distribution[zero_idx] = 0
+        
+        if np.sum(distribution) == 0:
+            warnings.warn('WARNING: distribution contains only 0s after '
+                          'setting distribution[zero_idx] value to 0. '
+                          'Returning None.')
+            return None
+        
+        nonzero_indices = np.nonzero(distribution)[0]
+        
+        lowest_idx = nonzero_indices[0]
+        highest_idx = nonzero_indices[-1]
+        
+        min_pitch_shift = zero_idx - lowest_idx
+        max_pitch_shift = highest_idx - zero_idx
+        
+        max_to_sample = max_pitch + min_pitch_shift
+        min_to_sample = min_pitch - max_pitch_shift
+        
+        valid_notes = excerpt.note_df.index[excerpt.note_df['pitch']
+                                            .between(min_to_sample,
+                                                     max_to_sample)].tolist()
+        
+        if not valid_notes:
+            warnings.warn('WARNING: No valid pitches to shift given '
+                          f'min_pitch {min_pitch}, max_pitch {max_pitch}, '
+                          f'and distribution {distribution} (after setting '
+                          'distribution[zero_idx] to 0). Returning None.')
+            return None
+        
     degraded = excerpt.copy()
 
     # Sample a random note
-    note_index = randint(0, degraded.note_df.shape[0])
+    note_index = valid_notes[randint(len(valid_notes))]
     pitch = degraded.note_df.loc[note_index, 'pitch']
     
     # Shift its pitch
@@ -128,10 +169,10 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
             degraded.note_df.loc[note_index, 'pitch'] = randint(min_pitch,
                                                                 max_pitch + 1)
     else:
-        middle = len(distribution) // 2
-        pitches = np.array(range(pitch - middle,
-                                 pitch - middle + len(distribution)))
-        distribution[middle] = 0
+        zero_idx = len(distribution) // 2
+        pitches = np.array(range(pitch - zero_idx,
+                                 pitch - zero_idx + len(distribution)))
+        distribution[zero_idx] = 0
         distribution = np.where(pitches < min_pitch, 0, distribution)
         distribution = np.where(pitches > max_pitch, 0, distribution)
         distribution = distribution / np.sum(distribution)
@@ -153,10 +194,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
 
-    min_shift : float
+    min_shift : int
         The minimum amount by which the note will be shifted. Defaults to 50.
         
-    max_shift : float
+    max_shift : int
         The maximum amount by which the note will be shifted. Defaults to
         infinity.
 
@@ -183,17 +224,21 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
         offset = onset + excerpt.note_df.loc[note_index, 'dur']
         
         # Early-shift bounds (decrease onset)
-        earliest_earlier_onset = max(onset - max_shift, 0)
-        latest_earlier_onset = onset - min_shift
+        earliest_earlier_onset = max(onset - max_shift + 1, 0)
+        latest_earlier_onset = max(onset - min_shift + 1,
+                                   earliest_earlier_onset)
+        latest_earlier_onset = min(latest_earlier_onset, onset)
         
         # Late-shift bounds (increase onset)
-        earliest_later_onset = onset + min_shift
         latest_later_onset = onset + min(max_shift,
-                                         end_time - offset)
+                                         end_time - offset + 1)
+        earliest_later_onset = min(onset + min_shift,
+                                   latest_later_onset)
+        earliest_later_onset = max(earliest_later_onset, onset + 1)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_earlier_onset < latest_earlier_onset or
-            earliest_later_onset < latest_later_onset):
+                earliest_later_onset < latest_later_onset):
             valid_notes.append((note_index,
                                 onset,
                                 earliest_earlier_onset,
@@ -201,7 +246,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
                                 earliest_later_onset,
                                 latest_later_onset))
             
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to time shift. Returning ' +
                       'None.', category=UserWarning)
         return None
@@ -225,7 +270,6 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf):
     
     return degraded
 
-    
 
 
 @set_random_seed
@@ -239,18 +283,18 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
         
-    min_shift : float
+    min_shift : int
         The minimum amount by which the onset time will be changed. Defaults
         to 50.
         
-    max_shift : float
+    max_shift : int
         The maximum amount by which the onset time will be changed. Defaults
         to infinity.
         
-    min_duration : float
+    min_duration : int
         The minimum duration for the resulting note. Defaults to 50.
         
-    max_duration : float
+    max_duration : int
         The maximum duration for the resulting note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
@@ -276,16 +320,25 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         earliest_lengthened_onset = max(offset - max_duration,
                                         onset - max_shift,
                                         0)
-        latest_lengthened_onset = onset - min_shift
+        latest_lengthened_onset = min(onset - min_shift,
+                                      offset - min_duration,
+                                      onset - 1) + 1
+        latest_lengthened_onset = max(latest_lengthened_onset,
+                                      earliest_lengthened_onset)
         
         # Shorten bounds (increase onset)
-        earliest_shortened_onset = onset + min_shift
         latest_shortened_onset = min(offset - min_duration,
                                      onset + max_shift)
+        earliest_shortened_onset = max(onset + min_shift,
+                                       offset - max_duration,
+                                       onset + 1)
+        latest_shortened_onset += 1
+        earliest_shortened_onset = min(earliest_shortened_onset,
+                                       latest_shortened_onset)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (earliest_lengthened_onset < latest_lengthened_onset or
-            earliest_shortened_onset < latest_shortened_onset):
+                earliest_shortened_onset < latest_shortened_onset):
             valid_notes.append((note_index,
                                 onset,
                                 offset,
@@ -294,7 +347,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                                 earliest_shortened_onset,
                                 latest_shortened_onset))
             
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to onset shift. Returning ' +
                       'None.', category=UserWarning)
         return None
@@ -324,7 +377,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 @set_random_seed
 def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                max_duration=np.inf):
+                 max_duration=np.inf):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -333,18 +386,18 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     excerpt : Composition
         A Composition object of an excerpt from a piece of music.
         
-    min_shift : float
+    min_shift : int
         The minimum amount by which the offset time will be changed. Defaults
         to 50.
         
-    max_shift : float
+    max_shift : int
         The maximum amount by which the offset time will be changed. Defaults
         to infinity.
         
-    min_duration : float
+    min_duration : int
         The minimum duration for the resulting note. Defaults to 50.
         
-    max_duration : float
+    max_duration : int
         The maximum duration for the resulting note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
@@ -370,21 +423,27 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         duration = excerpt.note_df.loc[note_index, 'dur']
         
         # Lengthen bounds (increase duration)
+        shortest_lengthened_dur = max(duration + min_shift,
+                                      min_duration,
+                                      duration + 1)
         longest_lengthened_dur = min(duration + max_shift,
                                      end_time - onset,
-                                     max_duration)
-        shortest_lengthened_dur = max(duration + min_shift,
-                                      min_duration)
+                                     max_duration) + 1
+        longest_lengthened_dur = max(longest_lengthened_dur,
+                                     shortest_lengthened_dur)
         
         # Shorten bounds (decrease duration)
-        longest_shortened_dur = min(duration - min_shift,
-                                    max_duration)
         shortest_shortened_dur = max(duration - max_shift,
                                      min_duration)
+        longest_shortened_dur = min(duration - min_shift,
+                                    max_duration,
+                                    duration - 1) + 1
+        longest_shortened_dur = max(shortest_shortened_dur,
+                                    longest_shortened_dur)
         
         # Check that sampled note is valid (can be lengthened or shortened)
         if (shortest_lengthened_dur < longest_lengthened_dur or
-            shortest_shortened_dur < longest_shortened_dur):
+                shortest_shortened_dur < longest_shortened_dur):
             valid_notes.append((note_index,
                                 duration,
                                 longest_lengthened_dur,
@@ -392,7 +451,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                                 longest_shortened_dur,
                                 shortest_shortened_dur))
             
-    if len(valid_notes) == 0:
+    if not valid_notes:
         warnings.warn('WARNING: No valid notes to offset shift. Returning ' +
                       'None.', category=UserWarning)
         return None
@@ -470,9 +529,9 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         The minimum pitch at which a note may be added.
     max_pitch : int
         The maximum pitch at which a note may be added.
-    min_duration : float
+    min_duration : int
         The minimum duration for the note to be added. Defaults to 50.
-    max_duration : float
+    max_duration : int
         The maximum duration for the added note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
@@ -491,18 +550,27 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     end_time = degraded.note_df[['onset', 'dur']].sum(axis=1).max()
 
     pitch = randint(min_pitch, max_pitch + 1)
+    track = None
 
     if min_duration > end_time:
         onset = 0
         duration = min_duration
+    elif degraded.note_df.shape[0] == 0:
+        onset = 0
+        duration = randint(min_duration, min(max_duration + 1, sys.maxsize))
     else:
-        onset = uniform(degraded.note_df['onset'].min(),
+        onset = randint(degraded.note_df['onset'].min(),
                         end_time - min_duration)
-        duration = uniform(min_duration,
-                           min(end_time - onset, max_duration))
+        duration = randint(min_duration,
+                           min(end_time - onset, max_duration + 1))
 
     # Track is random one of existing tracks
-    track = choice(degraded.note_df['track'].unique())
+    try:
+        track = choice(degraded.note_df['track'].unique())
+    except KeyError:  # No track col in df
+        track = 0
+    except ValueError:  # Empty dataframe
+        track = 0
 
     degraded.note_df = degraded.note_df.append({'pitch': pitch,
                                                 'onset': onset,
@@ -514,16 +582,146 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-def split_note(excerpt, params):
-    """Split a note into two notes."""
-    raise NotImplementedError()
+def split_note(excerpt, min_duration=50, num_splits=1):
+    """
+    Split one note from the excerpt into two or more notes of equal
+    duration.
+    
+    Parameters
+    ----------
+    excerpt : Composition
+        A Composition object of an excerpt from a piece of music.
+        
+    min_duration : int
+        The minimum length for any of the resulting notes.
+        
+    num_splits : int
+        The number of splits to make in the chosen note. The note will
+        be split into (num_splits+1) shorter notes.
+        
+    seed : int
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
+        
+    Returns
+    -------
+    degraded : Composition
+        A copy of the given excerpt, with one note split.
+    """
+    if excerpt.note_df.shape[0] == 0:
+        warnings.warn('WARNING: No notes to split. Returning None.',
+                      category=UserWarning)
+        return None
+    
+    # Find all splitable notes
+    valid_notes = []
+    
+    # Use indices because saving the df.loc objects creates copies
+    for note_index in range(excerpt.note_df.shape[0]):
+        if (excerpt.note_df.loc[note_index]['dur'] >=
+                (min_duration * (num_splits + 1))):
+            valid_notes.append(note_index)
+    
+    if not valid_notes:
+        warnings.warn('WARNING: No valid notes to split. Returning ' +
+                      'None.', category=UserWarning)
+        return None
+    
+    note_index = valid_notes[randint(len(valid_notes))]
+    
+    degraded = excerpt.copy()
+    
+    short_duration_float = (degraded.note_df.loc[note_index, 'dur'] /
+                            (num_splits + 1))
+    pitch = degraded.note_df.loc[note_index, 'pitch']
+    track = degraded.note_df.loc[note_index, 'track']
+    this_onset = degraded.note_df.loc[note_index, 'onset']
+    next_onset = this_onset + short_duration_float
+    
+    # Shorten original note
+    degraded.note_df.loc[note_index]['dur'] = int(round(short_duration_float))
+    
+    # Add next notes (taking care to round correctly)
+    for i in range(num_splits):
+        this_onset = next_onset
+        next_onset += short_duration_float
+        degraded.note_df = degraded.note_df.append(
+            {
+                'pitch': pitch,
+                'onset': int(round(this_onset)),
+                'dur': int(round(next_onset)) - int(round(this_onset)),
+                'track': track
+            },
+            ignore_index=True
+        )
+    
+    return degraded
 
 
 
 @set_random_seed
-def join_notes(excerpt, params):
-    """Combine two notes into one note."""
-    raise NotImplementedError()
+def join_notes(excerpt, max_gap=50):
+    """
+    Combine two notes of the same pitch and track into one.
+    
+    Parameters
+    ----------
+    excerpt : Composition
+        A Composition object of an excerpt from a piece of music.
+        
+    max_gap : int
+        The maximum gap length, in ms, for 2 notes to be able to be joined.
+        (They must always share the same pitch and track).
+        
+    seed : int
+        A seed to be supplied to np.random.seed(). Defaults to None, which
+        leaves numpy's random state unchanged.
+        
+    Returns
+    -------
+    degraded : Composition
+        A copy of the given excerpt, with one note split.
+    """
+    if excerpt.note_df.shape[0] < 2:
+        warnings.warn('WARNING: No notes to join. Returning None.',
+                      category=UserWarning)
+        return None
+    
+    valid_notes = []
+    
+    for _, track_df in excerpt.note_df.groupby('track'):
+        for _, pitch_df in track_df.groupby('pitch'):
+            notes = list(pitch_df.iterrows())
+            for prev_note, next_note in zip(notes[:-1], notes[1:]):
+                (prev_i, prev_n) = prev_note
+                (next_i, next_n) = next_note
+                
+                # Check if gap is small enough
+                if (prev_n['onset'] + prev_n['dur'] + max_gap >=
+                        next_n['onset']):
+                    valid_notes.append((prev_i, prev_n, next_i, next_n))
+                    
+    if not valid_notes:
+        warnings.warn('WARNING: No valid notes to join. Returning ' +
+                      'None.', category=UserWarning)
+        return None
+    
+    (prev_i,
+     prev_n,
+     next_i,
+     next_n) = valid_notes[randint(len(valid_notes))]
+    
+    degraded = excerpt.copy()
+    
+    # Extend first note
+    degraded.note_df.loc[prev_i]['dur'] = (next_n['onset'] + next_n['dur'] -
+                                           prev_n['onset'])
+    
+    # Drop 2nd note
+    degraded.note_df.drop(next_i, inplace=True)
+    degraded.note_df.reset_index(drop=True, inplace=True)
+    
+    return degraded
 
 
 
