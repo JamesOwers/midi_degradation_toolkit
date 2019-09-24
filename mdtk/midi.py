@@ -115,6 +115,7 @@ def df_to_csv(df, csv_path):
         will be printed, and the rows will be printed in the current order of the
         DataFrame. Any nested directories will be created.
     """
-    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    if os.path.split(csv_path)[0]:
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Enforce column order
     df[COLNAMES].to_csv(csv_path, index=None, header=False)
