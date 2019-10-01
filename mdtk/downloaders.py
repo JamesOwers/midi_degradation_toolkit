@@ -15,7 +15,7 @@ from mdtk.filesystem_utils import (download_file, make_directory, extract_zip,
 
 USER_HOME = os.path.expanduser('~')
 DEFAULT_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_cache')
-DATASETS = ['PPDDSep2018Monophonic', 'PPDDSep2018Polyphonic']
+DATASETS = ['PPDDSep2018Monophonic', 'PPDDSep2018Polyphonic', 'PianoMidi']
 
 
 
