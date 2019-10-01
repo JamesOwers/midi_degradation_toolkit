@@ -1,14 +1,15 @@
 import os
 import shutil
 import urllib
+import time
 from glob import glob
 import numpy as np
 
-from mdtk.downloaders import PPDDSept2018Monophonic, make_directory
+from mdtk.downloaders import PPDDSept2018Monophonic, PianoMidi, make_directory
 from mdtk.data_structures import Composition
 
 
-DOWNLOADERS = [PPDDSept2018Monophonic]
+DOWNLOADERS = [PPDDSept2018Monophonic, PianoMidi]
 USER_HOME = os.path.expanduser('~')
 TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
 
@@ -19,6 +20,10 @@ def test_make_directory():
 
 def test_links_exist():
     for Downloader in DOWNLOADERS:
+        if Downloader is PianoMidi:
+            # Invalid urls for piano-midi always return code 200.
+            # Can't test this way.
+            continue
         downloader = Downloader(cache_path=TEST_CACHE_PATH)
         for url in downloader.download_urls:
             with urllib.request.urlopen(url) as response:
@@ -33,6 +38,14 @@ def test_PPDDSept2018Monophonic_download_midi():
                                'midi')
     downloader.download_midi(output_path)
     assert len(os.listdir(output_path)) == 1100
+    
+    
+def test_PianoMidi_download_midi():
+    downloader = PianoMidi(cache_path=TEST_CACHE_PATH)
+    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name,
+                               'midi')
+    downloader.download_midi(output_path)
+    assert len(os.listdir(output_path)) == 328
     
 
 # cleanup
