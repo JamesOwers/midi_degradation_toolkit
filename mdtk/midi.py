@@ -59,7 +59,7 @@ def midi_to_csv(midi_path, csv_path):
     df_to_csv(midi_to_df(midi_path), csv_path)
 
 
-def midi_to_df(midi_path):
+def midi_to_df(midi_path, warn=False):
     """
     Get the data from a MIDI file and load it into a pandas DataFrame.
 
@@ -96,7 +96,8 @@ def midi_to_df(midi_path):
     df = pd.DataFrame(notes)[COLNAMES]
     df = df.sort_values(COLNAMES)
     df = df.reset_index(drop=True)
-    check_note_df(df)
+    if warn:
+        check_note_df(df)
     return df
 
 
