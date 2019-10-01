@@ -112,8 +112,8 @@ class PPDDSep2018Monophonic(DataDownloader):
             midi_paths = [glob.glob(os.path.join(path, mp, '*.mid')) for mp
                           in self.midi_paths]
             midi_paths = [pp for sublist in midi_paths for pp in sublist]
-            for filepath in tqdm(midi_paths,
-                                 desc=f"Copying midi from {path}: "):
+            for filepath in tqdm(midi_paths, desc=f"Copying midi from {path}: "
+                                 f"to {output_path}"):
                 copy_file(filepath, output_path)
         self.midi_output_path = output_path
 
@@ -238,7 +238,9 @@ class PianoMidi(DataDownloader):
             else:
                 path = os.path.join(midi_dl_path, filename)
             download_file(url, path, overwrite=overwrite)
-            time.sleep(1) # Don't want to overload the server
+#            I removed this sleep because it makes things very slow in the case
+#            of things already having been downloaded, is it really required?
+#            time.sleep(1) # Don't want to overload the server
 
         # Extracting data from zip files ======================================
         extracted_paths = [midi_dl_path]
@@ -251,8 +253,8 @@ class PianoMidi(DataDownloader):
         # Copying midi files to output_path ===================================
         for path in extracted_paths:
             midi_paths = glob.glob(os.path.join(path, '*.mid'))
-            for filepath in tqdm(midi_paths,
-                                 desc=f"Copying midi from {path}: "):
+            for filepath in tqdm(midi_paths, desc=f"Copying midi from {path} "
+                                 f"to {output_path}: "):
                 copy_file(filepath, output_path)
         self.midi_output_path = output_path
 
