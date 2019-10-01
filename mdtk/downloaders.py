@@ -11,6 +11,7 @@ import urllib
 import warnings
 import zipfile
 import glob
+import time
 from tqdm import tqdm
 
 
@@ -218,8 +219,67 @@ class PPDDSept2018Monophonic(DataDownloader):
 
 class PPDDSept2018Polyphonic(PPDDSept2018Monophonic):
     pass
-    
-    
+
+
+
+
+class PianoMidi(DataDownloader):
+    """
+    piano-midi dataset from http://www.piano-midi.de/
+    """
+    def __init__(self, cache_path=DEFAULT_CACHE_PATH, clean=False,
+                 composers=['albeniz', 'bach', 'balakirew', 'beethoven',
+                            'borodin', 'brahms', 'burgmueller', 'chopin',
+                            'clementi', 'debussy', 'godowsky', 'granados',
+                            'grieg', 'haydn', 'liszt', 'mendelssohn',
+                            'moszkowski', 'mozart', 'mussorgsky', 'rachmaninov',
+                            'ravel', 'schubert', 'schumann', 'sinding',
+                            'tchaikovsky']):
+        super().__init__(cache_path = cache_path)
+        self.dataset_name = self.__class__.__name__
+        base_url = 'http://www.piano-midi.de/zip/'
+        self.download_urls = [
+            f'{base_url}/{composer}.zip'
+            for composer in composers
+        ]
+        self.clean = clean
+        
+        
+    def download_midi(self, output_path, cache_path=None, overwrite=None):
+        # Cleaning paths, and setting up cache dir ============================
+        cache_path = self.cache_path if cache_path is None else cache_path
+        base_path = os.path.join(cache_path, self.dataset_name)
+        make_directory(base_path, overwrite)
+        make_directory(output_path, overwrite)
+        
+        # Downloading the data ================================================
+        zip_paths = []
+        for url in self.download_urls:
+            filename = os.path.basename(url)
+            zip_path = os.path.join(base_path, filename)
+            zip_paths += [zip_path]
+            download_file(url, zip_path, overwrite=overwrite)
+            time.sleep(1) # Don't want to overload the server
+        
+        # Extracting data from zip files ======================================
+        extracted_paths = []
+        for zip_path in zip_paths:
+            path = extract_zip(zip_path, base_path, overwrite=overwrite)
+            extracted_paths += [path]
+        
+        # Copying midi files to output_path ===================================
+        for path in extracted_paths:
+            midi_paths = [glob.glob(os.path.join(path, mp, '*.mid')) for mp
+                          in self.midi_paths]
+            midi_paths = [pp for sublist in midi_paths for pp in sublist]
+            for filepath in tqdm(midi_paths, 
+                                 desc=f"Copying midi from {path}: "):
+                copy_file(filepath, output_path)
+        self.midi_output_path = output_path
+        
+        # Delete cache ========================================================
+        if self.clean:
+            self.clear_cache()
     
     
     
