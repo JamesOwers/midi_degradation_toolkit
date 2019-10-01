@@ -170,7 +170,7 @@ class PPDDSept2018Monophonic(DataDownloader):
         base_url = ('http://tomcollinsresearch.net/research/data/mirex/'
                          'ppdd/ppdd-sep2018')
         self.download_urls = [
-                os.path.join(base_url, f'PPDD-Sep2018_sym_mono_{size}.zip')
+                f'{base_url}/PPDD-Sep2018_sym_mono_{size}.zip'
                 for size in sizes
             ]
         # location of midi files relative to each unzipped directory
@@ -189,7 +189,7 @@ class PPDDSept2018Monophonic(DataDownloader):
         # Downloading the data ================================================
         zip_paths = []
         for url in self.download_urls:
-            filename = os.path.basename(url)
+            filename = url.split('/')[-1]
             zip_path = os.path.join(base_path, filename)
             zip_paths += [zip_path]
             download_file(url, zip_path, overwrite=overwrite)
@@ -255,7 +255,7 @@ class PianoMidi(DataDownloader):
         # Downloading the data ================================================
         zip_paths = []
         for url in self.download_urls:
-            filename = os.path.basename(url)
+            filename = url.split('/')[-1]
             zip_path = os.path.join(base_path, filename)
             zip_paths += [zip_path]
             download_file(url, zip_path, overwrite=overwrite)
