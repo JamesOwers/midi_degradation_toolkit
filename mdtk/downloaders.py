@@ -153,9 +153,9 @@ class DataDownloader:
         
         
 
-# TODO: maybe make a base PPDD class and extend this for various options
-class PPDDSept2018Monophonic(DataDownloader):
-    """Patterns for Preditction Development Dataset. Monophonic data only.
+class PPDDSept2018(DataDownloader):
+    """Patterns for Preditction Development Dataset. Monophonic or
+    polyphonic data.
     
     References
     ----------
@@ -163,14 +163,15 @@ class PPDDSept2018Monophonic(DataDownloader):
     """
     # TODO: add 'sample_size', to allow only a small random sample of the
     #       total midi files to be copied to the output
-    def __init__(self, cache_path=DEFAULT_CACHE_PATH,
+    def __init__(self, cache_path=DEFAULT_CACHE_PATH, monophonic=True,
                  sizes=['small', 'medium', 'large'], clean=False):
         super().__init__(cache_path = cache_path)
-        self.dataset_name = self.__class__.__name__
+        phonic = 'mono' if monophonic else 'poly'
+        self.dataset_name = f'{self.__class__.__name__}_{phonic}'
         base_url = ('http://tomcollinsresearch.net/research/data/mirex/'
                          'ppdd/ppdd-sep2018')
         self.download_urls = [
-                f'{base_url}/PPDD-Sep2018_sym_mono_{size}.zip'
+                f'{base_url}/PPDD-Sep2018_sym_{phonic}_{size}.zip'
                 for size in sizes
             ]
         # location of midi files relative to each unzipped directory
@@ -213,12 +214,7 @@ class PPDDSept2018Monophonic(DataDownloader):
         # Delete cache ========================================================
         if self.clean:
             self.clear_cache()
-        
-        
-        
 
-class PPDDSept2018Polyphonic(PPDDSept2018Monophonic):
-    pass
 
 
 

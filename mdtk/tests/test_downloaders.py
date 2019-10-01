@@ -4,12 +4,11 @@ import urllib
 from glob import glob
 import numpy as np
 
-from mdtk.downloaders import (PPDDSept2018Monophonic, PianoMidi,
-                              make_directory)
+from mdtk.downloaders import PPDDSept2018, PianoMidi, make_directory
 from mdtk.data_structures import Composition
 
 
-DOWNLOADERS = [PPDDSept2018Monophonic, PianoMidi]
+DOWNLOADERS = [PPDDSept2018, PianoMidi]
 USER_HOME = os.path.expanduser('~')
 TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
 
@@ -24,20 +23,29 @@ def test_links_exist():
             # Invalid urls for piano-midi always return code 200.
             # Can't test this way.
             continue
-        downloader = Downloader(cache_path=TEST_CACHE_PATH)
-        for url in downloader.download_urls:
-            with urllib.request.urlopen(url) as response:
-                code = response.getcode()
-            assert code == 200
+        if Downloader is PPDDSept2018:
+            downloaders = [
+                Downloader(cache_path=TEST_CACHE_PATH, monophonic=True),
+                Downloader(cache_path=TEST_CACHE_PATH, monophonic=False)
+            ]
+        else:
+            downloaders = [Downloader(cache_path=TEST_CACHE_PATH)]
+        for downloader in downloaders:
+            for url in downloader.download_urls:
+                with urllib.request.urlopen(url) as response:
+                    code = response.getcode()
+                assert code == 200
 
 
-def test_PPDDSept2018Monophonic_download_midi():
-    downloader = PPDDSept2018Monophonic(cache_path=TEST_CACHE_PATH,
-                                        sizes=['small', 'medium'])
-    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name,
-                               'midi')
-    downloader.download_midi(output_path)
-    assert len(os.listdir(output_path)) == 1100
+def test_PPDDSept2018_download_midi():
+    for monophonic in [True, False]:
+        downloader = PPDDSept2018(cache_path=TEST_CACHE_PATH,
+                                  sizes=['small', 'medium'],
+                                  monophonic=monophonic)
+        output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name,
+                                   'midi')
+        downloader.download_midi(output_path)
+        assert len(os.listdir(output_path)) == 1100
 
 
 def test_PianoMidi_download_midi():
@@ -51,9 +59,18 @@ def test_PianoMidi_download_midi():
 # cleanup
 def test_cleanup():
     for Downloader in DOWNLOADERS:
-        downloader = Downloader(cache_path=TEST_CACHE_PATH)
-        downloader.clear_cache()
-        cache_dir = os.path.join(TEST_CACHE_PATH, downloader.dataset_name)
+        if Downloader is PPDDSept2018:
+            for mono in [True, False]:
+                downloader = Downloader(cache_path=TEST_CACHE_PATH,
+                                        monophonic=mono)
+                downloader.clear_cache()
+                cache_dir = os.path.join(TEST_CACHE_PATH,
+                                     downloader.dataset_name)
+        else:
+            downloader = Downloader(cache_path=TEST_CACHE_PATH)
+            downloader.clear_cache()
+            cache_dir = os.path.join(TEST_CACHE_PATH,
+                                     downloader.dataset_name)
         assert not os.path.exists(cache_dir)
     assert os.path.exists(TEST_CACHE_PATH)
     assert len(os.listdir(TEST_CACHE_PATH)) == 0
