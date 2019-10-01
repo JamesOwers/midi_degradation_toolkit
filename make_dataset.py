@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Script to generate Altered and Corrupted Midi Exerpt (ACME) datasets"""
-import sys
+import os
 import json
 import argparse
 from glob import glob
@@ -10,18 +10,19 @@ from tqdm import tqdm
 from mdtk import degradations, downloaders, data_structures, midi
 from mdtk.filesystem_utils import make_directory, copy_file
 
-# For dev mode warnings...
-if not sys.warnoptions:
-    import os
-    import warnings
-    warnings.simplefilter("always") # Change the filter in this process
-    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
+## For dev mode warnings...
+#import sys
+#if not sys.warnoptions:
+#    import warnings
+#    warnings.simplefilter("always") # Change the filter in this process
+#    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
 
 
 
 with open('./img/logo.txt', 'r') as ff:
     LOGO = ff.read()
-DEFAULT_DATASETS = ['PPDDSept2018Monophonic']
+
+
 DESCRIPTION = "Make datasets of altered and corrupted midi exerpts."
 
 
@@ -61,6 +62,7 @@ def parse_degradation_kwargs(kwarg_dict):
 
 def parse_args(args_input=None):
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+    # TODO: fix ./ which will error on Windows
     parser.add_argument('-o', '--output-dir', type=str, default='./acme',
                         help='the directory to write the dataset to (defaults '
                         'to ./acme)')
@@ -153,7 +155,15 @@ if __name__ == '__main__':
         make_directory(path)
     for path in csv_input_dirs.values():
         make_directory(path)
-    make_directory(args.output_dir)
+    clean_output_dirs = [os.path.join(args.output_dir, 'clean', name)
+                         for name in ds_names]
+    for path in clean_output_dirs:
+        make_directory(path)
+    alt_output_dirs = [os.path.join(args.output_dir, 'altered', name)
+                       for name in ds_names]
+    for path in alt_output_dirs:
+        make_directory(path)
+    
     
     # Download data ===========================================================
     for name in downloader_dict:
@@ -169,12 +179,12 @@ if __name__ == '__main__':
         for filepath in glob(os.path.join(path, '*.mid')):
             copy_file(filepath, outdir)
     
-    
     # Convert from midi to csv ================================================
-#    for name in midi_input_dirs:
-#        midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name])
-    
-    
+    for name in tqdm(midi_input_dirs, desc=f"Converting midi from "
+                     f"{list(midi_input_dirs.values())} to csv at "
+                     f"{list(csv_input_dirs.values())}"):
+        midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name])
+
     # Create all Composition objects and write clean data to output ===========
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
@@ -191,7 +201,14 @@ if __name__ == '__main__':
     compositions = [data_structures.Composition(
                         csv_path=csv_path,
                         read_note_csv_kwargs=read_note_csv_kwargs) 
-                    for csv_path in tqdm(csv_paths)]
+                    for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
+    
+    for comp in tqdm(compositions, desc="Writing clean csv to "
+                     f"{args.output_dir}"):
+        fn = os.path.basename(comp.csv_path)
+        dataset = os.path.basename(os.path.dirname(comp.csv_path))
+        outpath = os.path.join(args.output_dir, 'clean', dataset, fn)
+        comp.note_df.to_csv(outpath)
     
     # Perform degradations and write degraded data to output ==================
     # Because we have already written clean data, we can do this in place
