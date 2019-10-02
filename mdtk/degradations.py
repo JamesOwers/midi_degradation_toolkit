@@ -700,6 +700,7 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
 
     if inplace:
         degraded = excerpt
+        degraded.loc[note_index]['dur'] = int(round(short_duration_float))
         if len(degraded) > 0:
             start = max(degraded.index) + 1
         else:
@@ -712,14 +713,12 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
                                     'dur': durs[note_idx]}
     else:
         degraded = excerpt.copy()
+        degraded.loc[note_index]['dur'] = int(round(short_duration_float))
         new_df = pd.DataFrame({'onset': onsets,
                                'track': tracks,
                                'pitch': pitches,
                                'dur': durs})
         degraded = degraded.append(new_df, ignore_index=True)
-
-    # Shorten original note
-    degraded.loc[note_index]['dur'] = int(round(short_duration_float))
 
     degraded = post_process(degraded, inplace=inplace)
 

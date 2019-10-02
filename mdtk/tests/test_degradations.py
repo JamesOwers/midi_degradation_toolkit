@@ -12,12 +12,14 @@ EMPTY_DF = pd.DataFrame({
     'dur': []
 })
 
+# Add and then remove a duplicate row to get non-consecutive indices
 BASIC_DF = pd.DataFrame({
-    'onset': [0, 100, 200, 200],
-    'track': [0, 1, 0, 1],
-    'pitch': [10, 20, 30, 40],
-    'dur': [100, 100, 100, 100]
+    'onset': [0, 100, 200, 200, 200],
+    'track': [0, 1, 0, 1, 1],
+    'pitch': [10, 20, 30, 40, 40],
+    'dur': [100, 100, 100, 100, 100]
 })
+BASIC_DF = BASIC_DF.iloc[[0,1,2,4]]
 
 
 def test_pitch_shift():
@@ -69,8 +71,6 @@ def test_pitch_shift():
         res = deg.pitch_shift(BASIC_DF, min_pitch=100 * i,
                               max_pitch=100 * (i + 1))
 
-        equal = (res == BASIC_DF)
-
         # Check that only things that should have changed have changed
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert diff.shape[0] == 2, "Pitch shift changed more than 1 note."
@@ -88,8 +88,9 @@ def test_pitch_shift():
         )
 
         # Check that changed pitch is within given range
-        changed_pitch = res[(res['pitch'] !=
-                             BASIC_DF['pitch'])]['pitch'].iloc[0]
+        changed_pitch = diff.iloc[0]['pitch']
+        #changed_pitch = res[(res['pitch'] !=
+        #                     BASIC_DF['pitch'])]['pitch'].iloc[0]
         assert 100 * i <= changed_pitch <= 100 * (i + 1), (
             f"Pitch {changed_pitch} outside of range "
             f"[{100 * i}, {100 * (i + 1)}]"
@@ -105,9 +106,9 @@ def test_pitch_shift():
 
         res = deg.pitch_shift(BASIC_DF, distribution=distribution)
 
-        not_equal = (res['pitch'] != BASIC_DF['pitch'])
-        changed_pitch = res[not_equal]['pitch'].iloc[0]
-        original_pitch = BASIC_DF[not_equal]['pitch'].iloc[0]
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        changed_pitch = diff.iloc[0]['pitch']
+        original_pitch = diff.iloc[1]['pitch']
         diff = original_pitch - changed_pitch
 
         assert diff == correct_diff, (
@@ -209,8 +210,6 @@ def test_time_shift():
         res = deg.time_shift(BASIC_DF, min_shift=10 * i,
                              max_shift=10 * (i + 1))
 
-        equal = (res == BASIC_DF)
-
         # Check that only things that should have changed have changed
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert diff.shape[0] == 2, "Time shift changed more than 1 note."
@@ -228,10 +227,8 @@ def test_time_shift():
         )
 
         # Check that changed onset is within given range
-        changed_onset = res[(res['onset'] !=
-                             BASIC_DF['onset'])]['onset'].iloc[0]
-        original_onset = BASIC_DF[(res['onset'] !=
-                                   BASIC_DF['onset'])]['onset'].iloc[0]
+        changed_onset = diff.iloc[0]['onset']
+        original_onset = diff.iloc[1]['onset']
         shift = abs(changed_onset - original_onset)
         assert 10 * i <= shift <= 10 * (i + 1), (
             f"Shift {shift} outside of range [{10 * i}, {10 * (i + 1)}]."
@@ -769,6 +766,14 @@ def test_split_note():
         new_notes = pd.merge(diff, res).reset_index()
         changed_notes = pd.merge(diff, BASIC_DF).reset_index()
         unchanged_notes = pd.merge(res, BASIC_DF).reset_index()
+        
+        print("READY")
+        print(BASIC_DF)
+        print(res)
+        print(diff)
+        print(new_notes)
+        print(changed_notes)
+        print(unchanged_notes)
 
         assert changed_notes.shape[0] == 1, (
             "More than 1 note changed when splitting."
