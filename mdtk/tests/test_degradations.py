@@ -33,6 +33,79 @@ BASIC_DF_FINAL = BASIC_DF
 UNSORTED_DF = BASIC_DF.iloc[[0,2,3,1]]
 
 
+def test_pre_process():
+    basic_res = pd.DataFrame({
+        'onset': [0, 100, 200, 200],
+        'track': [0, 1, 0, 1],
+        'pitch': [10, 20, 30, 40],
+        'dur': [100, 100, 100, 100]
+    })
+
+    unsorted_res = pd.DataFrame({
+        'onset': [0, 200, 200, 100],
+        'track': [0, 0, 1, 1],
+        'pitch': [10, 30, 40, 20],
+        'dur': [100, 100, 100, 100]
+    })
+
+    res = deg.pre_process(UNSORTED_DF)
+    assert res.equals(unsorted_res), (
+        f"Pre-processing \n{UNSORTED_DF}\n resulted in \n{res}\n"
+        f"instead of \n{unsorted_res}"
+    )
+
+    res = deg.pre_process(UNSORTED_DF, sort=True)
+    assert res.equals(basic_res), (
+        f"Pre-processing \n{UNSORTED_DF}\n with sort=True resulted in "
+        f"\n{res}\ninstead of \n{basic_res}"
+    )
+
+    copy = UNSORTED_DF.copy()
+    res = deg.pre_process(copy, inplace=True)
+    assert res is None, (
+        f"Pre-processing \n{UNSORTED_DF}\n with inplace returned something."
+    )
+    assert copy.equals(unsorted_res), (
+        f"Pre-processing \n{UNSORTED_DF}\n with inplace resulted in "
+        f"\n{copy}\ninstead of \n{unsorted_res}"
+    )
+
+    copy = UNSORTED_DF.copy()
+    res = deg.pre_process(copy, inplace=True, sort=True)
+    assert res is None, (
+        f"Pre-processing \n{UNSORTED_DF}\n with inplace returned something."
+    )
+    assert copy.equals(basic_res), (
+        f"Pre-processing \n{UNSORTED_DF}\n with inplace and sort=True "
+        f"resulted in \n{copy}\ninstead of \n{basic_res}"
+    )
+
+
+def test_post_process():
+    basic_res = pd.DataFrame({
+        'onset': [0, 100, 200, 200],
+        'track': [0, 1, 0, 1],
+        'pitch': [10, 20, 30, 40],
+        'dur': [100, 100, 100, 100]
+    })
+
+    res = deg.post_process(UNSORTED_DF)
+    assert res.equals(basic_res), (
+        f"Post-processing \n{UNSORTED_DF}\n resulted in "
+        f"\n{res}\ninstead of \n{basic_res}"
+    )
+
+    copy = UNSORTED_DF.copy()
+    res = deg.post_process(copy, inplace=True)
+    assert res is None, (
+        f"Post-processing \n{UNSORTED_DF}\n with inplace returned something."
+    )
+    assert copy.equals(basic_res), (
+        f"Post-processing \n{UNSORTED_DF}\n with inplace "
+        f"resulted in \n{copy}\ninstead of \n{basic_res}"
+    )
+
+
 def test_unsorted():
     global BASIC_DF
     BASIC_DF = UNSORTED_DF
