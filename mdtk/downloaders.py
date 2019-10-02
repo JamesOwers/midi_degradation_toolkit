@@ -135,7 +135,7 @@ class PPDDSep2018Polyphonic(PPDDSep2018Monophonic):
                  sizes=['small', 'medium', 'large'], clean=False):
         super().__init__(cache_path=cache_path, sizes=sizes, clean=clean)
         self.download_urls = [
-                f'{self.base_url}PPDD-Sep2018_sym_poly_{size}.zip'
+                f'{self.base_url}/PPDD-Sep2018_sym_poly_{size}.zip'
                 for size in sizes
             ]
 
