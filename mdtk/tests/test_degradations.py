@@ -72,11 +72,19 @@ def test_pitch_shift():
         equal = (res == BASIC_DF)
 
         # Check that only things that should have changed have changed
-        assert equal['onset'].all(), "Pitch shift changed some onset time."
-        assert equal['track'].all(), "Pitch shift changed some track."
-        assert equal['dur'].all(), "Pitch shift changed some duration."
-        assert (1 - equal['pitch']).sum() == 1, (
-            "Pitch shift did not change exactly one pitch."
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert diff.shape[0] == 2, "Pitch shift changed more than 1 note."
+        assert diff.iloc[0]['onset'] == diff.iloc[1]['onset'], (
+            "Pitch shift changed some onset time."
+        )
+        assert diff.iloc[0]['track'] == diff.iloc[1]['track'], (
+            "Pitch shift changed some track."
+        )
+        assert diff.iloc[0]['dur'] == diff.iloc[1]['dur'], (
+            "Pitch shift changed some duration."
+        )
+        assert diff.iloc[0]['pitch'] != diff.iloc[1]['pitch'], (
+            "Pitch shift did not change pitch."
         )
 
         # Check that changed pitch is within given range
@@ -204,11 +212,19 @@ def test_time_shift():
         equal = (res == BASIC_DF)
 
         # Check that only things that should have changed have changed
-        assert equal['track'].all(), "Time shift changed some track."
-        assert equal['pitch'].all(), "Time shift changed some pitch."
-        assert equal['dur'].all(), "Time shift changed some duration."
-        assert (1 - equal['onset']).sum() == 1, (
-            "Time shift did not change exactly one onset."
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert diff.shape[0] == 2, "Time shift changed more than 1 note."
+        assert diff.iloc[0]['onset'] != diff.iloc[1]['onset'], (
+            "Time shift did not change any onset time."
+        )
+        assert diff.iloc[0]['track'] == diff.iloc[1]['track'], (
+            "Time shift changed some track."
+        )
+        assert diff.iloc[0]['dur'] == diff.iloc[1]['dur'], (
+            "Time shift changed some duration."
+        )
+        assert diff.iloc[0]['pitch'] == diff.iloc[1]['pitch'], (
+            "Time shift changed some pitch."
         )
 
         # Check that changed onset is within given range
@@ -667,12 +683,13 @@ def test_add_note():
         res = deg.add_note(BASIC_DF, min_pitch=min_pitch, max_pitch=max_pitch,
                            min_duration=min_duration, max_duration=max_duration)
 
-        assert (res[:BASIC_DF.shape[0]] == BASIC_DF).all().all(), (
-            "Adding a note changed an existing note."
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert (diff.shape[0] == 1), (
+            "Adding a note changed an existing note." + str(pd.merge(BASIC_DF, res).reset_index())
         )
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
 
-        note = res.loc[BASIC_DF.shape[0]]
+        note = diff.iloc[0]
         assert min_pitch <= note['pitch'] <= max_pitch, (
             f"Added note's pitch ({note.pitch}) not within range "
             f"[{min_pitch}, {max_pitch}]."
@@ -689,8 +706,9 @@ def test_add_note():
 
     # Test min_duration too large
     res = deg.add_note(BASIC_DF, min_duration=500)
-    assert (res.loc[BASIC_DF.shape[0]]['onset'] == 0 and
-            res.loc[BASIC_DF.shape[0]]['dur'] == 500), (
+    diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+    note = diff.iloc[0]
+    assert (note['onset'] == 0 and note['dur'] == 500), (
         "Adding note with large min_duration does not set duration "
         "to full dataframe length."
     )
@@ -712,24 +730,24 @@ def test_split_note():
             "Splitting with inplace=True returned something."
         )
 
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 150],
-                                  'track': [0, 1, 0, 1, 1],
-                                  'pitch': [10, 20, 30, 40, 20],
-                                  'dur': [100, 50, 100, 100, 50]})
+        basic_res = pd.DataFrame({'onset': [0, 100, 150, 200, 200],
+                                  'track': [0, 1, 1, 0, 1],
+                                  'pitch': [10, 20, 20, 30, 40],
+                                  'dur': [100, 50, 50, 100, 100]})
 
         assert copy.equals(basic_res), (
             f"Splitting note in \n{BASIC_DF}\n resulted in "
-            f"\n{res}\ninstead of \n{basic_res}"
+            f"\n{copy}\ninstead of \n{basic_res}"
         )
 
     # Deterministic testing
     for i in range(2):
         res = deg.split_note(BASIC_DF, seed=1)
 
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 150],
-                                  'track': [0, 1, 0, 1, 1],
-                                  'pitch': [10, 20, 30, 40, 20],
-                                  'dur': [100, 50, 100, 100, 50]})
+        basic_res = pd.DataFrame({'onset': [0, 100, 150, 200, 200],
+                                  'track': [0, 1, 1, 0, 1],
+                                  'pitch': [10, 20, 20, 30, 40],
+                                  'dur': [100, 50, 50, 100, 100]})
 
         assert res.equals(basic_res), (
             f"Splitting note in \n{BASIC_DF}\n resulted in "

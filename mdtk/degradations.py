@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from numpy.random import randint, choice
 
+from mdtk.data_structures import NOTE_DF_SORT_ORDER
+
 
 MIN_PITCH = 0
 MAX_PITCH = 127
@@ -34,6 +36,38 @@ def set_random_seed(func, seed=None):
             np.random.seed(seed)
         return func(*args, **kwargs)
     return seeded_func
+
+
+def post_process(df, inplace=False):
+    """
+    Function which will post-process a degraded dataframe.
+
+    Currently, that just means sorting it. All degradations call this
+    function after their execution (except for remove_note, since that will
+    never change sorting).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe to post-process
+
+    inplace : boolean
+        True to edit the given dataframe in place. False to create and return
+        a copy.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        The postprocessed dataframe, or None if inplace is True.
+    """
+    if inplace:
+        df.sort_values(NOTE_DF_SORT_ORDER, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        return None
+
+    df = df.sort_values(NOTE_DF_SORT_ORDER)
+    df = df.reset_index(drop=True)
+    return df
 
 
 def split_range_sample(split_range, p=None):
@@ -184,6 +218,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         distribution = distribution / np.sum(distribution)
         degraded.loc[note_index, 'pitch'] = choice(pitches, p=distribution)
 
+    degraded = post_process(degraded, inplace=inplace)
+
     if not inplace:
         return degraded
 
@@ -264,6 +300,8 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
         degraded = excerpt.copy()
 
     degraded.loc[index, 'onset'] = onset
+
+    degraded = post_process(degraded, inplace=inplace)
 
     if not inplace:
         return degraded
@@ -358,6 +396,8 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     degraded.loc[index, 'onset'] = onset
     degraded.loc[index, 'dur'] = offset[index] - onset
 
+    degraded = post_process(degraded, inplace=inplace)
+
     if not inplace:
         return degraded
 
@@ -450,6 +490,8 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     degraded.loc[index, 'dur'] = duration
 
+    degraded = post_process(degraded, inplace=inplace)
+
     if not inplace:
         return degraded
 
@@ -495,6 +537,8 @@ def remove_note(excerpt, inplace=False):
     # Remove that note
     degraded.drop(note_index, inplace=True)
     degraded.reset_index(drop=True, inplace=True)
+
+    # Postprocessing is not needed as removing a note won't change sorting.
 
     if not inplace:
         return degraded
@@ -578,6 +622,8 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                                     'dur': duration,
                                     'track': track},
                                    ignore_index=True)
+
+    degraded = post_process(degraded, inplace=inplace)
 
     if not inplace:
         return degraded
@@ -675,6 +721,8 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
     # Shorten original note
     degraded.loc[note_index]['dur'] = int(round(short_duration_float))
 
+    degraded = post_process(degraded, inplace=inplace)
+
     if not inplace:
         return degraded
 
@@ -755,6 +803,8 @@ def join_notes(excerpt, max_gap=50, inplace=False):
     # Drop 2nd note
     degraded.drop(next_i, inplace=True)
     degraded.reset_index(drop=True, inplace=True)
+
+    degraded = post_process(degraded, inplace=inplace)
 
     if not inplace:
         return degraded
