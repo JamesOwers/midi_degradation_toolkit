@@ -5,6 +5,7 @@ import json
 import argparse
 from glob import glob
 
+import numpy as np
 from tqdm import tqdm
 
 from mdtk import degradations, downloaders, data_structures, midi
@@ -53,7 +54,7 @@ def parse_degradation_kwargs(kwarg_dict):
             func_name, kwarg_name = kk.split('__', 1)
         except ValueError:
             raise ValueError(f"Supplied keyword [{kk}] must have a double "
-                              "underscore")
+                             "underscore")
         assert func_name in func_names, f"{func_name} not in {func_names}"
         func_kwargs[func_name][kwarg_name] = kwarg_value
     return func_kwargs
@@ -61,6 +62,7 @@ def parse_degradation_kwargs(kwarg_dict):
 
 
 def parse_args(args_input=None):
+    """Convenience function for parsing user supplied command line args"""
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     # TODO: fix ./ which will error on Windows
     parser.add_argument('-o', '--output-dir', type=str, default='./acme',
@@ -92,7 +94,8 @@ def parse_args(args_input=None):
     parser.add_argument('--clear-download-cache', action='store_true',
                         help='clear downloaded data cache')
     parser.add_argument('--degradations', metavar='deg_name', nargs='*',
-                        choices=list(degradations.DEGRADATIONS.values()),
+                        choices=list(degradations.DEGRADATIONS.keys()),
+                        default=list(degradations.DEGRADATIONS.keys()),
                         help='degradations to use on the data. Must match '
                         'names of functions in the degradations module. By '
                         'default, will use them all.')
@@ -116,27 +119,25 @@ def parse_args(args_input=None):
 
 
 if __name__ == '__main__':
-    print(LOGO)
     args = parse_args()
-    print(args)
-    assert (args.degradation_kwargs is None or 
+    assert (args.degradation_kwargs is None or
             args.degradation_kwarg_json is None), ("Don't specify both "
-        "--degradation-kwargs and --degradation-kwarg-json")
+                "--degradation-kwargs and --degradation-kwarg-json")
     if args.degradation_kwarg_json is None:
         degradation_kwargs = parse_degradation_kwargs(args.degradation_kwargs)
     else:
         degradation_kwargs = parse_degradation_kwargs(
-                args.degradation_kwarg_json
-            )
+            args.degradation_kwarg_json
+        )
     # TODO: warn user they specified kwargs for degradation not being used
     # TODO: bomb out if degradation-dist is a diff length to degradations
-    
-    
+
+
     # TODO: handle csv downloading if csv data is available in downloader...
     #       then there's no need for midi conversion
-    
+
     # Instantiate downloaders =================================================
-    OVERWRITE=None
+    OVERWRITE = None
     ds_names = args.datasets
     # Instantiated downloader classes
     downloader_dict = {
@@ -148,37 +149,34 @@ if __name__ == '__main__':
     midi_input_dirs = {name: os.path.join(args.input_dir, 'midi', name)
                        for name in ds_names}
     csv_input_dirs = {name: os.path.join(args.input_dir, 'csv', name)
-                       for name in ds_names}
-    
+                      for name in ds_names}
+
     # Set up directories ======================================================
     for path in midi_input_dirs.values():
         make_directory(path)
     for path in csv_input_dirs.values():
         make_directory(path)
-    clean_output_dirs = [os.path.join(args.output_dir, 'clean', name)
-                         for name in ds_names]
-    for path in clean_output_dirs:
-        make_directory(path)
-    alt_output_dirs = [os.path.join(args.output_dir, 'altered', name)
+    for out_subdir in ['clean', 'altered', 'metadata']:
+        output_dirs = [os.path.join(args.output_dir, out_subdir, name)
                        for name in ds_names]
-    for path in alt_output_dirs:
-        make_directory(path)
-    
-    
+        for path in output_dirs:
+            make_directory(path)
+
+
     # Download data ===========================================================
     for name in downloader_dict:
         downloader = downloader_dict[name]
         output_path = midi_input_dirs[name]
         downloader.download_midi(output_path=output_path,
                                  overwrite=OVERWRITE)
-    
+
     # Copy over user midi =====================================================
     for path in args.local_midi_dirs:
         dirname = os.path.basename(path)
         outdir = os.path.join(args.input_dir, 'csv', dirname)
         for filepath in glob(os.path.join(path, '*.mid')):
             copy_file(filepath, outdir)
-    
+
     # Convert from midi to csv ================================================
     for name in tqdm(midi_input_dirs, desc=f"Converting midi from "
                      f"{list(midi_input_dirs.values())} to csv at "
@@ -200,56 +198,45 @@ if __name__ == '__main__':
     )
     compositions = [data_structures.Composition(
                         csv_path=csv_path,
-                        read_note_csv_kwargs=read_note_csv_kwargs) 
+                        read_note_csv_kwargs=read_note_csv_kwargs)
                     for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
-    
+
     for comp in tqdm(compositions, desc="Writing clean csv to "
                      f"{args.output_dir}"):
         fn = os.path.basename(comp.csv_path)
         dataset = os.path.basename(os.path.dirname(comp.csv_path))
         outpath = os.path.join(args.output_dir, 'clean', dataset, fn)
         comp.note_df.to_csv(outpath)
-    
+
     # Perform degradations and write degraded data to output ==================
     # Because we have already written clean data, we can do this in place
     # output to output_dir/degraded/dataset_name/filename.csv
-    # The reason for this is filename duplicates (as above) and easy matching
-    # of source and target data
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    # The reason for this is that there could be filename duplicates (as above,
+    # it's assumed there shouldn't be duplicates within each dataset!), and
+    # this allows for easy matching of source and target data
+    deg_choices = args.degradations
+    deg_dist = args.degradation_dist  # Default of None implies uniform
+    deg_names = np.random.choice(deg_choices, size=len(compositions),
+                                 replace=True, p=deg_dist)
+    for comp, deg_name in tqdm(zip(compositions, deg_names),
+                               desc="Making target data"):
+        fn = os.path.basename(comp.csv_path)
+        dataset = os.path.basename(os.path.dirname(comp.csv_path))
+        outpath = os.path.join(args.output_dir, 'altered', dataset, fn)
+        meta_outpath = os.path.join(args.output_dir, 'metadata', dataset, fn)
+        with open(meta_outpath, 'w') as meta_fh:
+            meta_fh.write(deg_name)
+        deg_fun = degradations.DEGRADATIONS[deg_name]
+        deg_fun_kwargs = degradation_kwargs[deg_name]  # degradation_kwargs
+                                                       # at top of main call
+        deg_fun(comp.note_df, **deg_fun_kwargs, inplace=True)
+        comp.note_df.to_csv(outpath)
+
+    print('Finished!')
+    print(f'You will find the generated dataset at {args.output_dir}')
+    print('The clean and altered files are located under directories named as '
+          'such.')
+    print('The names of the degradation functions used to alter each file are '
+          'located under the metadata directory')
+
+    print(LOGO)
