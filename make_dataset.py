@@ -240,6 +240,7 @@ if __name__ == '__main__':
                                  replace=True, p=deg_dist)
     for comp, deg_name in tqdm(zip(compositions, deg_names),
                                desc="Making target data"):
+        # TODO: handle cases where chosen degradation fails (throws warn?)
         fn = os.path.basename(comp.csv_path)
         dataset = os.path.basename(os.path.dirname(comp.csv_path))
         outpath = os.path.join(ARGS.output_dir, 'altered', dataset, fn)
