@@ -19,9 +19,6 @@ DATASETS = ['PPDDSep2018Monophonic', 'PPDDSep2018Polyphonic', 'PianoMidi']
 
 
 
-# TODO: make sure urls just split on / not os.path.split!
-
-
 # Classes =====================================================================
 # TODO: make attributes useful to users standard e.g. beat-aligned=True/False
 # TODO: some things are likely to be important re preprocessing e.g. the unit
@@ -79,8 +76,7 @@ class PPDDSep2018Monophonic(DataDownloader):
         self.base_url = ('http://tomcollinsresearch.net/research/data/mirex/'
                          'ppdd/ppdd-sep2018')
         self.download_urls = [
-                os.path.join(self.base_url,
-                             f'PPDD-Sep2018_sym_mono_{size}.zip')
+                f'{self.base_url}/PPDD-Sep2018_sym_mono_{size}.zip'
                 for size in sizes
             ]
         # location of midi files relative to each unzipped directory
@@ -139,8 +135,7 @@ class PPDDSep2018Polyphonic(PPDDSep2018Monophonic):
                  sizes=['small', 'medium', 'large'], clean=False):
         super().__init__(cache_path=cache_path, sizes=sizes, clean=clean)
         self.download_urls = [
-                os.path.join(self.base_url,
-                             f'PPDD-Sep2018_sym_poly_{size}.zip')
+                f'{self.base_url}PPDD-Sep2018_sym_poly_{size}.zip'
                 for size in sizes
             ]
 
