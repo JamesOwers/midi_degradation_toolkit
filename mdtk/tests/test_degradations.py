@@ -12,14 +12,18 @@ EMPTY_DF = pd.DataFrame({
     'dur': []
 })
 
-# Add and then remove a duplicate row to get non-consecutive indices
+# Create a garbled df with indices: [0, 2, 2, 4]
 BASIC_DF = pd.DataFrame({
     'onset': [0, 100, 200, 200, 200],
     'track': [0, 1, 0, 1, 1],
     'pitch': [10, 20, 30, 40, 40],
     'dur': [100, 100, 100, 100, 100]
 })
-BASIC_DF = BASIC_DF.iloc[[0,1,2,4]]
+BASIC_DF = pd.concat([BASIC_DF.iloc[[0,2]], BASIC_DF.iloc[[2,4]]])
+BASIC_DF.iloc[1]['onset'] = 100
+BASIC_DF.iloc[1]['track'] = 1
+BASIC_DF.iloc[1]['pitch'] = 20
+BASIC_DF.iloc[1]['dur'] = 100
 
 
 def test_pitch_shift():
