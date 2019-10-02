@@ -38,6 +38,43 @@ def set_random_seed(func, seed=None):
     return seeded_func
 
 
+def pre_process(df, inplace=False, sort=False):
+    """
+    Function which will pre-process a dataframe to be degraded.
+    
+    Currently, that means resetting the indices to consecutive ints from 0.
+    Optionally, this will sort the df (depending on the degradation).
+    This function is called automatically by each degradation.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe to pre-process
+
+    inplace : boolean
+        True to edit the given dataframe in place. False to create and return
+        a copy.
+
+    sort : boolean
+        True to sort the dataframe. Flase to leave the ordering as given.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        The postprocessed dataframe, or None if inplace is True.
+    """
+    if inplace:
+        if sort:
+            df.sort_values(NOTE_DF_SORT_ORDER, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        return None
+
+    if sort:
+        df = df.sort_values(NOTE_DF_SORT_ORDER)
+    df = df.reset_index(drop=True)
+    return df
+
+
 def post_process(df, inplace=False):
     """
     Function which will post-process a degraded dataframe.
@@ -151,6 +188,11 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                       category=UserWarning)
         return None
 
+    if inplace:
+        pre_process(excerpt, inplace=True)
+    else:
+        excerpt = pre_process(excerpt)
+
     # Assume all notes can be shifted initially
     valid_notes = list(excerpt.index)
 
@@ -259,6 +301,11 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
         or None if there are no notes that can be changed given the
         parameters, or if inplace=True.
     """
+    if inplace:
+        pre_process(excerpt, inplace=True)
+    else:
+        excerpt = pre_process(excerpt)
+
     min_shift = max(min_shift, 1)
 
     onset = excerpt['onset']
@@ -349,6 +396,11 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         A degradation of the excerpt, with the onset time of one note changed,
         or None if inplace=True or no notes can be onset shifted.
     """
+    if inplace:
+        pre_process(excerpt, inplace=True)
+    else:
+        excerpt = pre_process(excerpt)
+
     min_shift = max(min_shift, 1)
     min_duration -= 1
 
@@ -445,6 +497,11 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         A degradation of the excerpt, with the offset time of one note changed,
         or None if inplace=True or no notes can be offset shifted.
     """
+    if inplace:
+        pre_process(excerpt, inplace=True)
+    else:
+        excerpt = pre_process(excerpt)
+
     min_shift = max(min_shift, 1)
     max_duration += 1
 
@@ -527,6 +584,11 @@ def remove_note(excerpt, inplace=False):
         return None
 
     if inplace:
+        pre_process(excerpt, inplace=True)
+    else:
+        excerpt = pre_process(excerpt)
+
+    if inplace:
         degraded = excerpt
     else:
         degraded = excerpt.copy()
@@ -580,6 +642,11 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         A degradation of the excerpt, with one note added, or None if
         inplace=True.
     """
+    if inplace:
+        pre_process(excerpt, inplace=True)
+    else:
+        excerpt = pre_process(excerpt)
+
     end_time = excerpt[['onset', 'dur']].sum(axis=1).max()
 
     pitch = randint(min_pitch, max_pitch + 1)
@@ -667,6 +734,11 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
         warnings.warn('WARNING: No notes to split. Returning None.',
                       category=UserWarning)
         return None
+
+    if inplace:
+        pre_process(excerpt, inplace=True)
+    else:
+        excerpt = pre_process(excerpt)
 
     # Find all splitable notes
     long_enough = excerpt['dur'] >= min_duration * (num_splits + 1)
@@ -759,6 +831,11 @@ def join_notes(excerpt, max_gap=50, inplace=False):
         warnings.warn('WARNING: No notes to join. Returning None.',
                       category=UserWarning)
         return None
+
+    if inplace:
+        pre_process(excerpt, inplace=True, sort=True)
+    else:
+        excerpt = pre_process(excerpt, sort=True)
 
     valid_prev = []
     valid_next = []
