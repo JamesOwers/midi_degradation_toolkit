@@ -59,7 +59,9 @@ class DataDownloader:
                                   'implement the download_csv method.')
 
 
-
+# TODO: since these datasets already have CSV in the right format, we should
+#       implement download_csv() methods to use in favour of the download_midi
+#       this method would reformat csv to be correct (cols need renaming etc.)
 class PPDDSep2018Monophonic(DataDownloader):
     """Patterns for Preditction Development Dataset. Monophonic data only.
 
