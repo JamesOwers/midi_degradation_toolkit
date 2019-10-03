@@ -22,7 +22,7 @@ def set_random_seed(func, seed=None):
     func : function
         function to be decorated
     seed : int or None
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
     Returns
@@ -114,7 +114,7 @@ def split_range_sample(split_range, p=None):
     p : list(float)
         If given, should be a list the same length as split_range, and
         contains the probability of sampling from each range. p will be
-        normalized before use. Defaults to None.
+        normalized before use.
 
     Returns
     -------
@@ -156,14 +156,14 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         pitch, and will be set to 0. Additionally, pitches outside of the
         range [min_pitch, max_pitch] will also be set to 0. The distribution
         will then be normalized to sum to 1, and used to generate a new
-        pitch. Defaults to None, which implies a uniform distribution.
+        pitch. None implies a uniform distribution.
 
     inplace : boolean
         True to edit the given excerpt in place. False to create and return
         a copy.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
 
@@ -269,18 +269,17 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
         will be changed in place if the degradation is possible.
 
     min_shift : int
-        The minimum amount by which the note will be shifted. Defaults to 50.
+        The minimum amount by which the note will be shifted.
 
     max_shift : int
-        The maximum amount by which the note will be shifted. Defaults to
-        infinity.
+        The maximum amount by which the note will be shifted.
 
     inplace : boolean
-        True to edit the given excerpt in place. False to create and return
-        a copy.
+        True to edit the given excerpt in place. False to create and
+        return a copy.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
 
@@ -357,18 +356,16 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         will be changed in place if the degradation is possible.
 
     min_shift : int
-        The minimum amount by which the onset time will be changed. Defaults
-        to 50.
+        The minimum amount by which the onset time will be changed.
 
     max_shift : int
-        The maximum amount by which the onset time will be changed. Defaults
-        to infinity.
+        The maximum amount by which the onset time will be changed.
 
     min_duration : int
-        The minimum duration for the resulting note. Defaults to 50.
+        The minimum duration for the resulting note.
 
     max_duration : int
-        The maximum duration for the resulting note. Defaults to infinity.
+        The maximum duration for the resulting note.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
 
@@ -377,7 +374,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         a copy.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
     Returns
@@ -457,18 +454,16 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         will be changed in place if the degradation is possible.
 
     min_shift : int
-        The minimum amount by which the offset time will be changed. Defaults
-        to 50.
+        The minimum amount by which the offset time will be changed.
 
     max_shift : int
-        The maximum amount by which the offset time will be changed. Defaults
-        to infinity.
+        The maximum amount by which the offset time will be changed.
 
     min_duration : int
-        The minimum duration for the resulting note. Defaults to 50.
+        The minimum duration for the resulting note.
 
     max_duration : int
-        The maximum duration for the resulting note. Defaults to infinity.
+        The maximum duration for the resulting note.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
 
@@ -477,7 +472,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         a copy.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
 
@@ -559,7 +554,7 @@ def remove_note(excerpt, inplace=False):
         a copy.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
     Returns
@@ -616,10 +611,10 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         The maximum pitch at which a note may be added.
 
     min_duration : int
-        The minimum duration for the note to be added. Defaults to 50.
+        The minimum duration for the note to be added.
 
     max_duration : int
-        The maximum duration for the added note. Defaults to infinity.
+        The maximum duration for the added note.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
         
@@ -641,7 +636,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         less efficient.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
 
@@ -754,7 +749,7 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
         less efficient because rows must be appended to the data frame.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
     Returns
@@ -864,7 +859,7 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False,
         less efficient because rows must be appended to the data frame.
 
     seed : int
-        A seed to be supplied to np.random.seed(). Defaults to None, which
+        A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
 
     Returns
