@@ -789,7 +789,8 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
 
 
 @set_random_seed
-def join_notes(excerpt, max_gap=50, inplace=False):
+def join_notes(excerpt, max_gap=50, max_notes=2, only_first=False,
+               inplace=False):
     """
     Combine two notes of the same pitch and track into one.
 
@@ -803,9 +804,21 @@ def join_notes(excerpt, max_gap=50, inplace=False):
         The maximum gap length, in ms, for 2 notes to be able to be joined.
         (They must always share the same pitch and track).
 
+    max_notes : int
+        The maximum number of notes to join together. This degradation will
+        greedily join as many notes together as possible up to this value,
+        starting from a randomly chosen note (which may or may not be the
+        first note in a sequence, depending on only_first).
+
+    only_first : boolean
+        True to always begin joining notes from the first note of a
+        sequence of consecutive notes. False will choose a note randomly
+        up to the 2nd-to-last note from all valid sequences.
+
     inplace : boolean
         True to edit the given excerpt in place. False to create and return
-        a copy.
+        a copy. Note that inplace=True will potentially make this method
+        less efficient because rows must be appended to the data frame.
 
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
@@ -827,8 +840,8 @@ def join_notes(excerpt, max_gap=50, inplace=False):
     else:
         excerpt = pre_process(excerpt, sort=True)
 
-    valid_prev = []
-    valid_next = []
+    valid_starts = []
+    valid_nexts = []
 
     for _, track_df in excerpt.groupby('track'):
         for _, pitch_df in track_df.groupby('pitch'):
@@ -840,21 +853,35 @@ def join_notes(excerpt, max_gap=50, inplace=False):
             offset = onset + pitch_df['dur']
             gap_after = onset.shift(-1) - offset
             gap_after.iloc[-1] = np.inf
+            gap_before = gap_after.shift(1)
+            gap_before.iloc[0] = np.inf
 
-            # Save index of note before and after gap
-            valid = gap_after <= max_gap
-            valid_prev = list(valid.index[valid])
-            valid_next = list(valid.index[valid.shift(1) == True])
+            # Get valid notes to start joining from
+            if only_first:
+                valid = gap_after <= max_gap and gap_before > max_gap
+            else:
+                valid = gap_after <= max_gap
+            valid_starts.extend(list(valid.index[valid]))
+            valid_next_bool = gap_before <= max_gap
+            
+            # Get notes to join for each valid start
+            for start in valid_starts:
+                valid_next = []
+                for i, v in enumerate(valid_next_bool[start + 1:]):
+                    if i + 2 > max_notes or not v:
+                        break
+                    valid_next.append(valid_next_bool.index[start + 1 + i])
+                valid_nexts.append(valid_next)
 
-    if not valid_prev:
+    if not valid_starts:
         warnings.warn('WARNING: No valid notes to join. Returning ' +
                       'None.', category=UserWarning)
         return None
 
-    index = randint(len(valid_prev))
+    index = randint(len(valid_starts))
 
-    prev_i = valid_prev[index]
-    next_i = valid_next[index]
+    start = valid_starts[index]
+    nexts = valid_nexts[index]
 
     if inplace:
         degraded = excerpt
@@ -862,13 +889,12 @@ def join_notes(excerpt, max_gap=50, inplace=False):
         degraded = excerpt.copy()
 
     # Extend first note
-    degraded.loc[prev_i]['dur'] = (degraded.loc[next_i]['onset'] +
-                                   degraded.loc[next_i]['dur'] -
-                                   degraded.loc[prev_i]['onset'])
+    degraded.loc[start]['dur'] = (degraded.loc[nexts[-1]]['onset'] +
+                                  degraded.loc[nexts[-1]]['dur'] -
+                                  degraded.loc[start]['onset'])
 
-    # Drop 2nd note
-    degraded.drop(next_i, inplace=True)
-    degraded.reset_index(drop=True, inplace=True)
+    # Drop all following notes note
+    degraded.drop(nexts, inplace=True)
 
     post_process(degraded)
 
