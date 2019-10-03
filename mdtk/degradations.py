@@ -88,23 +88,13 @@ def post_process(df, inplace=False):
     df : pd.DataFrame
         The dataframe to post-process
 
-    inplace : boolean
-        True to edit the given dataframe in place. False to create and return
-        a copy.
-
     Returns
     -------
     df : pd.DataFrame
         The postprocessed dataframe, or None if inplace is True.
     """
-    if inplace:
-        df.sort_values(NOTE_DF_SORT_ORDER, inplace=True)
-        df.reset_index(drop=True, inplace=True)
-        return None
-
-    df = df.sort_values(NOTE_DF_SORT_ORDER)
-    df = df.reset_index(drop=True)
-    return df
+    df.sort_values(NOTE_DF_SORT_ORDER, inplace=True)
+    df.reset_index(drop=True, inplace=True)
 
 
 def split_range_sample(split_range, p=None):
@@ -260,7 +250,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         distribution = distribution / np.sum(distribution)
         degraded.loc[note_index, 'pitch'] = choice(pitches, p=distribution)
 
-    degraded = post_process(degraded, inplace=inplace)
+    post_process(degraded)
 
     if not inplace:
         return degraded
@@ -348,7 +338,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
 
     degraded.loc[index, 'onset'] = onset
 
-    degraded = post_process(degraded, inplace=inplace)
+    post_process(degraded)
 
     if not inplace:
         return degraded
@@ -448,7 +438,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     degraded.loc[index, 'onset'] = onset
     degraded.loc[index, 'dur'] = offset[index] - onset
 
-    degraded = post_process(degraded, inplace=inplace)
+    post_process(degraded)
 
     if not inplace:
         return degraded
@@ -547,7 +537,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     degraded.loc[index, 'dur'] = duration
 
-    degraded = post_process(degraded, inplace=inplace)
+    post_process(degraded)
 
     if not inplace:
         return degraded
@@ -690,7 +680,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                                     'track': track},
                                    ignore_index=True)
 
-    degraded = post_process(degraded, inplace=inplace)
+    post_process(degraded)
 
     if not inplace:
         return degraded
@@ -792,7 +782,7 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
                                'dur': durs})
         degraded = degraded.append(new_df, ignore_index=True)
 
-    degraded = post_process(degraded, inplace=inplace)
+    post_process(degraded)
 
     if not inplace:
         return degraded
@@ -880,7 +870,7 @@ def join_notes(excerpt, max_gap=50, inplace=False):
     degraded.drop(next_i, inplace=True)
     degraded.reset_index(drop=True, inplace=True)
 
-    degraded = post_process(degraded, inplace=inplace)
+    post_process(degraded)
 
     if not inplace:
         return degraded

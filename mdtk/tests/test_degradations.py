@@ -89,17 +89,8 @@ def test_post_process():
         'dur': [100, 100, 100, 100]
     })
 
-    res = deg.post_process(UNSORTED_DF)
-    assert res.equals(basic_res), (
-        f"Post-processing \n{UNSORTED_DF}\n resulted in "
-        f"\n{res}\ninstead of \n{basic_res}"
-    )
-
     copy = UNSORTED_DF.copy()
-    res = deg.post_process(copy, inplace=True)
-    assert res is None, (
-        f"Post-processing \n{UNSORTED_DF}\n with inplace returned something."
-    )
+    deg.post_process(copy)
     assert copy.equals(basic_res), (
         f"Post-processing \n{UNSORTED_DF}\n with inplace "
         f"resulted in \n{copy}\ninstead of \n{basic_res}"
