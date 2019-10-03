@@ -24,7 +24,7 @@ NR_MIDINOTES = 128
 
 def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
                   sort=True, header='infer', monophonic_tracks=None,
-                  max_note_len=None):
+                  max_note_len=None, overlap_check=True):
     """Read a csv and create a standard note event DataFrame - a `note_df`.
 
     Parameters
@@ -65,13 +65,13 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
     df.rename(columns=cols, inplace=True)
     if track is None:
         df.loc[:, 'track'] = 0
-
-    # Check no overlapping notes of the same pitch
-    df = df.groupby(['track', 'pitch']).apply(fix_overlapping_notes)
+    
+    if overlap_check is True:
+        # Check no overlapping notes of the same pitch
+        df = df.groupby('track').apply(fix_overlapping_pitches)
 
     if monophonic_tracks is not None:
         df = make_monophonic(df, tracks=monophonic_tracks)
-
 
     if max_note_len is not None:
         df.loc[df['dur'] > max_note_len, 'dur'] = max_note_len
@@ -203,7 +203,7 @@ def check_monophonic(note_df, tracks='all', raise_error=True):
 
 # note_df_editing =============================================================
 # Functions for altering already imported note_df DataFrames
-def fix_overlapping_notes(df, drop_new_cols=True):
+def fix_overlapping_notes(df):
     """For use in a groupby operation over track. Fixes any pitches that
     overlap. Pulls the offending note's offtime back behind the
     following onset time."""
@@ -213,18 +213,28 @@ def fix_overlapping_notes(df, drop_new_cols=True):
 #    df = df.copy()
     if df.shape[0] <= 1:
         return df
-    dtypes = dict(zip(df.columns, df.dtypes))
-    df['note_off'] = df['onset'] + df['dur']
-    df['next_note_on'] = df['onset'].shift(-1)
-    df.loc[df.index[-1], 'next_note_on'] = np.iinfo(np.int32).max
-    if np.issubdtype(dtypes['onset'], np.integer):
-        df['next_note_on'] = df['next_note_on'].astype('int')
-    df['bad_note'] = df['note_off'] > df['next_note_on']  # equal is fine
-    df.loc[df['bad_note'], 'dur'] = (df.loc[df['bad_note'], 'next_note_on']
-                                     - df.loc[df['bad_note'], 'onset'])
-    if drop_new_cols:
-        new_cols = ['note_off', 'next_note_on', 'bad_note']
-        df.drop(new_cols, axis=1, inplace=True)
+    note_off = (df['onset'] + df['dur']).values[:-1]
+    next_note_on = df['onset'].values[1:]
+    bad_note = note_off > next_note_on  # equal is fine
+    bad_note = np.append(bad_note, False)  # last note always fine
+    df.loc[bad_note, 'dur'] = (next_note_on[bad_note[:-1]]
+                               - df.loc[bad_note, 'onset'].values)
+    # TODO: add an assertion to catch dur==0 and add a test
+    return df
+
+
+def fix_overlapping_pitches(df):
+    """Attempt"""
+    if df.shape[0] <= 1:
+        return df
+    note_off = (df['onset'] + df['dur']).values[:-1]
+    next_note_on = df['onset'].values[1:]
+    note_overlap = note_off > next_note_on  # equal is fine
+    pitch_same = df['pitch'].values[:-1] == df['pitch'].values[1:]
+    bad_note = np.logical_and(note_overlap, pitch_same)
+    bad_note = np.append(bad_note, False)  # last note always fine
+    df.loc[bad_note, 'dur'] = (next_note_on[bad_note[:-1]]
+                               - df.loc[bad_note, 'onset'].values)
     # TODO: add an assertion to catch dur==0 and add a test
     return df
 
@@ -524,7 +534,7 @@ class Pianoroll():
                 '(track, channel, pitch, time)')
             if pianoroll_array.shape[1] == 1:
                 # This is a flat pianoroll with just 'sounding' channel
-                self.sounding = pianoroll_array.squeeze()
+                self.sounding = pianoroll_array[:, 0, :, :]
                 self.note_on = self.get_note_on_from_sounding()
             elif pianoroll_array.shape[1] == 2:
                 # This is a pianoroll with channels 'sounding', 'note_on'

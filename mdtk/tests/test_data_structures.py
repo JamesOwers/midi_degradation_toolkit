@@ -67,7 +67,7 @@ note_df_2pitch_weird_times_quant = pd.DataFrame({
     'onset': [0, 0, 14, 16],
     'track' : 0,
     'pitch': [60, 61, 60, 60],
-    'dur': [11, 19, 2, 2] 
+    'dur': [11, 19, 2, 2]
 })
 # silence between 3.75 and 4
 note_df_with_silence = pd.DataFrame({
@@ -207,7 +207,7 @@ def fix_sort(df):
             .sort_values(by=NOTE_DF_SORT_ORDER)
             .reset_index(drop=True)
     )[NOTE_DF_SORT_ORDER]
-    
+
 ALL_VALID_DF = {
     'note_df_overlapping_pitch': note_df_overlapping_pitch_fix,
     'note_df_overlapping_note': note_df_overlapping_note,
@@ -229,7 +229,7 @@ ALL_VALID_DF = {
 }
 
 
-for name, df in ALL_DF.items():    
+for name, df in ALL_DF.items():
     df.to_csv(f'./{name}.csv', index=False)
 
 all_pitch_df_tracks_sparecol.to_csv(
@@ -247,7 +247,58 @@ ALL_CSV = [f'./{name}.csv' for name in ALL_DF.keys()]
 ALL_CSV += ['./all_pitch_df_tracks_sparecol_noheader.csv',
             './all_pitch_df_tracks_sparecol_weirdorder.csv']
 
+default_read_note_csv_kwargs = dict(
+    onset='onset',
+    pitch='pitch',
+    dur='dur',
+    track='track',
+    sort=True,
+    header='infer'
+)
 
+ALL_CSV_KWARGS = {
+    './note_df_overlapping_pitch.csv': default_read_note_csv_kwargs,
+    './note_df_overlapping_note.csv': default_read_note_csv_kwargs,
+    './note_df_2pitch_aligned.csv': default_read_note_csv_kwargs,
+    './note_df_odd_names.csv': dict(
+        onset='note_on',
+        pitch='midinote',
+        dur='duration',
+        track='ch',
+        sort=True,
+        header='infer'
+    ),
+    './note_df_2pitch_weird_times.csv': default_read_note_csv_kwargs,
+    './note_df_2pitch_weird_times_quant.csv': default_read_note_csv_kwargs,
+    './note_df_with_silence.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_notrack.csv': dict(
+        onset='onset',
+        pitch='pitch',
+        dur='dur',
+        track=None,
+        sort=True,
+        header='infer'
+    ),
+    './all_pitch_df_wrongorder.csv': default_read_note_csv_kwargs,
+    './all_pitch_df.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks_overlaps.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks_sparecol.csv': default_read_note_csv_kwargs,
+    './df_all_mono.csv': default_read_note_csv_kwargs,
+    './df_some_mono.csv': default_read_note_csv_kwargs,
+    './df_all_poly.csv': default_read_note_csv_kwargs,
+    './all_pitch_df_tracks_sparecol_noheader.csv':
+        dict(
+            onset=0,
+            pitch=2,
+            dur=3,
+            track=1,
+            sort=True,
+            header=None
+        ),
+    './all_pitch_df_tracks_sparecol_weirdorder.csv':
+        default_read_note_csv_kwargs
+}
 
 # Function tests ==============================================================
 def test_read_note_csv():
@@ -280,13 +331,13 @@ def test_read_note_csv():
             read_note_csv('./note_df_odd_names.csv', onset='note_on',
                           track='ch', pitch='midinote', dur='duration'))
         )
-    
+
 
 def test_check_overlap():
     assert check_overlap(note_df_overlapping_pitch)
     assert check_overlap(note_df_overlapping_note)
     assert not check_overlap(note_df_overlapping_pitch_fix)
-    
+
 
 def test_check_overlapping_pitch():
     assert check_overlapping_pitch(note_df_overlapping_pitch)
@@ -317,9 +368,9 @@ def test_check_note_df():
 
 def test_check_monophonic():
     assert all(check_monophonic(df_all_mono))
-    assert (check_monophonic(df_some_mono, raise_error=False) 
+    assert (check_monophonic(df_some_mono, raise_error=False)
             == [True, False, True])
-    assert (check_monophonic(df_all_poly, raise_error=False) 
+    assert (check_monophonic(df_all_poly, raise_error=False)
             == [False, False, False])
     assert all(check_monophonic(all_pitch_df_tracks))
     correctly_errored = False
@@ -336,7 +387,7 @@ def test_fix_overlapping_notes():
     assert note_df_overlapping_pitch_fix.equals(
             fix_overlapping_notes(note_df_overlapping_pitch.copy())
         )
-    assert all(note_df_2pitch_weird_times.dtypes == 
+    assert all(note_df_2pitch_weird_times.dtypes ==
                fix_overlapping_notes(note_df_2pitch_weird_times.copy()).dtypes)
 
 
@@ -363,10 +414,10 @@ def test_quantize_df():
 def test_pianoroll_all_pitches():
     pianoroll = Pianoroll(quant_df=all_pitch_df)
     assert (pianoroll == np.ones((1, 2, 128, 1), dtype='uint8')).all()
-    
+
 
 # TODO: test all note_on occur with sounding
-    
+
 # TODO: test all note_off occur with sounding
 
 # TODO: test all sounding begin note_on and end_note_off
@@ -375,7 +426,7 @@ def test_pianoroll_all_pitches():
 
 
 # Composition class tests =====================================================
-# TODO: write import from csv tests    
+# TODO: write import from csv tests
 
 def test_composition_df_assertions():
     """Essentially the same tests as test_check_note_df"""
@@ -388,7 +439,7 @@ def test_composition_df_assertions():
             assertion = True
     assert assertion
     assertion = False
-    
+
     assertion = False
     try:
         Composition(note_df=note_df_2pitch_aligned)
@@ -398,7 +449,7 @@ def test_composition_df_assertions():
             assertion = True
     assert assertion
     assertion = False
-    
+
     try:
         Composition(
             note_df=note_df_2pitch_aligned.sort_values(NOTE_DF_SORT_ORDER)
@@ -407,7 +458,7 @@ def test_composition_df_assertions():
         if e.args == ("note_df must have a RangeIndex with integer steps",):
             assertion = True
     assert assertion
-    
+
     assert Composition(
             note_df=(
                 note_df_2pitch_aligned
@@ -461,6 +512,26 @@ def test_all_composition_methods_and_attributes():
         comp.plot()
         comp.synthesize()
 
+def test_composition_read_csv():
+    compositions = [Composition(csv_path=csv_path,
+                                read_note_csv_kwargs=ALL_CSV_KWARGS[csv_path])
+                    for csv_path in ALL_CSV]
+    for comp in compositions:
+        comp.csv_path
+        comp.note_df
+        comp.quantization
+        comp.quant_df
+        comp.pianoroll
+        comp.quanta_labels
+        comp.plot()
+        comp.synthesize()
+
+def test_csv_and_df_imports_same():
+    # TODO: write test that imports from all csvs and checks same as
+    # importing from df
+    pass
+
+
 # TODO: Check if anything alters input data - loop over all functions and
 #       methods
 
@@ -468,6 +539,6 @@ def test_all_composition_methods_and_attributes():
 # Cleanup =====================================================================
 # TODO: This isn't technichally a test...should probably be some other function
 #       look up the proper way to do this.
-def test_remove_csvs(): 
+def test_remove_csvs():
     for csv in ALL_CSV:
         os.remove(csv)
