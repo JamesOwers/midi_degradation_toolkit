@@ -598,7 +598,8 @@ def remove_note(excerpt, inplace=False):
 
 @set_random_seed
 def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
-             min_duration=50, max_duration=np.inf, inplace=False):
+             min_duration=50, max_duration=np.inf,
+             align_pitch=False, align_time=False, inplace=False):
     """
     Add one note to the given excerpt.
 
@@ -607,20 +608,38 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     excerpt : df.DataFrame
         An excerpt from a piece of music. If inplace=True, this object
         will be changed in place.
+
     min_pitch : int
         The minimum pitch at which a note may be added.
+
     max_pitch : int
         The maximum pitch at which a note may be added.
+
     min_duration : int
         The minimum duration for the note to be added. Defaults to 50.
+
     max_duration : int
         The maximum duration for the added note. Defaults to infinity.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
+        
+    align_pitch : boolean
+        True to force the added note to lie on the same pitch as an
+        existing note (if one exists). This ignores the given min and
+        max pitches. If excerpt contains only 1 note and align_time
+        is True, this is always set to False.
+        
+    align_time : boolean
+        True to force the added note to have the same onset time and
+        duration as an existing note (if one exists), though not
+        necessarily the same (onset, duration) pair as an existing
+        note. If True, this ignores the min and max durations.
+
     inplace : boolean
         True to edit the given excerpt in place. False to create and return
         a copy. Note that inplace=True will potentially make this method
         less efficient.
+
     seed : int
         A seed to be supplied to np.random.seed(). Defaults to None, which
         leaves numpy's random state unchanged.
@@ -637,30 +656,61 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     else:
         excerpt = pre_process(excerpt)
 
+    if len(excerpt) == 0:
+        align_pitch = False
+        align_time = False
+
+    if len(excerpt) == 1 and align_pitch and align_time:
+        align_pitch = False
+
     end_time = excerpt[['onset', 'dur']].sum(axis=1).max()
 
-    pitch = randint(min_pitch, max_pitch + 1)
-    track = None
+    iters = 0
+    while iters < 10:
+        if align_pitch:
+            pitch = choice(excerpt['pitch'].unique())
+        else:
+            pitch = randint(min_pitch, max_pitch + 1)
 
-    if min_duration > end_time:
-        onset = 0
-        duration = min_duration
-    elif excerpt.shape[0] == 0:
-        onset = 0
-        duration = randint(min_duration, min(max_duration + 1, sys.maxsize))
-    else:
-        onset = randint(excerpt['onset'].min(),
-                        end_time - min_duration)
-        duration = randint(min_duration,
-                           min(end_time - onset, max_duration + 1))
+        # Find onset and duration
+        if align_time:
+            onset = choice(excerpt['onset'].unique())
+            dur_unique = excerpt['dur'].unique()
+            dur_in_range = dur_unique[dur_unique <= end_time - onset]
+            duration = choice(dur_in_range)
+        elif min_duration > end_time:
+            onset = 0
+            duration = min_duration
+        elif excerpt.shape[0] == 0:
+            onset = 0
+            duration = randint(min_duration,
+                               min(max_duration + 1, sys.maxsize))
+        else:
+            onset = randint(excerpt['onset'].min(),
+                            end_time - min_duration)
+            duration = randint(min_duration,
+                               min(end_time - onset, max_duration + 1))
 
-    # Track is random one of existing tracks
-    try:
-        track = choice(excerpt['track'].unique())
-    except KeyError:  # No track col in df
-        track = 0
-    except ValueError:  # Empty dataframe
-        track = 0
+        # Track is random one of existing tracks
+        try:
+            track = choice(excerpt['track'].unique())
+        except KeyError:  # No track col in df
+            track = 0
+        except ValueError:  # Empty dataframe
+            track = 0
+
+        # Check if we have a non-duplicate solution
+        note = {'pitch': pitch,
+                'onset': onset,
+                'dur': duration,
+                'track': track}
+        if not (excerpt == note).all(1).any():
+            break
+        elif iters == 9:
+            warnings.warn("WARNING: 10 iterations didn't find non-"
+                          "duplicate note to add. Returning None.",
+                          category=UserWarning)
+            return None
 
     if inplace:
         degraded = excerpt
@@ -668,17 +718,10 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
             index = max(degraded.index) + 1
         else:
             index = 0
-        degraded.loc[index] = {'pitch': pitch,
-                               'onset': onset,
-                               'dur': duration,
-                               'track': track}
+        degraded.loc[index] = note
     else:
         degraded = excerpt.copy()
-        degraded = degraded.append({'pitch': pitch,
-                                    'onset': onset,
-                                    'dur': duration,
-                                    'track': track},
-                                   ignore_index=True)
+        degraded = degraded.append(note, ignore_index=True)
 
     post_process(degraded)
 
@@ -863,7 +906,7 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False,
                 valid = gap_after <= max_gap
             valid_starts.extend(list(valid.index[valid]))
             valid_next_bool = gap_before <= max_gap
-            
+
             # Get notes to join for each valid start
             for start in valid_starts:
                 valid_next = []

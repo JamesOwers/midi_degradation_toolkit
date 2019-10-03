@@ -777,7 +777,8 @@ def test_add_note():
 
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert (diff.shape[0] == 1), (
-            "Adding a note changed an existing note." + str(pd.merge(BASIC_DF, res).reset_index())
+            "Adding a note changed an existing note, or added note is a "
+            "duplicate."
         )
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
 
@@ -787,13 +788,36 @@ def test_add_note():
             f"[{min_pitch}, {max_pitch}]."
         )
         assert min_duration <= note['dur'] <= max_duration, (
-            f"Added note's duration ({note.pitch}) not within range "
+            f"Added note's duration ({note.dur}) not within range "
             f"[{min_duration}, {max_duration}]."
         )
         assert (note['onset'] >= 0 and note['onset'] + note['dur'] <=
                 BASIC_DF[['onset', 'dur']].sum(axis=1).max()), (
             "Added note's onset and duration do not lie within "
             "bounds of given dataframe."
+        )
+
+        # Test align_pitch and align_time
+        res = deg.add_note(BASIC_DF, min_pitch=min_pitch, max_pitch=max_pitch,
+                           min_duration=min_duration, max_duration=max_duration,
+                           align_pitch=True, align_time=True)
+
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert (diff.shape[0] == 1), (
+            "Adding a note changed an existing note, or added note is a "
+            "duplicate."
+        )
+        assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
+
+        note = diff.iloc[0]
+        assert note['pitch'] in list(BASIC_DF['pitch']), (
+            f"Added note's pitch ({note.pitch}) not aligned to \n{BASIC_DF}"
+        )
+        assert note['dur'] in list(BASIC_DF['dur']), (
+            f"Added note's duration ({note.dur}) not aligned to \n{BASIC_DF}"
+        )
+        assert note['onset'] in list(BASIC_DF['onset']), (
+            f"Added note's onset ({note.onset}) not aligned to \n{BASIC_DF}"
         )
 
     # Test min_duration too large
@@ -1105,7 +1129,7 @@ def test_join_notes():
                 joined_notes.loc[0]['onset']), (
             "Joined duration not equal to original durations plus gap."
         )
-        
+
         # Test joining multiple notes not at first
         res = deg.join_notes(join_df, max_notes=max_notes, max_gap=max_gap)
 
