@@ -712,12 +712,20 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     for iters in range(10):
         if align_pitch:
-            pitch = choice(excerpt['pitch'].unique())
+            pitch = excerpt['pitch'].between(min_pitch, max_pitch,
+                                             inclusive=True)
+            pitch = excerpt['pitch'][pitch].unique()
+            if len(pitch) == 0:
+                warnings.warn("WARNING: No valid aligned pitch in given "
+                              "range.", category=UserWarning)
+                return None
+            pitch = choice(pitch)
         else:
             pitch = randint(min_pitch, max_pitch + 1)
 
         # Find onset and duration
         if align_time:
+            # TODO: Keep in correct ranges
             onset = choice(excerpt['onset'].unique())
             dur_unique = excerpt['dur'].unique()
             dur_in_range = dur_unique[dur_unique <= end_time - onset]
