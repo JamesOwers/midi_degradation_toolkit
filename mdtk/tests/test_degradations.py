@@ -834,9 +834,19 @@ def test_add_note():
         )
 
         # Test align_pitch and align_time
-        res = deg.add_note(BASIC_DF, min_pitch=min_pitch, max_pitch=max_pitch,
-                           min_duration=min_duration, max_duration=max_duration,
-                           align_pitch=True, align_time=True)
+        if (min_pitch > BASIC_DF['pitch'].max() or
+            max_pitch < BASIC_DF['pitch'].min()):
+            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+                res = deg.add_note(BASIC_DF, min_pitch=min_pitch,
+                                   max_pitch=max_pitch, min_duration=min_duration,
+                                   max_duration=max_duration, align_pitch=True,
+                                   align_time=True)
+            continue
+
+        res = deg.add_note(BASIC_DF, min_pitch=min_pitch,
+                           max_pitch=max_pitch, min_duration=min_duration,
+                           max_duration=max_duration, align_pitch=True,
+                           align_time=True)
 
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert (diff.shape[0] == 1), (
