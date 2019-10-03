@@ -725,11 +725,22 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
         # Find onset and duration
         if align_time:
-            # TODO: Keep in correct ranges
-            onset = choice(excerpt['onset'].unique())
-            dur_unique = excerpt['dur'].unique()
-            dur_in_range = dur_unique[dur_unique <= end_time - onset]
-            duration = choice(dur_in_range)
+            if (min_duration > excerpt['dur'].max() or
+                max_duration < excerpt['dur'].min()):
+                warnings.warn("WARNING: No valid aligned duration in "
+                              "given range.", category=UserWarning)
+                return None
+
+            durations = excerpt['dur'].between(min_duration, max_duration,
+                                               inclusive=True)
+            durations = excerpt['dur'][durations]
+            min_dur = durations.min()
+            onset = excerpt['onset'].between(0, end_time - min_dur,
+                                             inclusive=True)
+            onset = choice(excerpt['onset'][onset].unique())
+            dur_unique = durations[durations.between(
+                min_dur, end_time - onset, inclusive=True)].unique()
+            duration = choice(dur_unique)
         elif min_duration > end_time:
             onset = 0
             duration = min_duration

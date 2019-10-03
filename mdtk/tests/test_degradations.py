@@ -835,7 +835,9 @@ def test_add_note():
 
         # Test align_pitch and align_time
         if (min_pitch > BASIC_DF['pitch'].max() or
-            max_pitch < BASIC_DF['pitch'].min()):
+            max_pitch < BASIC_DF['pitch'].min() or
+            min_duration > BASIC_DF['dur'].max() or
+            max_duration < BASIC_DF['dur'].min()):
             with pytest.warns(UserWarning, match=re.escape("WARNING:")):
                 res = deg.add_note(BASIC_DF, min_pitch=min_pitch,
                                    max_pitch=max_pitch, min_duration=min_duration,
@@ -851,7 +853,7 @@ def test_add_note():
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert (diff.shape[0] == 1), (
             "Adding a note changed an existing note, or added note is a "
-            "duplicate."
+            "duplicate." + "\n" + str(BASIC_DF) + "\n" + str(res)
         )
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
 
