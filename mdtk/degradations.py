@@ -789,7 +789,7 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
 
 
 @set_random_seed
-def join_notes(excerpt, max_gap=50, max_notes=2, only_first=False,
+def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False,
                inplace=False):
     """
     Combine two notes of the same pitch and track into one.
@@ -858,7 +858,7 @@ def join_notes(excerpt, max_gap=50, max_notes=2, only_first=False,
 
             # Get valid notes to start joining from
             if only_first:
-                valid = gap_after <= max_gap and gap_before > max_gap
+                valid = (gap_after <= max_gap) & (gap_before > max_gap)
             else:
                 valid = gap_after <= max_gap
             valid_starts.extend(list(valid.index[valid]))

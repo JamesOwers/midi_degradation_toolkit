@@ -1033,7 +1033,7 @@ def test_join_notes():
         join_df.iloc[1]['dur'] = join_df.iloc[2]['onset'] - \
             max_gap - join_df.iloc[1]['onset']
 
-        res = deg.join_notes(join_df, max_gap=max_gap)
+        res = deg.join_notes(join_df, max_notes=2, max_gap=max_gap)
 
         # Gap should work
         diff = pd.concat([res, join_df]).drop_duplicates(keep=False)
@@ -1060,7 +1060,82 @@ def test_join_notes():
             "Joined track not equal to original pitch."
         )
         assert (new_note.loc[0]['dur'] ==
-                joined_notes.loc[1]['dur'] + joined_notes.loc[1]['onset'] -
+                joined_notes.iloc[-1]['onset'] +
+                joined_notes.iloc[-1]['dur'] -
+                joined_notes.loc[0]['onset']), (
+            "Joined duration not equal to original durations plus gap."
+        )
+
+        # Test joining multiple notes at first
+        max_notes = max(2, i)
+        num_joined = min(max_notes, 3)
+        res = deg.join_notes(join_df, max_notes=max_notes, only_first=True,
+                             max_gap=max_gap)
+
+        diff = pd.concat([res, join_df]).drop_duplicates(keep=False)
+        new_note = pd.merge(diff, res).reset_index(drop=True)
+        joined_notes = pd.merge(diff, join_df).reset_index(drop=True)
+        unchanged_notes = pd.merge(res, join_df).reset_index(drop=True)
+
+        assert (unchanged_notes.shape[0] ==
+                join_df.shape[0] - num_joined), (
+            "Joining notes changed too many notes."
+        )
+        assert new_note.shape[0] == 1, (
+            "Joining notes resulted in more than 1 new note."
+        )
+        assert joined_notes.shape[0] == num_joined, (
+            "Joining notes changed too many notes."
+        )
+        assert joined_notes.loc[0].equals(join_df.loc[0]), (
+            "Joining didn't start at first."
+        )
+        assert new_note.loc[0]['onset'] == joined_notes.loc[0]['onset'], (
+            "Joined onset not equal to original onset."
+        )
+        assert new_note.loc[0]['pitch'] == joined_notes.loc[0]['pitch'], (
+            "Joined pitch not equal to original pitch."
+        )
+        assert new_note.loc[0]['track'] == joined_notes.loc[0]['track'], (
+            "Joined track not equal to original pitch."
+        )
+        assert (new_note.loc[0]['dur'] ==
+                joined_notes.iloc[-1]['onset'] +
+                joined_notes.iloc[-1]['dur'] -
+                joined_notes.loc[0]['onset']), (
+            "Joined duration not equal to original durations plus gap."
+        )
+        
+        # Test joining multiple notes not at first
+        res = deg.join_notes(join_df, max_notes=max_notes, max_gap=max_gap)
+
+        diff = pd.concat([res, join_df]).drop_duplicates(keep=False)
+        new_note = pd.merge(diff, res).reset_index()
+        joined_notes = pd.merge(diff, join_df).reset_index()
+        unchanged_notes = pd.merge(res, join_df).reset_index()
+
+        assert (unchanged_notes.shape[0] >= join_df.shape[0] - max_notes and
+                unchanged_notes.shape[0] <= join_df.shape[0] - 2), (
+            "Joining notes changed too many notes."
+        )
+        assert new_note.shape[0] == 1, (
+            "Joining notes resulted in more than 1 new note."
+        )
+        assert 2 <= joined_notes.shape[0] <= 3, (
+            "Joining notes changed too many notes."
+        )
+        assert new_note.loc[0]['onset'] == joined_notes.loc[0]['onset'], (
+            "Joined onset not equal to original onset."
+        )
+        assert new_note.loc[0]['pitch'] == joined_notes.loc[0]['pitch'], (
+            "Joined pitch not equal to original pitch."
+        )
+        assert new_note.loc[0]['track'] == joined_notes.loc[0]['track'], (
+            "Joined track not equal to original pitch."
+        )
+        assert (new_note.loc[0]['dur'] ==
+                joined_notes.iloc[-1]['onset'] +
+                joined_notes.iloc[-1]['dur'] -
                 joined_notes.loc[0]['onset']), (
             "Joined duration not equal to original durations plus gap."
         )
