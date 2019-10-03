@@ -326,6 +326,42 @@ def test_time_shift():
             f"Shift {shift} outside of range [{10 * i}, {10 * (i + 1)}]."
         )
 
+        # Check with align_onset=True
+        if 10 * i <= 200 and 10 * (i + 1) >= 100:
+            res = deg.time_shift(BASIC_DF, min_shift=10 * i,
+                             max_shift=10 * (i + 1), align_onset=True)
+
+            # Check that only things that should have changed have changed
+            diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+            assert diff.shape[0] == 2, "Time shift changed more than 1 note." + "\n" + str(BASIC_DF) + "\n" + str(res)
+            assert diff.iloc[0]['onset'] != diff.iloc[1]['onset'], (
+                "Time shift did not change any onset time."
+            )
+            assert diff.iloc[0]['track'] == diff.iloc[1]['track'], (
+                "Time shift changed some track."
+            )
+            assert diff.iloc[0]['dur'] == diff.iloc[1]['dur'], (
+                "Time shift changed some duration."
+            )
+            assert diff.iloc[0]['pitch'] == diff.iloc[1]['pitch'], (
+                "Time shift changed some pitch."
+            )
+            assert diff.iloc[0]['onset'] in BASIC_DF['onset'].unique(), (
+                "Time shift didn't change to an aligned onset."
+            )
+
+            # Check that changed onset is within given range
+            changed_onset = diff.iloc[0]['onset']
+            original_onset = diff.iloc[1]['onset']
+            shift = abs(changed_onset - original_onset)
+            assert 10 * i <= shift <= 10 * (i + 1), (
+                f"Shift {shift} outside of range [{10 * i}, {10 * (i + 1)}]."
+            )
+        else:
+            with pytest.warns(UserWarning, match=re.escape('WARNING:')):
+                res = deg.time_shift(BASIC_DF, min_shift=10 * i,
+                                     max_shift=10 * (i + 1), align_onset=True)
+
     # Check for range too large warning
     with pytest.warns(UserWarning, match=re.escape('WARNING: No valid notes to '
                                                    'time shift.')):

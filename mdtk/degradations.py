@@ -257,7 +257,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
+def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False,
+               inplace=False):
     """
     Shift the onset and offset times of one note from the given excerpt,
     leaving its duration unchanged.
@@ -273,6 +274,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
 
     max_shift : int
         The maximum amount by which the note will be shifted.
+
+    align_onset : boolean
+        Align the shifted note to the onset time of an existing note
+        (within the given shift range).
 
     inplace : boolean
         True to edit the given excerpt in place. False to create and
@@ -310,13 +315,29 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
                                   .clip(upper=max_shift))
     earliest_later_onset = onset + min_shift
 
+    if align_onset:
+        # Find ranges which contain a note to align to
+        onset = pd.Series(onset.unique())
+        for i, (eeo, leo, llo, elo) in enumerate(zip(
+            earliest_earlier_onset, latest_earlier_onset,
+            latest_later_onset, earliest_later_onset)):
+            # Go through each range to check there is a valid onset
+            earlier_valid = onset.between(eeo, leo).any()
+            later_valid = onset.between(elo, llo).any()
+
+            # Close invalid ranges
+            if not earlier_valid:
+                earliest_earlier_onset.iloc[i] = leo
+            if not later_valid:
+                earliest_later_onset.iloc[i] = llo
+
     # Find valid notes
     valid = ((earliest_earlier_onset < latest_earlier_onset) |
              (earliest_later_onset < latest_later_onset))
     valid_notes = list(valid.index[valid])
 
     if not valid_notes:
-        warnings.warn('WARNING: No valid notes to time shift. Returning ' +
+        warnings.warn('WARNING: No valid notes to time shift. Returning '
                       'None.', category=UserWarning)
         return None
 
@@ -328,7 +349,36 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, inplace=False):
     elo = earliest_later_onset[index]
     llo = max(latest_later_onset[index], elo)
 
-    onset = split_range_sample([(eeo, leo), (elo, llo)])
+    if align_onset:
+        for iters in range(10):
+            valid_onsets = (onset.between(eeo, leo) |
+                            onset.between(elo, llo))
+            valid_onsets = list(onset[valid_onsets])
+            on = choice(valid_onsets)
+            note = {'onset': on,
+                    'pitch': excerpt.loc[index]['pitch'],
+                    'dur': excerpt.loc[index]['dur'],
+                    'track': excerpt.loc[index]['track']}
+            if not (excerpt == note).all(1).any():
+                # The sample note is unique
+                onset = on
+                break
+            elif iters == 9:
+                warnings.warn("WARNING: 10 iterations didn't find non-"
+                              "duplicate onset to shift to. Returning None.",
+                              category=UserWarning)
+                return None
+
+            # Re-sample and iteratre
+            index = choice(valid_notes)
+
+            eeo = earliest_earlier_onset[index]
+            leo = max(latest_earlier_onset[index], eeo)
+            elo = earliest_later_onset[index]
+            llo = max(latest_later_onset[index], elo)
+
+    else:
+        onset = split_range_sample([(eeo, leo), (elo, llo)])
 
     if inplace:
         degraded = excerpt
@@ -413,7 +463,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     valid_notes = list(valid.index[valid])
 
     if not valid_notes:
-        warnings.warn('WARNING: No valid notes to onset shift. Returning ' +
+        warnings.warn('WARNING: No valid notes to onset shift. Returning '
                       'None.', category=UserWarning)
         return None
 
@@ -511,7 +561,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     valid_notes = list(valid.index[valid])
 
     if not valid_notes:
-        warnings.warn('WARNING: No valid notes to offset shift. Returning ' +
+        warnings.warn('WARNING: No valid notes to offset shift. Returning '
                       'None.', category=UserWarning)
         return None
 
@@ -660,8 +710,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     end_time = excerpt[['onset', 'dur']].sum(axis=1).max()
 
-    iters = 0
-    while iters < 10:
+    for iters in range(10):
         if align_pitch:
             pitch = choice(excerpt['pitch'].unique())
         else:
@@ -773,7 +822,7 @@ def split_note(excerpt, min_duration=50, num_splits=1, inplace=False):
     valid_notes = list(long_enough.index[long_enough])
 
     if not valid_notes:
-        warnings.warn('WARNING: No valid notes to split. Returning ' +
+        warnings.warn('WARNING: No valid notes to split. Returning '
                       'None.', category=UserWarning)
         return None
 
@@ -912,7 +961,7 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False,
                 valid_nexts.append(valid_next)
 
     if not valid_starts:
-        warnings.warn('WARNING: No valid notes to join. Returning ' +
+        warnings.warn('WARNING: No valid notes to join. Returning '
                       'None.', category=UserWarning)
         return None
 
