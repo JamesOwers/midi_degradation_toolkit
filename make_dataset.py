@@ -229,7 +229,6 @@ if __name__ == '__main__':
         comp.note_df.to_csv(outpath)
 
     # Perform degradations and write degraded data to output ==================
-    # Because we have already written clean data, we can do this in place
     # output to output_dir/degraded/dataset_name/filename.csv
     # The reason for this is that there could be filename duplicates (as above,
     # it's assumed there shouldn't be duplicates within each dataset!), and
@@ -252,13 +251,14 @@ if __name__ == '__main__':
             if not deg_fun_kwargs:
                 kwarg_str = ''
             else:
-                kwarg_str = ", ".join(
+                kwarg_str = ', ' + ", ".join(
                     f'{x[0]}={x[1]!r}' for x in deg_fun_kwargs.items()
-                ) + ', '
-            fun_str = f'{deg_name}(note_df, {kwarg_str}inplace=True)'
+                )
+            fun_str = f'{deg_name}(note_df{kwarg_str})'
             meta_fh.write(fun_str)
-        deg_fun(comp.note_df, **deg_fun_kwargs, inplace=True)
-        comp.note_df.to_csv(outpath)
+        degraded = deg_fun(comp.note_df, **deg_fun_kwargs)
+        if degraded is not None:
+            degraded.note_df.to_csv(outpath)
 
     print('Finished!')
     print(f'You will find the generated dataset at {ARGS.output_dir}')
