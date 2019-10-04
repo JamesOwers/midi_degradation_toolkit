@@ -509,7 +509,6 @@ def test_offset_shift():
         # Deterministic testing
         for i in range(2):
             res = deg.offset_shift(BASIC_DF, seed=1)
-
             basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
                                       'track': [0, 1, 0, 1],
                                       'pitch': [10, 20, 30, 40],
@@ -519,8 +518,12 @@ def test_offset_shift():
                 f"Offset shifting \n{BASIC_DF}\nresulted in \n{res}\n"
                 f"instead of \n{basic_res}"
             )
-
             assert not BASIC_DF.equals(res), "Note_df was not copied."
+
+            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+                res = deg.offset_shift(BASIC_DF, seed=1, align_dur=True)
+                assert res is None, ("Offset shift with align_dur doesn't "
+                                     "fail on excerpt with only 1 duration.")
 
     # Random testing
     for i in range(10):
@@ -596,6 +599,28 @@ def test_offset_shift():
                                min_duration=min_duration, max_duration=max_duration)
         check_offset_shift_result(BASIC_DF, res, min_shift, max_shift, min_duration,
                                   max_duration)
+
+        # Test align_dur
+        align_df = BASIC_DF.copy()
+        align_df.iloc[0]['dur'] = 150
+
+        if ((min_duration <= 150 and max_duration >= 100) and
+            (min_shift <= 50 <= max_shift)):
+            res = deg.offset_shift(align_df, min_shift=min_shift,
+                                   max_shift=max_shift, min_duration=min_duration,
+                                   max_duration=max_duration, align_dur=True)
+            assert (set(res['dur']) == set([150, 150, 100, 100]) or
+                    set(res['dur']) == set([100, 100, 100, 100])), (
+                "Offset shift with align_dur doesn't properly align duration."
+            )
+
+        else:
+            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+                res = deg.offset_shift(BASIC_DF, min_shift=300)
+                assert res is None, (
+                    "Offset shifting with align_dur but all durs outside "
+                    "valid range returns something."
+                )
 
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " offset shift. Returning "

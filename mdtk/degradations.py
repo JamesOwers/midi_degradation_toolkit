@@ -285,6 +285,9 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
 
     if align_onset:
         # Find ranges which contain a note to align to
+        # I couldn't think of a better solution than iterating here.
+        # This code checks, for every range, whether at least 1 onset
+        # lies within that range.
         onset = pd.Series(onset.unique())
         for i, (eeo, leo, llo, elo) in enumerate(zip(
             earliest_earlier_onset, latest_earlier_onset,
@@ -443,7 +446,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 @set_random_seed
 def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                 max_duration=np.inf):
+                 max_duration=np.inf, align_dur=False):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -465,6 +468,10 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         The maximum duration for the resulting note.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
+
+    align_dur : boolean
+        True to force the resulting duration to be the same as some
+        other duration in the given excerpt.
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
@@ -497,6 +504,25 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     longest_shortened_dur = ((duration - (min_shift - 1))
                              .clip(upper=max_duration))
 
+    if align_dur:
+        # Find ranges which contain a duration to align to
+        # I couldn't think of a better solution than iterating here.
+        # This code checks, for every range, whether at least 1 duration
+        # lies within that range.
+        durs = pd.Series(duration.unique())
+        for i, (ssd, lsd, sld, lld) in enumerate(zip(
+            shortest_shortened_dur, longest_shortened_dur,
+            shortest_lengthened_dur, longest_lengthened_dur)):
+            # Go through each range to check there is a valid onset
+            shortened_valid = durs.between(ssd, lsd).any()
+            lengthened_valid = durs.between(sld, lld).any()
+
+            # Close invalid ranges
+            if not shortened_valid:
+                shortest_shortened_dur.iloc[i] = lsd
+            if not lengthened_valid:
+                shortest_lengthened_dur.iloc[i] = lld
+
     # Find valid notes
     valid = ((shortest_lengthened_dur < longest_lengthened_dur) |
              (shortest_shortened_dur < longest_shortened_dur))
@@ -515,7 +541,14 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     sld = shortest_lengthened_dur[index]
     lld = max(longest_lengthened_dur[index], sld)
 
-    duration = split_range_sample([(ssd, lsd), (sld, lld)])
+    # Sample new duration
+    if align_dur:
+        valid_durs = (durs.between(ssd, lsd) |
+                      durs.between(sld, lld))
+        valid_durs = list(durs[valid_durs])
+        duration = choice(valid_durs)
+    else:
+        duration = split_range_sample([(ssd, lsd), (sld, lld)])
 
     degraded = excerpt
 
