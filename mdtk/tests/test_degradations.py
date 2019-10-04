@@ -34,6 +34,10 @@ BASIC_DF_FINAL = BASIC_DF
 UNSORTED_DF = BASIC_DF.iloc[[0,2,3,1]]
 
 
+def assert_None(res):
+    assert res is None, f"Expected None, but got:\n{res}"
+
+
 def test_pre_process():
     basic_res = pd.DataFrame({
         'onset': [0, 100, 200, 200],
@@ -468,7 +472,19 @@ def test_onset_shift():
                 res['dur'].isin([50, 100, 150]).all()), (
             "Onset with align_dur didn't align duration."
         )
-            
+
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+            assert_none(res)
 
         # Test with align_onset
         res = deg.onset_shift(align_df, align_onset=True)
@@ -478,6 +494,19 @@ def test_onset_shift():
                 len(set(res['onset'])) == 4), (
             "Onset with align_onset didn't align onset."
         )
+
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_shift=201)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_duration=301)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+            assert_none(res)
 
         # Test with align both
         res = deg.onset_shift(align_df, align_onset=True, align_dur=True)
@@ -492,6 +521,19 @@ def test_onset_shift():
                 len(set(res['onset'])) == 4), (
             "Onset with align_dur and align_onset didn't align onset."
         )
+
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+            assert_none(res)
 
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " onset shift. Returning "
