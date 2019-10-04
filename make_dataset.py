@@ -246,12 +246,12 @@ if __name__ == '__main__':
     goal_dist = np.array(goal_dist)[non_zero]
 
     # The idea is to keep track of the current distribution of degradations
-    # and then sample proportionally to the difference between this and
+    # and then sample in reverse order of the difference between this and
     # the goal distribution.
     current_counts = np.zeros(len(deg_choices))
 
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
-        # First, get the sample proportions for this iteration.
+        # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
         if i == 0: # for first iteration, set to uniform
             current_dist = np.ones(len(goal_dist)) / len(goal_dist)
@@ -260,32 +260,14 @@ if __name__ == '__main__':
 
         # Initially, we will never sample if current >= goal
         # We will do so only if all degs where current < goal fail
-        diff = goal_dist - current_dist
-        positive = [i for i, d in enumerate(diff) if d > 0]
-        positive_diffs = diff[positive]
-        positive_degs = deg_choices[positive]
-        non_positive = [i for i, d in enumerate(diff) if d <= 0]
-        non_positive_diffs = 1 + diff[non_positive] # Inversely proportional
-        non_positive_degs = deg_choices[non_positive]
+        diffs = goal_dist - current_dist
+        degs_sorted = sorted(zip(diffs, deg_choices))[::-1]
 
         # Try to perform a degradation
         degraded = None
         # There is a break below if degraded is not None
-        while len(positive_degs) + len(non_positive_degs) > 0:
-            # Sample a degradation to attempt
-            if len(positive_degs) > 0:
-                diffs = positive_diffs
-                degs = positive_degs
-            else:
-                diffs = non_positive_diffs
-                degs = non_positive_degs
-
-            # Actual sampling here
-            prop = diffs / np.sum(diffs)
-            deg_index = np.random.choice(list(range(len(prop))), p=prop)
-            deg_name = degs[deg_index]
-
-            # Do the sampled degradation
+        for diff, deg_name in degs_sorted:
+            # Try the degradation
             deg_fun = degradations.DEGRADATIONS[deg_name]
             deg_fun_kwargs = degradation_kwargs[deg_name] # degradation_kwargs
                                                           # at top of main call
@@ -294,14 +276,6 @@ if __name__ == '__main__':
             if degraded is not None:
                 current_counts[np.where(deg_choices == deg_name)[0][0]] += 1
                 break
-
-            # Remove the degradation we just did from the current choices
-            if len(positive_degs) > 0:
-                positive_diffs = np.delete(positive_diffs, deg_index)
-                positive_degs = np.delete(positive_degs, deg_index)
-            else:
-                non_positive_diffs = np.delete(non_positive_diffs, deg_index)
-                non_positive_degs = np.delete(non_positive_degs, deg_index)
 
         # Filenames
         fn = os.path.basename(comp.csv_path)
