@@ -292,16 +292,16 @@ if __name__ == '__main__':
             degraded = deg_fun(comp.note_df, **deg_fun_kwargs)
 
             if degraded is not None:
-                print(f"{degs[deg_index]} SUCCESS.")
                 current_counts[np.where(deg_choices == deg_name)[0][0]] += 1
                 break
 
-            print(f"{degs[deg_index]} failed.")
-            print(comp.note_df)
             # Remove the degradation we just did from the current choices
-            # TODO: This doesn't seem to work yet...
-            np.delete(diffs, deg_index)
-            np.delete(degs, deg_index)
+            if len(positive_degs) > 0:
+                positive_diffs = np.delete(positive_diffs, deg_index)
+                positive_degs = np.delete(positive_degs, deg_index)
+            else:
+                non_positive_diffs = np.delete(non_positive_diffs, deg_index)
+                non_positive_degs = np.delete(non_positive_degs, deg_index)
 
         # Filenames
         fn = os.path.basename(comp.csv_path)
