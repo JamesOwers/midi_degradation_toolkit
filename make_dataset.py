@@ -4,6 +4,7 @@ import os
 import json
 import argparse
 from glob import glob
+import warnings
 
 import numpy as np
 from tqdm import tqdm
@@ -220,6 +221,7 @@ if __name__ == '__main__':
                         csv_path=csv_path,
                         read_note_csv_kwargs=read_note_csv_kwargs)
                     for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
+    np.random.shuffle(compositions) # This is important for join_notes
 
     for comp in tqdm(compositions, desc="Writing clean csv to "
                      f"{ARGS.output_dir}"):
@@ -234,19 +236,87 @@ if __name__ == '__main__':
     # it's assumed there shouldn't be duplicates within each dataset!), and
     # this allows for easy matching of source and target data
     deg_choices = ARGS.degradations
-    deg_dist = ARGS.degradation_dist  # Default of None implies uniform
-    deg_names = np.random.choice(deg_choices, size=len(compositions),
-                                 replace=True, p=deg_dist)
-    for comp, deg_name in tqdm(zip(compositions, deg_names),
-                               desc="Making target data"):
-        # TODO: handle cases where chosen degradation fails (throws warn?)
+    goal_dist = ARGS.degradation_dist
+    if goal_dist is None:
+        # Default of None implies uniform
+        goal_dist = np.ones(len(deg_choices)) / len(deg_choices)
+    # Remove any degs with goal_dist == 0
+    non_zero = [i for i, p in enumerate(goal_dist) if p != 0]
+    deg_choices = np.array(deg_choices)[non_zero]
+    goal_dist = np.array(goal_dist)[non_zero]
+
+    # The idea is to keep track of the current distribution of degradations
+    # and then sample proportionally to the difference between this and
+    # the goal distribution.
+    current_counts = np.zeros(len(deg_choices))
+
+    for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
+        # First, get the sample proportions for this iteration.
+        # Get the current distribution of degradations
+        if i == 0: # for first iteration, set to uniform
+            current_dist = np.ones(len(goal_dist)) / len(goal_dist)
+        else:
+            current_dist = current_counts / np.sum(current_counts)
+
+        # Initially, we will never sample if current >= goal
+        # We will do so only if all degs where current < goal fail
+        diff = goal_dist - current_dist
+        positive = [i for i, d in enumerate(diff) if d > 0]
+        positive_diffs = diff[positive]
+        positive_degs = deg_choices[positive]
+        non_positive = [i for i, d in enumerate(diff) if d <= 0]
+        non_positive_diffs = 1 + diff[non_positive] # Inversely proportional
+        non_positive_degs = deg_choices[non_positive]
+
+        # Try to perform a degradation
+        degraded = None
+        # There is a break below if degraded is not None
+        while len(positive_degs) + len(non_positive_degs) > 0:
+            # Sample a degradation to attempt
+            if len(positive_degs) > 0:
+                diffs = positive_diffs
+                degs = positive_degs
+            else:
+                diffs = non_positive_diffs
+                degs = non_positive_degs
+
+            # Actual sampling here
+            prop = diffs / np.sum(diffs)
+            deg_index = np.random.choice(list(range(len(prop))), p=prop)
+            deg_name = degs[deg_index]
+
+            # Do the sampled degradation
+            deg_fun = degradations.DEGRADATIONS[deg_name]
+            deg_fun_kwargs = degradation_kwargs[deg_name] # degradation_kwargs
+                                                          # at top of main call
+            degraded = deg_fun(comp.note_df, **deg_fun_kwargs)
+
+            if degraded is not None:
+                print(f"{degs[deg_index]} SUCCESS.")
+                current_counts[np.where(deg_choices == deg_name)[0][0]] += 1
+                break
+
+            print(f"{degs[deg_index]} failed.")
+            print(comp.note_df)
+            # Remove the degradation we just did from the current choices
+            # TODO: This doesn't seem to work yet...
+            np.delete(diffs, deg_index)
+            np.delete(degs, deg_index)
+
+        # Filenames
         fn = os.path.basename(comp.csv_path)
         dataset = os.path.basename(os.path.dirname(comp.csv_path))
         outpath = os.path.join(ARGS.output_dir, 'altered', dataset, fn)
         meta_outpath = os.path.join(ARGS.output_dir, 'metadata', dataset, fn)
-        deg_fun = degradations.DEGRADATIONS[deg_name]
-        deg_fun_kwargs = degradation_kwargs[deg_name]  # degradation_kwargs
-                                                       # at top of main call
+
+        # Write metadata for no degradation and iterate
+        if degraded is None:
+            warnings.warn(f"No degradation performed for {comp.csv_path}")
+            with open(meta_outpath, 'w') as meta_fh:
+                meta_fh.write("None")
+            continue
+
+        # Write metadata for degraded samples
         with open(meta_outpath, 'w') as meta_fh:
             if not deg_fun_kwargs:
                 kwarg_str = ''
@@ -256,11 +326,12 @@ if __name__ == '__main__':
                 )
             fun_str = f'{deg_name}(note_df{kwarg_str})'
             meta_fh.write(fun_str)
-        degraded = deg_fun(comp.note_df, **deg_fun_kwargs)
-        if degraded is not None:
-            degraded.note_df.to_csv(outpath)
+
+        # Write degraded csv
+        degraded.to_csv(outpath)
 
     print('Finished!')
+    print(f'Count of degradations {deg_choices} = {current_counts}')
     print(f'You will find the generated dataset at {ARGS.output_dir}')
     print('The clean and altered files are located under directories named as '
           'such.')
