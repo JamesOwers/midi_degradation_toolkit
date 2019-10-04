@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 import pytest
+import itertools
 
 import mdtk.degradations as deg
 
@@ -240,8 +241,10 @@ def test_time_shift():
     for i in range(10):
         np.random.seed()
 
-        res = deg.time_shift(BASIC_DF, min_shift=10 * i,
-                             max_shift=10 * (i + 1))
+        min_shift = 10 * i
+        max_shift = 10 * (i + 1)
+        res = deg.time_shift(BASIC_DF, min_shift=min_shift,
+                             max_shift=max_shift)
 
         # Check that only things that should have changed have changed
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
@@ -263,18 +266,18 @@ def test_time_shift():
         changed_onset = diff.iloc[0]['onset']
         original_onset = diff.iloc[1]['onset']
         shift = abs(changed_onset - original_onset)
-        assert 10 * i <= shift <= 10 * (i + 1), (
-            f"Shift {shift} outside of range [{10 * i}, {10 * (i + 1)}]."
+        assert min_shift <= shift <= max_shift, (
+            f"Shift {shift} outside of range [{min_shift}, {max_shift}]."
         )
 
         # Check with align_onset=True
-        if 10 * i <= 200 and 10 * (i + 1) >= 100:
-            res = deg.time_shift(BASIC_DF, min_shift=10 * i,
-                             max_shift=10 * (i + 1), align_onset=True)
+        if min_shift <= 200 and max_shift >= 100:
+            res = deg.time_shift(BASIC_DF, min_shift=min_shift,
+                                 max_shift=max_shift, align_onset=True)
 
             # Check that only things that should have changed have changed
             diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
-            assert diff.shape[0] == 2, "Time shift changed more than 1 note." + "\n" + str(BASIC_DF) + "\n" + str(res)
+            assert diff.shape[0] == 2, "Time shift changed more than 1 note." + f"\n{BASIC_DF}\n{res}\n{min_shift}_{max_shift}"
             assert diff.iloc[0]['onset'] != diff.iloc[1]['onset'], (
                 "Time shift did not change any onset time."
             )
@@ -295,13 +298,13 @@ def test_time_shift():
             changed_onset = diff.iloc[0]['onset']
             original_onset = diff.iloc[1]['onset']
             shift = abs(changed_onset - original_onset)
-            assert 10 * i <= shift <= 10 * (i + 1), (
-                f"Shift {shift} outside of range [{10 * i}, {10 * (i + 1)}]."
+            assert min_shift <= shift <= max_shift, (
+                f"Shift {shift} outside of range [{min_shift}, {max_shift}]."
             )
         else:
             with pytest.warns(UserWarning, match=re.escape('WARNING:')):
-                res = deg.time_shift(BASIC_DF, min_shift=10 * i,
-                                     max_shift=10 * (i + 1), align_onset=True)
+                res = deg.time_shift(BASIC_DF, min_shift=min_shift,
+                                     max_shift=max_shift, align_onset=True)
 
     # Check for range too large warning
     with pytest.warns(UserWarning, match=re.escape('WARNING: No valid notes to '
@@ -316,6 +319,8 @@ def test_time_shift():
 def test_onset_shift():
     def check_onset_shift_result(df, res, min_shift, max_shift,
                                  min_duration, max_duration):
+        assert res is not None, "Onset shift returned None unexpectedly."
+
         diff = pd.concat([res, df]).drop_duplicates(keep=False)
         new_note = pd.merge(diff, res).reset_index()
         changed_note = pd.merge(diff, df).reset_index()
@@ -448,6 +453,45 @@ def test_onset_shift():
                               min_duration=min_duration, max_duration=max_duration)
         check_onset_shift_result(BASIC_DF, res, min_shift, max_shift, min_duration,
                                  max_duration)
+
+        # Test with various alignments
+        align_df = pd.DataFrame({'onset': [0, 50, 100, 150, 200],
+                                 'track': [0, 1, 0, 0, 1],
+                                 'pitch': [10, 20, 25, 30, 40],
+                                 'dur': [100, 100, 50, 150, 100]})
+        # Test with align_dur
+        res = deg.onset_shift(align_df, align_dur=True)
+        check_onset_shift_result(align_df, res, 50, np.inf, 50, np.inf)
+
+        assert (100 in list(res['dur']) and
+                (50 in list(res['dur']) or 150 in list(res['dur'])) and
+                res['dur'].isin([50, 100, 150]).all()), (
+            "Onset with align_dur didn't align duration."
+        )
+            
+
+        # Test with align_onset
+        res = deg.onset_shift(align_df, align_onset=True)
+        check_onset_shift_result(align_df, res, 50, np.inf, 50, np.inf)
+
+        assert (len(set([0, 50, 100, 150, 200]) - set(res['onset'])) == 1 and
+                len(set(res['onset'])) == 4), (
+            "Onset with align_onset didn't align onset."
+        )
+
+        # Test with align both
+        res = deg.onset_shift(align_df, align_onset=True, align_dur=True)
+        check_onset_shift_result(align_df, res, 50, np.inf, 50, np.inf)
+
+        assert (100 in list(res['dur']) and
+                (50 in list(res['dur']) or 150 in list(res['dur'])) and
+                res['dur'].isin([50, 100, 150]).all()), (
+            "Onset with align_dur and align_onset didn't align duration."
+        )
+        assert (len(set([0, 50, 100, 150, 200]) - set(res['onset'])) == 1 and
+                len(set(res['onset'])) == 4), (
+            "Onset with align_dur and align_onset didn't align onset."
+        )
 
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " onset shift. Returning "
@@ -609,8 +653,9 @@ def test_offset_shift():
             res = deg.offset_shift(align_df, min_shift=min_shift,
                                    max_shift=max_shift, min_duration=min_duration,
                                    max_duration=max_duration, align_dur=True)
-            assert (set(res['dur']) == set([150, 150, 100, 100]) or
-                    set(res['dur']) == set([100, 100, 100, 100])), (
+            assert ((tuple(res['dur']) in
+                     list(itertools.permutations([150, 150, 100, 100]))) or
+                    (list(res['dur']) == [100, 100, 100, 100])), (
                 "Offset shift with align_dur doesn't properly align duration."
             )
 

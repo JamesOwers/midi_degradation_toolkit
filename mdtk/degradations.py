@@ -280,7 +280,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
 
     # Shift later
     latest_later_onset = onset + (((end_time + 1) - offset)
-                                  .clip(upper=max_shift))
+                                  .clip(upper=max_shift + 1))
     earliest_later_onset = onset + min_shift
 
     if align_onset:
@@ -289,12 +289,12 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
         # This code checks, for every range, whether at least 1 onset
         # lies within that range.
         onset = pd.Series(onset.unique())
-        for i, (eeo, leo, llo, elo) in enumerate(zip(
+        for i, (eeo, leo, elo, llo) in enumerate(zip(
             earliest_earlier_onset, latest_earlier_onset,
-            latest_later_onset, earliest_later_onset)):
+            earliest_later_onset, latest_later_onset)):
             # Go through each range to check there is a valid onset
-            earlier_valid = onset.between(eeo, leo).any()
-            later_valid = onset.between(elo, llo).any()
+            earlier_valid = onset.between(eeo, leo - 1).any()
+            later_valid = onset.between(elo, llo - 1).any()
 
             # Close invalid ranges
             if not earlier_valid:
@@ -322,8 +322,8 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
 
     if align_onset:
         for iters in range(10):
-            valid_onsets = (onset.between(eeo, leo) |
-                            onset.between(elo, llo))
+            valid_onsets = (onset.between(eeo, leo - 1) |
+                            onset.between(elo, llo - 1))
             valid_onsets = list(onset[valid_onsets])
             on = choice(valid_onsets)
             note = {'onset': on,
@@ -361,7 +361,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
 
 @set_random_seed
 def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                max_duration=np.inf):
+                max_duration=np.inf, align_onset=False, align_dur=False):
     """
     Shift the onset time of one note from the given excerpt.
 
@@ -384,6 +384,13 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         (The offset time will never go beyond the current last offset
         in the excerpt.)
 
+    align_onset : boolean
+        True to force the shifted onset to lie on an existing onset.
+
+    align_dur : boolean
+        True to force the resulting duration to be equal to an existing
+        duration.
+
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         leaves numpy's random state unchanged.
@@ -397,10 +404,11 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     excerpt = pre_process(excerpt)
 
     min_shift = max(min_shift, 1)
-    min_duration -= 1
+    min_duration -= 1 # This makes computation below simpler
 
     onset = excerpt['onset']
     offset = onset + excerpt['dur']
+    unique_durs = excerpt['dur'].unique()
 
     # Lengthen bounds (decrease onset)
     earliest_lengthened_onset = ((offset - max_duration)
@@ -414,6 +422,58 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                               .clip(upper=onset + (max_shift + 1)))
     earliest_shortened_onset = ((onset + min_shift)
                                 .clip(lower=offset - max_duration))
+
+    if align_onset:
+        # Find ranges which contain a note to align to
+        # I couldn't think of a better solution than iterating here.
+        # This code checks, for every range, whether at least 1 onset
+        # lies within that range.
+        onset = pd.Series(onset.unique())
+        for i, (elo, llo, eso, lso) in enumerate(zip(
+            earliest_lengthened_onset, latest_lengthened_onset,
+            earliest_shortened_onset, latest_shortened_onset)):
+            # Go through each range to check there is a valid onset
+            earlier_valid = onset.between(elo, llo - 1)
+            later_valid = onset.between(eso, lso - 1)
+
+            if align_dur:
+                # Here, align both onset and dur
+                resulting_dur = offset.iloc[i] - onset
+                dur_valid = resulting_dur.isin(unique_durs)
+                earlier_valid = earlier_valid & dur_valid
+                later_valid = later_valid & dur_valid
+
+            # Collapse down
+            earlier_valid = earlier_valid.any()
+            later_valid = later_valid.any()
+
+            # Close invalid ranges
+            if not earlier_valid:
+                earliest_lengthened_onset.iloc[i] = llo
+            if not later_valid:
+                earliest_shortened_onset.iloc[i] = lso
+
+    elif align_dur:
+        # Here, align_onset is False.
+        # Find ranges which contain a duration to align to
+        # I couldn't think of a better solution than iterating here.
+        # This code checks, for every range, whether at least 1 dur
+        # lies within that range.
+        durs = pd.Series(unique_durs)
+        for i, (elo, llo, lso, eso) in enumerate(zip(
+            earliest_lengthened_onset, latest_lengthened_onset,
+            latest_shortened_onset, earliest_shortened_onset)):
+            # Go through each range to check there is a valid dur
+            result = offset[i] - durs
+            print(result, elo, llo, eso, lso)
+            lengthened_valid = result.between(elo, llo - 1).any()
+            shortened_valid = result.between(eso, lso - 1).any()
+
+            # Close invalid ranges
+            if not lengthened_valid:
+                earliest_lengthened_onset.iloc[i] = llo
+            if not shortened_valid:
+                earliest_shortened_onset.iloc[i] = lso
 
     # Find valid notes
     valid = ((earliest_lengthened_onset < latest_lengthened_onset) |
@@ -433,7 +493,31 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     eso = earliest_shortened_onset[index]
     lso = max(latest_shortened_onset[index], eso)
 
-    onset = split_range_sample([(elo, llo), (eso, lso)])
+    # Sample onset
+    if align_onset:
+        valid_onsets = (onset.between(elo, llo - 1) |
+                        onset.between(eso, lso - 1))
+
+        if align_dur:
+            # Here, align both
+            valid_durs = (offset[index] - onset).isin(unique_durs)
+            valid_onsets = valid_onsets & valid_durs
+
+        valid_onsets = list(onset[valid_onsets])
+        onset = choice(valid_onsets)
+
+    elif align_dur:
+        # Align dur but not onset
+        onsets = offset[index] - durs
+        valid_durs = (onsets.between(elo, llo - 1) |
+                      onsets.between(eso, lso - 1))
+        valid_durs = list(durs[valid_durs])
+        print(f'{min_shift}, {max_shift}, {min_duration}, {max_duration}\n.\n{excerpt}\n.\n{offset[index]}\n.\n{valid_durs}\n.\n{onsets}\n.\n{durs}\n.\n{elo}, {llo}, {eso}, {lso}')
+        onset = offset[index] - choice(valid_durs)
+
+    else:
+        # No alignment
+        onset = split_range_sample([(elo, llo), (eso, lso)])
 
     degraded = excerpt
 
@@ -513,9 +597,9 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         for i, (ssd, lsd, sld, lld) in enumerate(zip(
             shortest_shortened_dur, longest_shortened_dur,
             shortest_lengthened_dur, longest_lengthened_dur)):
-            # Go through each range to check there is a valid onset
-            shortened_valid = durs.between(ssd, lsd).any()
-            lengthened_valid = durs.between(sld, lld).any()
+            # Go through each range to check there is a valid duration
+            shortened_valid = durs.between(ssd, lsd - 1).any()
+            lengthened_valid = durs.between(sld, lld - 1).any()
 
             # Close invalid ranges
             if not shortened_valid:
@@ -543,8 +627,8 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     # Sample new duration
     if align_dur:
-        valid_durs = (durs.between(ssd, lsd) |
-                      durs.between(sld, lld))
+        valid_durs = (durs.between(ssd, lsd - 1) |
+                      durs.between(sld, lld - 1))
         valid_durs = list(durs[valid_durs])
         duration = choice(valid_durs)
     else:
