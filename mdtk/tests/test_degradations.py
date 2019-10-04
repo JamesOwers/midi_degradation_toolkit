@@ -34,8 +34,8 @@ BASIC_DF_FINAL = BASIC_DF
 UNSORTED_DF = BASIC_DF.iloc[[0,2,3,1]]
 
 
-def assert_None(res):
-    assert res is None, f"Expected None, but got:\n{res}"
+def assert_none(res, msg=""):
+    assert res is None, f"{msg}\nExpected None, but got:\n{res}"
 
 
 def test_pre_process():
