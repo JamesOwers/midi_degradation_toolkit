@@ -135,6 +135,14 @@ def parse_args(args_input=None):
                         nargs='*', default=None, help='a list of relative '
                         'probabilities that each degradation will used. Must '
                         'be the same length as --degradations')
+    # TODO: Test these
+    parser.add_argument('--clean-prop', type=float, help='The proportion of '
+                        'excerpts in the final dataset that should be clean.',
+                        default=1 / (1 + len(degradations.DEGRADATIONS)))
+    parser.add_argument('--splits', metavar=('train', 'test', 'valid'),
+                        nargs=3, type=float, help='The relative sizes of the '
+                        'train, test, and validation sets respectively.',
+                        default=[0.8, 0.1, 0.1])
     args = parser.parse_args(args=args_input)
     return args
 
