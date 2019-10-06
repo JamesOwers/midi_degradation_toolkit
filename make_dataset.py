@@ -153,6 +153,8 @@ def parse_args(args_input=None):
                         nargs=3, type=float, help='The relative sizes of the '
                         'train, test, and validation sets respectively.',
                         default=[0.8, 0.1, 0.1])
+    parser.add_argument('--seed', type=int, default=None, help='The numpy seed'
+                        ' to use when creating the dataset.')
     args = parser.parse_args(args=args_input)
     return args
 
@@ -160,6 +162,7 @@ def parse_args(args_input=None):
 if __name__ == '__main__':
     # TODO: set warning level such that we avoid warning fatigue
     ARGS = parse_args()
+    np.random.seed(ARGS.seed)
     assert (ARGS.degradation_kwargs is None or
             ARGS.degradation_kwarg_json is None), ("Don't specify both "
                 "--degradation-kwargs and --degradation-kwarg-json")
