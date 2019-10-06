@@ -185,7 +185,7 @@ if __name__ == '__main__':
         make_directory(path)
     for path in csv_input_dirs.values():
         make_directory(path)
-    for out_subdir in ['clean', 'altered', 'metadata']:
+    for out_subdir in ['clean', 'altered']:
         output_dirs = [os.path.join(ARGS.output_dir, out_subdir, name)
                        for name in ds_names]
         for path in output_dirs:
@@ -231,6 +231,8 @@ if __name__ == '__main__':
                     for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
     np.random.shuffle(compositions) # This is important for join_notes
 
+    meta_file = open(os.path.join(ARGS.output_dir, 'metadata.csv'), 'w')
+
     for comp in tqdm(compositions, desc="Writing clean csv to "
                      f"{ARGS.output_dir}"):
         fn = os.path.basename(comp.csv_path)
@@ -248,10 +250,25 @@ if __name__ == '__main__':
     if goal_dist is None:
         # Default of None implies uniform
         goal_dist = np.ones(len(deg_choices)) / len(deg_choices)
+
     # Remove any degs with goal_dist == 0
     non_zero = [i for i, p in enumerate(goal_dist) if p != 0]
     deg_choices = np.array(deg_choices)[non_zero]
     goal_dist = np.array(goal_dist)[non_zero]
+
+    # Add none for no degradation
+    deg_choices = np.insert(deg_choices, 0, 'none')
+    goal_dist/= 1 - ARGS.clean_prop
+    goal_dist = np.insert(goal_dist, 0, ARGS.clean_prop)
+
+    # Normalize split proportions
+    split_props = np.array(ARGS.splits)
+    split_props /= np.sum(split_props)
+
+    # Write out deg_choices to labels.csv
+    with open(os.path.join(ARGS.output_dir, 'labels.csv'), 'w') as file:
+        for i, deg_name in enumerate(deg_choices):
+            file.write(f'{i},{deg_name}\n')
 
     # The idea is to keep track of the current distribution of degradations
     # and then sample in reverse order of the difference between this and
@@ -271,10 +288,28 @@ if __name__ == '__main__':
         diffs = goal_dist - current_dist
         degs_sorted = sorted(zip(diffs, deg_choices))[::-1]
 
+        # Make labels for no degradation
+        fn = os.path.basename(comp.csv_path)
+        dataset = os.path.basename(os.path.dirname(comp.csv_path))
+        clean_path = os.path.join('clean', dataset, fn)
+        altered_path = clean_path
+        deg_binary = 0
+        deg_num = 0
+        # Can calculate splits in order because the comps are shuffled
+        prop = i / len(compositions)
+        if prop < split_props[0]:
+            split = 'train'
+        elif prop < split_props[0] + split_props[1]:
+            split = 'test'
+        else:
+            split = 'valid'
         # Try to perform a degradation
-        degraded = None
-        # There is a break below if degraded is not None
         for diff, deg_name in degs_sorted:
+            # Break for no degradation
+            if deg_name == 'none':
+                current_counts[deg_num] += 1
+                break
+
             # Try the degradation
             deg_fun = degradations.DEGRADATIONS[deg_name]
             deg_fun_kwargs = degradation_kwargs[deg_name] # degradation_kwargs
@@ -282,35 +317,21 @@ if __name__ == '__main__':
             degraded = deg_fun(comp.note_df, **deg_fun_kwargs)
 
             if degraded is not None:
-                current_counts[np.where(deg_choices == deg_name)[0][0]] += 1
+                # Write degraded csv
+                altered_path = os.path.join('altered', dataset, fn)
+                outpath = os.path.join(ARGS.output_dir, altered_path)
+                degraded.to_csv(outpath)
+                # Update labels
+                deg_binary = 1
+                deg_num = np.where(deg_choices == deg_name)[0][0]
+                current_counts[deg_num] += 1
                 break
 
-        # Filenames
-        fn = os.path.basename(comp.csv_path)
-        dataset = os.path.basename(os.path.dirname(comp.csv_path))
-        outpath = os.path.join(ARGS.output_dir, 'altered', dataset, fn)
-        meta_outpath = os.path.join(ARGS.output_dir, 'metadata', dataset, fn)
+        # Write meta
+        meta_file.write(f'{altered_path},{deg_binary},{deg_num},'
+                        f'{clean_path},{split}\n')
 
-        # Write metadata for no degradation and iterate
-        if degraded is None:
-            warnings.warn(f"No degradation performed for {comp.csv_path}")
-            with open(meta_outpath, 'w') as meta_fh:
-                meta_fh.write("None")
-            continue
-
-        # Write metadata for degraded samples
-        with open(meta_outpath, 'w') as meta_fh:
-            if not deg_fun_kwargs:
-                kwarg_str = ''
-            else:
-                kwarg_str = ', ' + ", ".join(
-                    f'{x[0]}={x[1]!r}' for x in deg_fun_kwargs.items()
-                )
-            fun_str = f'{deg_name}(note_df{kwarg_str})'
-            meta_fh.write(fun_str)
-
-        # Write degraded csv
-        degraded.to_csv(outpath)
+    meta_file.close()
 
     print('Finished!')
     print(f'Count of degradations {deg_choices} = {current_counts}')
