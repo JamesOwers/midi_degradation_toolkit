@@ -289,13 +289,15 @@ if __name__ == '__main__':
 
         # Grab an excerpt from this composition
         excerpt = None
+        pd.options.mode.chained_assignment = None
         for iter in range(10):
             note_index = np.random.choice(list(comp.note_df.index.values)
                                           [:-ARGS.min_notes])
-            note_onset = comp.note_df[note_index]['onset']
-            excerpt = comp.note_df.loc[(comp.note_df['onset'] >= note_onset) &
-                                       (comp.note_df['onset'] <
-                                        note_onset + ARGS.excerpt_length)]
+            note_onset = comp.note_df.loc[note_index]['onset']
+            excerpt = comp.note_df.loc[comp.note_df['onset'].between(
+                note_onset, note_onset + ARGS.excerpt_length)]
+            excerpt['onset'] = excerpt['onset'] - note_onset
+            excerpt.reset_index(drop=True)
 
             # Check for validity of excerpt
             if len(excerpt) < ARGS.min_notes:
@@ -304,6 +306,7 @@ if __name__ == '__main__':
                 break
 
         # If no valid excerpt was found, skip this piece
+        pd.options.mode.chained_assignment = 'warn'
         if excerpt is None:
             warnings.warn(UserWarning, "Unable to find valid excerpt from "
                           f"composition {comp.csv_path}. Skipping.")
@@ -347,11 +350,11 @@ if __name__ == '__main__':
                 # Write clean csv
                 clean_path = os.path.join('clean', dataset, fn)
                 clean_outpath = os.path.join(ARGS.output_dir, clean_path)
-                excerpt.to_csv(clean_outpath)
+                midi.df_to_csv(excerpt, clean_outpath)
                 # Write degraded csv
                 altered_path = os.path.join('altered', dataset, fn)
                 altered_outpath = os.path.join(ARGS.output_dir, altered_path)
-                degraded.to_csv(altered_outpath)
+                midi.df_to_csv(degraded, altered_outpath)
                 # Update labels
                 deg_binary = 1
                 deg_num = np.where(deg_choices == deg_name)[0][0]
