@@ -257,9 +257,10 @@ if __name__ == '__main__':
     goal_dist = np.array(goal_dist)[non_zero]
 
     # Add none for no degradation
-    deg_choices = np.insert(deg_choices, 0, 'none')
-    goal_dist/= 1 - ARGS.clean_prop
-    goal_dist = np.insert(goal_dist, 0, ARGS.clean_prop)
+    if ARGS.clean_prop > 0:
+        deg_choices = np.insert(deg_choices, 0, 'none')
+        goal_dist/= 1 - ARGS.clean_prop
+        goal_dist = np.insert(goal_dist, 0, ARGS.clean_prop)
 
     # Normalize split proportions
     split_props = np.array(ARGS.splits)
@@ -274,6 +275,7 @@ if __name__ == '__main__':
     # and then sample in reverse order of the difference between this and
     # the goal distribution.
     current_counts = np.zeros(len(deg_choices))
+    num_skipped = 0
 
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
         # First, get the degradation order for this iteration.
@@ -296,7 +298,7 @@ if __name__ == '__main__':
         deg_binary = 0
         deg_num = 0
         # Can calculate splits in order because the comps are shuffled
-        prop = i / len(compositions)
+        prop = (i - num_skipped) / (len(compositions) - num_skipped)
         if prop < split_props[0]:
             split = 'train'
         elif prop < split_props[0] + split_props[1]:
@@ -328,8 +330,11 @@ if __name__ == '__main__':
                 break
 
         # Write meta
-        meta_file.write(f'{altered_path},{deg_binary},{deg_num},'
-                        f'{clean_path},{split}\n')
+        if degraded is not None or ARGS.clean_prop > 0:
+            meta_file.write(f'{altered_path},{deg_binary},{deg_num},'
+                            f'{clean_path},{split}\n')
+        else:
+            num_skipped += 1
 
     meta_file.close()
 
