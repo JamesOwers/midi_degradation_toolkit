@@ -117,6 +117,15 @@ def parse_args(args_input=None):
                         help='degradations to use on the data. Must match '
                         'names of functions in the degradations module. By '
                         'default, will use them all.')
+    # TODO: Check these
+    parser.add_argument('--excerpt-length', metavar='ms', type=int,
+                        help='The length of the excerpt (in ms) to take from '
+                        'each piece. The excerpt will start on a note onset '
+                        'and include all notes whose onset lies within this '
+                        'number of ms after the first note.', default=5000)
+    parser.add_argument('--min-notes', metavar='N', type=int, default=10,
+                        help='The minimum number of notes required for an '
+                        'excerpt to be valid.')
     # TODO: check this works!
     parser.add_argument('--degradation-kwargs', metavar='json_string',
                         help='json with keyword arguments for the '
@@ -233,13 +242,6 @@ if __name__ == '__main__':
 
     meta_file = open(os.path.join(ARGS.output_dir, 'metadata.csv'), 'w')
 
-    for comp in tqdm(compositions, desc="Writing clean csv to "
-                     f"{ARGS.output_dir}"):
-        fn = os.path.basename(comp.csv_path)
-        dataset = os.path.basename(os.path.dirname(comp.csv_path))
-        outpath = os.path.join(ARGS.output_dir, 'clean', dataset, fn)
-        comp.note_df.to_csv(outpath)
-
     # Perform degradations and write degraded data to output ==================
     # output to output_dir/degraded/dataset_name/filename.csv
     # The reason for this is that there could be filename duplicates (as above,
@@ -285,6 +287,29 @@ if __name__ == '__main__':
         else:
             current_dist = current_counts / np.sum(current_counts)
 
+        # Grab an excerpt from this composition
+        excerpt = None
+        for iter in range(10):
+            note_index = np.random.choice(list(comp.note_df.index.values)
+                                          [:-ARGS.min_notes])
+            note_onset = comp.note_df[note_index]['onset']
+            excerpt = comp.note_df.loc[(comp.note_df['onset'] >= note_onset) &
+                                       (comp.note_df['onset'] <
+                                        note_onset + ARGS.excerpt_length)]
+
+            # Check for validity of excerpt
+            if len(excerpt) < ARGS.min_notes:
+                excerpt = None
+            else:
+                break
+
+        # If no valid excerpt was found, skip this piece
+        if excerpt is None:
+            warnings.warn(UserWarning, "Unable to find valid excerpt from "
+                          f"composition {comp.csv_path}. Skipping.")
+            num_skipped += 1
+            continue
+
         # Initially, we will never sample if current >= goal
         # We will do so only if all degs where current < goal fail
         diffs = goal_dist - current_dist
@@ -319,10 +344,14 @@ if __name__ == '__main__':
             degraded = deg_fun(comp.note_df, **deg_fun_kwargs)
 
             if degraded is not None:
+                # Write clean csv
+                clean_path = os.path.join('clean', dataset, fn)
+                clean_outpath = os.path.join(ARGS.output_dir, clean_path)
+                excerpt.to_csv(clean_outpath)
                 # Write degraded csv
                 altered_path = os.path.join('altered', dataset, fn)
-                outpath = os.path.join(ARGS.output_dir, altered_path)
-                degraded.to_csv(outpath)
+                altered_outpath = os.path.join(ARGS.output_dir, altered_path)
+                degraded.to_csv(altered_outpath)
                 # Update labels
                 deg_binary = 1
                 deg_num = np.where(deg_choices == deg_name)[0][0]
@@ -331,9 +360,12 @@ if __name__ == '__main__':
 
         # Write meta
         if degraded is not None or ARGS.clean_prop > 0:
-            meta_file.write(f'{altered_path},{deg_binary},{deg_num},'
-                            f'{clean_path},{split}\n')
+            meta_file.write(f'{altered_outpath},{deg_binary},{deg_num},'
+                            f'{clean_outpath},{split}\n')
         else:
+            warnings.warn(UserWarning, "Unable to degrade chose excerpt from "
+                          f"{comp.csv_path} and no clean excerpts wanted. "
+                          "Skipping.")
             num_skipped += 1
 
     meta_file.close()
@@ -343,7 +375,8 @@ if __name__ == '__main__':
     print(f'You will find the generated dataset at {ARGS.output_dir}')
     print('The clean and altered files are located under directories named as '
           'such.')
-    print('The names of the degradation functions used to alter each file are '
-          'located under the metadata directory')
+    print('The (integer) labels and splits for each excerpt are located in '
+          'metadata.csv')
+    print('The labels are defined in labels.csv')
 
     print(LOGO)
