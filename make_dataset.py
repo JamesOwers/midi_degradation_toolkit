@@ -290,15 +290,15 @@ if __name__ == '__main__':
 
         # Grab an excerpt from this composition
         excerpt = None
-        pd.options.mode.chained_assignment = None
         for iter in range(10):
             note_index = np.random.choice(list(comp.note_df.index.values)
                                           [:-ARGS.min_notes])
             note_onset = comp.note_df.loc[note_index]['onset']
-            excerpt = comp.note_df.loc[comp.note_df['onset'].between(
-                note_onset, note_onset + ARGS.excerpt_length)]
+            excerpt = pd.DataFrame(
+                comp.note_df.loc[comp.note_df['onset'].between(
+                    note_onset, note_onset + ARGS.excerpt_length)])
             excerpt['onset'] = excerpt['onset'] - note_onset
-            excerpt.reset_index(drop=True)
+            excerpt = excerpt.reset_index(drop=True)
 
             # Check for validity of excerpt
             if len(excerpt) < ARGS.min_notes:
@@ -307,7 +307,6 @@ if __name__ == '__main__':
                 break
 
         # If no valid excerpt was found, skip this piece
-        pd.options.mode.chained_assignment = 'warn'
         if excerpt is None:
             warnings.warn(UserWarning, "Unable to find valid excerpt from "
                           f"composition {comp.csv_path}. Skipping.")
@@ -345,7 +344,7 @@ if __name__ == '__main__':
             deg_fun = degradations.DEGRADATIONS[deg_name]
             deg_fun_kwargs = degradation_kwargs[deg_name] # degradation_kwargs
                                                           # at top of main call
-            degraded = deg_fun(comp.note_df, **deg_fun_kwargs)
+            degraded = deg_fun(excerpt, **deg_fun_kwargs)
 
             if degraded is not None:
                 # Write clean csv
