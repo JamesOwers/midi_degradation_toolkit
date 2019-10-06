@@ -5,6 +5,7 @@ import json
 import argparse
 from glob import glob
 import warnings
+import pandas as pd
 
 import numpy as np
 from tqdm import tqdm
@@ -363,6 +364,9 @@ if __name__ == '__main__':
 
         # Write meta
         if degraded is not None or ARGS.clean_prop > 0:
+            clean_path = os.path.join('clean', dataset, fn)
+            clean_outpath = os.path.join(ARGS.output_dir, clean_path)
+            midi.df_to_csv(excerpt, clean_outpath)
             meta_file.write(f'{altered_outpath},{deg_binary},{deg_num},'
                             f'{clean_outpath},{split}\n')
         else:
