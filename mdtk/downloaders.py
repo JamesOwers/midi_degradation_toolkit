@@ -45,14 +45,14 @@ class DataDownloader:
 #        self.extracted = False
 
 
-    def download_midi(self, output_path, cache_path=None):
+    def download_midi(self, output_path, cache_path=None, overwrite=None):
         """Downloads the MIDI data to output_path"""
         cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError('In order to download MIDI, you must '
                                   'implement the download_midi method.')
 
 
-    def download_csv(self, output_path, cache_path=None):
+    def download_csv(self, output_path, cache_path=None, overwrite=None):
         """Downloads the csv data to output_path"""
         cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError('In order to download CSV, you must '

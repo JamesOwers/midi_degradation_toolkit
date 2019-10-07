@@ -18,7 +18,7 @@ COLNAMES = NOTE_DF_SORT_ORDER
 
 
 
-def midi_dir_to_csv(midi_dir_path, csv_dir_path):
+def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
     """
     Convert an entire directory of MIDI files into csvs in another directory.
     This searches the given MIDI path for any files with the extension 'mid'.
@@ -36,10 +36,25 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path):
     csv_dir_path : string
         The path of the directory to write out each csv to. If it does not
         exist, it will be created.
+
+    recursive : boolean
+        If True, search the given midi dir recursively.
     """
-    for midi_path in glob.glob(midi_dir_path + os.path.sep + '*.mid'):
-        csv_path = (csv_dir_path + os.path.sep +
-                    os.path.basename(midi_path[:-3] + 'csv'))
+    if recursive:
+        dir_prefix_len = len(midi_dir_path) + 1
+        midi_dir_path = os.path.join(midi_dir_path, '**')
+    for midi_path in glob.glob(os.path.join(midi_dir_path, '*.mid')):
+        if recursive:
+            csv_path = os.path.join(
+                csv_dir_path,
+                os.path.dirname(midi_path[dir_prefix_len:]),
+                os.path.basename(midi_path[:-3] + 'csv')
+            )
+        else:
+            csv_path = os.path.join(
+                csv_dir_path,
+                os.path.basename(midi_path[:-3] + 'csv')
+            )
         midi_to_csv(midi_path, csv_path)
 
 

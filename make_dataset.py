@@ -101,7 +101,7 @@ def parse_args(args_input=None):
                         'files.')
     parser.add_argument('--datasets', metavar='dataset_name',
                         nargs='*', choices=downloaders.DATASETS,
-                        default=downloaders.DATASETS,
+                        default=[],
                         help='datasets to download and use. Must match names '
                         'of classes in the downloaders module. By default, '
                         'will use cached downloaded data if available, see '
@@ -219,6 +219,9 @@ if __name__ == '__main__':
                       for name in ds_names}
 
     # Set up directories ======================================================
+    # TODO: Should we delete ARGS.output_dir and ARGS.input_dir?
+    # Not doing so leads to problems (existing input_dir files are used, even
+    # if unwanted, and extra output_dir files are confusing).
     for path in midi_input_dirs.values():
         make_directory(path)
     for path in csv_input_dirs.values():
@@ -243,38 +246,65 @@ if __name__ == '__main__':
 
     # Copy over user midi =====================================================
     for path in ARGS.local_midi_dirs:
+        # Bugfix for paths ending in /
+        if len(path) > 1 and path[-1] == os.path.sep:
+            path = path[:-1]
         dirname = f'local_{os.path.basename(path)}'
         outdir = os.path.join(ARGS.input_dir, 'midi', dirname)
+        basedir = outdir
+        os.makedirs(outdir, exist_ok=True)
         midi_input_dirs[dirname] = outdir
         csv_outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
+        os.makedirs(csv_outdir, exist_ok=True)
         csv_input_dirs[dirname] = csv_outdir
         if ARGS.recursive:
             path = os.path.join(path, '**')
         for filepath in glob(os.path.join(path, '*.mid'),
                              recursive=ARGS.recursive):
+            if ARGS.recursive:
+                outdir = os.path.join(
+                    basedir,
+                    os.path.dirname(filepath)[len(path) - 2:],
+                    os.path.basename(filepath)
+                )
+            os.makedirs(os.path.dirname(outdir), exist_ok=True)
             copy_file(filepath, outdir)
 
     # Copy over user csv ======================================================
     for path in ARGS.local_csv_dirs:
+        # Bugfix for paths ending in /
+        if len(path) > 1 and path[-1] == os.path.sep:
+            path = path[:-1]
         dirname = f'local_{os.path.basename(path)}'
         outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
+        basedir = outdir
+        os.makedirs(outdir, exist_ok=True)
         csv_input_dirs[dirname] = outdir
         if ARGS.recursive:
             path = os.path.join(path, '**')
         for filepath in glob(os.path.join(path, '*.csv'),
                              recursive=ARGS.recursive):
+            if ARGS.recursive:
+                outdir = os.path.join(
+                    basedir,
+                    os.path.dirname(filepath)[len(path) - 2:],
+                    os.path.basename(filepath)
+                )
+            os.makedirs(os.path.dirname(outdir), exist_ok=True)
             copy_file(filepath, outdir)
 
     # Convert from midi to csv ================================================
     for name in tqdm(midi_input_dirs, desc=f"Converting midi from "
                      f"{list(midi_input_dirs.values())} to csv at "
                      f"{list(csv_input_dirs.values())}"):
-        midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name])
+        midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
+                             recursive=ARGS.recursive)
 
     # Create all Composition objects and write clean data to output ===========
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
-    csv_paths = glob(os.path.join(ARGS.input_dir, 'csv', '*', '*.csv'))
+    csv_paths = glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
+                     recursive=ARGS.recursive)
     read_note_csv_kwargs = dict(
         onset=0,
         pitch=2,
@@ -337,7 +367,7 @@ if __name__ == '__main__':
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
-        if i == 0: # for first iteration, set to uniform
+        if np.sum(current_counts) == 0: # First iteration, set to uniform
             current_dist = np.ones(len(goal_dist)) / len(goal_dist)
             current_split_dist = np.ones(len(splits)) / len(splits)
         else:
