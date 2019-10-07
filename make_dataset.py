@@ -5,6 +5,7 @@ import json
 import argparse
 from glob import glob
 import warnings
+import pandas as pd
 
 import numpy as np
 from tqdm import tqdm
@@ -141,13 +142,11 @@ def parse_args(args_input=None):
                         '--degradation-kwargs. If this file is given, '
                         '--degradation-kwargs is ignored.', type=json.load,
                         default=None)
-    # TODO: check this works!
     parser.add_argument('--degradation-dist', metavar='relative_probability',
                         nargs='*', default=None, help='A list of relative '
                         'probabilities that each degradation will used. Must '
                         'be the same length as --degradations. Defaults to a '
                         'uniform distribution.', type=float)
-    # TODO: Test these
     parser.add_argument('--clean-prop', type=float, help='The proportion of '
                         'excerpts in the final dataset that should be clean.',
                         default=1 / (1 + len(degradations.DEGRADATIONS)))
@@ -185,8 +184,7 @@ if __name__ == '__main__':
 
     # Exit if degradation-dist is a diff length to degradations
     if ARGS.degradation_dist is None:
-        ARGS.degradation_dist = (np.ones(len(ARGS.degradations)) /
-                                 len(ARGS.degreadations))
+        ARGS.degradation_dist = np.ones(len(ARGS.degradations))
     assert len(ARGS.degradation_dist) == len(ARGS.degradations), (
         "Given degradation_dist is not the same length as degradations:\n"
         f"len({ARGS.degradation_dist}) != len({ARGS.degradations})"
@@ -281,24 +279,29 @@ if __name__ == '__main__':
     # this allows for easy matching of source and target data
     deg_choices = ARGS.degradations
     goal_dist = ARGS.degradation_dist
-    if goal_dist is None:
-        # Default of None implies uniform
-        goal_dist = np.ones(len(deg_choices)) / len(deg_choices)
 
-    # Remove any degs with goal_dist == 0
+    # Remove any degs with goal_dist == 0 and normalize
     non_zero = [i for i, p in enumerate(goal_dist) if p != 0]
     deg_choices = np.array(deg_choices)[non_zero]
     goal_dist = np.array(goal_dist)[non_zero]
+    goal_dist /= np.sum(goal_dist)
 
     # Add none for no degradation
-    if ARGS.clean_prop > 0:
+    if 0 < ARGS.clean_prop < 1:
         deg_choices = np.insert(deg_choices, 0, 'none')
-        goal_dist/= 1 - ARGS.clean_prop
+        goal_dist *= 1 - ARGS.clean_prop
         goal_dist = np.insert(goal_dist, 0, ARGS.clean_prop)
+    elif ARGS.clean_prop == 1:
+        deg_choices = np.array(['none'])
+        goal_dist = np.array([1])
 
-    # Normalize split proportions
+    # Normalize split proportions and remove 0s
+    splits = ['train', 'test', 'valid']
     split_props = np.array(ARGS.splits)
     split_props /= np.sum(split_props)
+    non_zero = [i for i, p in enumerate(split_props) if p != 0]
+    splits = np.array(splits)[non_zero]
+    split_props = np.array(split_props)[non_zero]
 
     # Write out deg_choices to labels.csv
     with open(os.path.join(ARGS.output_dir, 'labels.csv'), 'w') as file:
@@ -307,68 +310,69 @@ if __name__ == '__main__':
 
     # The idea is to keep track of the current distribution of degradations
     # and then sample in reverse order of the difference between this and
-    # the goal distribution.
+    # the goal distribution. We do the same for splits.
     current_counts = np.zeros(len(deg_choices))
-    num_skipped = 0
+    current_splits = np.zeros(len(splits))
 
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
         if i == 0: # for first iteration, set to uniform
             current_dist = np.ones(len(goal_dist)) / len(goal_dist)
+            current_split_dist = np.ones(len(splits)) / len(splits)
         else:
             current_dist = current_counts / np.sum(current_counts)
+            current_split_dist = current_splits / np.sum(current_splits)
 
         # Grab an excerpt from this composition
         excerpt = None
-        for iter in range(10):
-            note_index = np.random.choice(list(comp.note_df.index.values)
-                                          [:-ARGS.min_notes])
-            note_onset = comp.note_df.loc[note_index]['onset']
-            excerpt = pd.DataFrame(
-                comp.note_df.loc[comp.note_df['onset'].between(
-                    note_onset, note_onset + ARGS.excerpt_length)])
-            excerpt['onset'] = excerpt['onset'] - note_onset
-            excerpt = excerpt.reset_index(drop=True)
+        if len(comp.note_df) >= ARGS.min_notes:
+            for iter in range(10):
+                note_index = np.random.choice(list(comp.note_df.index.values)
+                                              [:-ARGS.min_notes])
+                note_onset = comp.note_df.loc[note_index]['onset']
+                excerpt = pd.DataFrame(
+                    comp.note_df.loc[comp.note_df['onset'].between(
+                        note_onset, note_onset + ARGS.excerpt_length)])
+                excerpt['onset'] = excerpt['onset'] - note_onset
+                excerpt = excerpt.reset_index(drop=True)
 
-            # Check for validity of excerpt
-            if len(excerpt) < ARGS.min_notes:
-                excerpt = None
-            else:
-                break
+                # Check for validity of excerpt
+                if len(excerpt) < ARGS.min_notes:
+                    excerpt = None
+                else:
+                    break
 
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
-            warnings.warn(UserWarning, "Unable to find valid excerpt from "
-                          f"composition {comp.csv_path}. Skipping.")
-            num_skipped += 1
+            warnings.warn("Unable to find valid excerpt from composition"
+                          f" {comp.csv_path}. Lengthen --excerpt-length or "
+                          "lower --min-notes. Skipping.", UserWarning)
             continue
 
-        # Initially, we will never sample if current >= goal
-        # We will do so only if all degs where current < goal fail
+        # Try degradations in reverse order of the difference between
+        # their current distribution and their desired distribution.
         diffs = goal_dist - current_dist
-        degs_sorted = sorted(zip(diffs, deg_choices))[::-1]
+        degs_sorted = sorted(zip(diffs, deg_choices,
+                                 list(range(len(deg_choices)))))[::-1]
 
-        # Make labels for no degradation
+        # Calculate split in the same way (but only save the first)
+        split_diffs = split_props - current_split_dist
+        _, split, split_num = sorted(zip(split_diffs, splits,
+                              list(range(len(splits)))))[-1]
+
+        # Make default labels for no degradation
         fn = os.path.basename(comp.csv_path)
         dataset = os.path.basename(os.path.dirname(comp.csv_path))
         clean_path = os.path.join('clean', dataset, fn)
         altered_path = clean_path
         deg_binary = 0
-        deg_num = 0
-        # Can calculate splits in order because the comps are shuffled
-        prop = (i - num_skipped) / (len(compositions) - num_skipped)
-        if prop < split_props[0]:
-            split = 'train'
-        elif prop < split_props[0] + split_props[1]:
-            split = 'test'
-        else:
-            split = 'valid'
+
         # Try to perform a degradation
-        for diff, deg_name in degs_sorted:
+        degraded = None
+        for diff, deg_name, deg_num in degs_sorted:
             # Break for no degradation
             if deg_name == 'none':
-                current_counts[deg_num] += 1
                 break
 
             # Try the degradation
@@ -378,32 +382,32 @@ if __name__ == '__main__':
             degraded = deg_fun(excerpt, **deg_fun_kwargs)
 
             if degraded is not None:
-                # Write clean csv
-                clean_path = os.path.join('clean', dataset, fn)
-                clean_outpath = os.path.join(ARGS.output_dir, clean_path)
-                midi.df_to_csv(excerpt, clean_outpath)
-                # Write degraded csv
-                altered_path = os.path.join('altered', dataset, fn)
-                altered_outpath = os.path.join(ARGS.output_dir, altered_path)
-                midi.df_to_csv(degraded, altered_outpath)
                 # Update labels
                 deg_binary = 1
-                deg_num = np.where(deg_choices == deg_name)[0][0]
-                current_counts[deg_num] += 1
+                altered_path = os.path.join('altered', dataset, fn)
+
+                # Write degraded csv
+                altered_outpath = os.path.join(ARGS.output_dir, altered_path)
+                midi.df_to_csv(degraded, altered_outpath)
                 break
 
-        # Write meta
-        if degraded is not None or ARGS.clean_prop > 0:
-            clean_path = os.path.join('clean', dataset, fn)
+        # Write data
+        if not (degraded is None and ARGS.clean_prop == 0):
+            # Update counts
+            current_counts[deg_num] += 1
+            current_splits[split_num] += 1
+
+            # Write clean csv
             clean_outpath = os.path.join(ARGS.output_dir, clean_path)
             midi.df_to_csv(excerpt, clean_outpath)
-            meta_file.write(f'{altered_outpath},{deg_binary},{deg_num},'
-                            f'{clean_outpath},{split}\n')
+
+            # Write metadata
+            meta_file.write(f'{altered_path},{deg_binary},{deg_num},'
+                            f'{clean_path},{split}\n')
         else:
-            warnings.warn(UserWarning, "Unable to degrade chose excerpt from "
-                          f"{comp.csv_path} and no clean excerpts wanted. "
-                          "Skipping.")
-            num_skipped += 1
+            warnings.warn("Unable to degrade chosen excerpt from "
+                          f"{comp.csv_path} and no clean excerpts requested."
+                          " Skipping.", UserWarning)
 
     meta_file.close()
 
