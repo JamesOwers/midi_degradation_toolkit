@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 import pytest
+import itertools
 
 import mdtk.degradations as deg
 
@@ -12,12 +13,87 @@ EMPTY_DF = pd.DataFrame({
     'dur': []
 })
 
+# test_join_notes() uses its own df, defined in the function
+# Create a garbled df with indices: [0, 2, 2, 4]
 BASIC_DF = pd.DataFrame({
-    'onset': [0, 100, 200, 200],
-    'track': [0, 1, 0, 1],
-    'pitch': [10, 20, 30, 40],
-    'dur': [100, 100, 100, 100]
+    'onset': [0, 100, 200, 200, 200],
+    'track': [0, 1, 0, 1, 1],
+    'pitch': [10, 20, 30, 40, 40],
+    'dur': [100, 100, 100, 100, 100]
 })
+BASIC_DF = pd.concat([BASIC_DF.iloc[[0,2]], BASIC_DF.iloc[[2,4]]])
+BASIC_DF.iloc[1]['onset'] = 100
+BASIC_DF.iloc[1]['track'] = 1
+BASIC_DF.iloc[1]['pitch'] = 20
+BASIC_DF.iloc[1]['dur'] = 100
+
+# This version will not change
+BASIC_DF_FINAL = BASIC_DF
+
+# Create an unsorted BASIC_DF
+UNSORTED_DF = BASIC_DF.iloc[[0,2,3,1]]
+
+
+def assert_none(res, msg=""):
+    assert res is None, f"{msg}\nExpected None, but got:\n{res}"
+
+
+def test_pre_process():
+    basic_res = pd.DataFrame({
+        'onset': [0, 100, 200, 200],
+        'track': [0, 1, 0, 1],
+        'pitch': [10, 20, 30, 40],
+        'dur': [100, 100, 100, 100]
+    })
+
+    unsorted_res = pd.DataFrame({
+        'onset': [0, 200, 200, 100],
+        'track': [0, 0, 1, 1],
+        'pitch': [10, 30, 40, 20],
+        'dur': [100, 100, 100, 100]
+    })
+
+    res = deg.pre_process(UNSORTED_DF)
+    assert res.equals(unsorted_res), (
+        f"Pre-processing \n{UNSORTED_DF}\n resulted in \n{res}\n"
+        f"instead of \n{unsorted_res}"
+    )
+
+    res = deg.pre_process(UNSORTED_DF, sort=True)
+    assert res.equals(basic_res), (
+        f"Pre-processing \n{UNSORTED_DF}\n with sort=True resulted in "
+        f"\n{res}\ninstead of \n{basic_res}"
+    )
+
+
+def test_post_process():
+    basic_res = pd.DataFrame({
+        'onset': [0, 100, 200, 200],
+        'track': [0, 1, 0, 1],
+        'pitch': [10, 20, 30, 40],
+        'dur': [100, 100, 100, 100]
+    })
+
+    res = deg.post_process(UNSORTED_DF)
+    assert res.equals(basic_res), (
+        f"Post-processing \n{UNSORTED_DF}\n  "
+        f"resulted in \n{res}\ninstead of \n{basic_res}"
+    )
+
+
+def test_unsorted():
+    global BASIC_DF
+    BASIC_DF = UNSORTED_DF
+    
+    test_pitch_shift()
+    test_time_shift()
+    test_onset_shift()
+    test_offset_shift()
+    test_remove_note()
+    test_add_note()
+    test_split_note()
+    
+    BASIC_DF = BASIC_DF_FINAL
 
 
 def test_pitch_shift():
@@ -27,40 +103,22 @@ def test_pitch_shift():
             "Pitch shifting with empty data frame did not return None."
         )
 
-    # In place testing
-    for i in range(2):
-        copy = BASIC_DF.copy()
-        res = deg.pitch_shift(copy, seed=1, inplace=True)
+    if BASIC_DF.equals(BASIC_DF_FINAL):
+        # Deterministic testing
+        for i in range(2):
+            res = deg.pitch_shift(BASIC_DF, seed=1)
 
-        assert res is None, (
-            "Pitch shift with inplace=True returned something."
-        )
+            basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
+                                      'track': [0, 1, 0, 1],
+                                      'pitch': [10, 107, 30, 40],
+                                      'dur': [100, 100, 100, 100]})
 
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 107, 30, 40],
-                                  'dur': [100, 100, 100, 100]})
+            assert res.equals(basic_res), (
+                f"Pitch shifting \n{BASIC_DF}\n resulted in \n{res}\n"
+                f"instead of \n{basic_res}"
+            )
 
-        assert copy.equals(basic_res), (
-            f"Pitch shifting \n{BASIC_DF}\n resulted in \n{copy}\n"
-            f"instead of \n{basic_res}"
-        )
-
-    # Deterministic testing
-    for i in range(2):
-        res = deg.pitch_shift(BASIC_DF, seed=1)
-
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 107, 30, 40],
-                                  'dur': [100, 100, 100, 100]})
-
-        assert res.equals(basic_res), (
-            f"Pitch shifting \n{BASIC_DF}\n resulted in \n{res}\n"
-            f"instead of \n{basic_res}"
-        )
-
-        assert not BASIC_DF.equals(res), "Note_df was not copied."
+            assert not BASIC_DF.equals(res), "Note_df was not copied."
 
     # Truly random testing
     for i in range(10):
@@ -69,19 +127,26 @@ def test_pitch_shift():
         res = deg.pitch_shift(BASIC_DF, min_pitch=100 * i,
                               max_pitch=100 * (i + 1))
 
-        equal = (res == BASIC_DF)
-
         # Check that only things that should have changed have changed
-        assert equal['onset'].all(), "Pitch shift changed some onset time."
-        assert equal['track'].all(), "Pitch shift changed some track."
-        assert equal['dur'].all(), "Pitch shift changed some duration."
-        assert (1 - equal['pitch']).sum() == 1, (
-            "Pitch shift did not change exactly one pitch."
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert diff.shape[0] == 2, "Pitch shift changed more than 1 note."
+        assert diff.iloc[0]['onset'] == diff.iloc[1]['onset'], (
+            "Pitch shift changed some onset time."
+        )
+        assert diff.iloc[0]['track'] == diff.iloc[1]['track'], (
+            "Pitch shift changed some track."
+        )
+        assert diff.iloc[0]['dur'] == diff.iloc[1]['dur'], (
+            "Pitch shift changed some duration."
+        )
+        assert diff.iloc[0]['pitch'] != diff.iloc[1]['pitch'], (
+            "Pitch shift did not change pitch."
         )
 
         # Check that changed pitch is within given range
-        changed_pitch = res[(res['pitch'] !=
-                             BASIC_DF['pitch'])]['pitch'].iloc[0]
+        changed_pitch = diff.iloc[0]['pitch']
+        #changed_pitch = res[(res['pitch'] !=
+        #                     BASIC_DF['pitch'])]['pitch'].iloc[0]
         assert 100 * i <= changed_pitch <= 100 * (i + 1), (
             f"Pitch {changed_pitch} outside of range "
             f"[{100 * i}, {100 * (i + 1)}]"
@@ -97,9 +162,9 @@ def test_pitch_shift():
 
         res = deg.pitch_shift(BASIC_DF, distribution=distribution)
 
-        not_equal = (res['pitch'] != BASIC_DF['pitch'])
-        changed_pitch = res[not_equal]['pitch'].iloc[0]
-        original_pitch = BASIC_DF[not_equal]['pitch'].iloc[0]
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        changed_pitch = diff.iloc[0]['pitch']
+        original_pitch = diff.iloc[1]['pitch']
         diff = original_pitch - changed_pitch
 
         assert diff == correct_diff, (
@@ -159,67 +224,91 @@ def test_time_shift():
         assert deg.time_shift(EMPTY_DF) is None, ("Time shifting with empty data "
                                                   "frame did not return None.")
 
-    # In place testing
-    for i in range(2):
-        copy = BASIC_DF.copy()
-        res = deg.time_shift(copy, seed=1, inplace=True)
+    if BASIC_DF.equals(BASIC_DF_FINAL):
+        # Deterministic testing
+        for i in range(2):
+            res = deg.time_shift(BASIC_DF, seed=1)
 
-        assert res is None, (
-            "Time shift with inplace=True returned something."
-        )
+            basic_res = pd.DataFrame({'onset': [0, 158, 200, 200],
+                                      'track': [0, 1, 0, 1],
+                                      'pitch': [10, 20, 30, 40],
+                                      'dur': [100, 100, 100, 100]})
 
-        basic_res = pd.DataFrame({'onset': [0, 158, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 20, 30, 40],
-                                  'dur': [100, 100, 100, 100]})
+            assert res.equals(basic_res), (
+                f"Time shifting \n{BASIC_DF}\nresulted in \n{res}\n"
+                f"instead of \n{basic_res}"
+            )
 
-        assert copy.equals(basic_res), (
-            f"Time shifting \n{BASIC_DF}\nresulted in \n{copy}\n"
-            f"instead of \n{basic_res}"
-        )
-
-    # Deterministic testing
-    for i in range(2):
-        res = deg.time_shift(BASIC_DF, seed=1)
-
-        basic_res = pd.DataFrame({'onset': [0, 158, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 20, 30, 40],
-                                  'dur': [100, 100, 100, 100]})
-
-        assert res.equals(basic_res), (
-            f"Time shifting \n{BASIC_DF}\nresulted in \n{res}\n"
-            f"instead of \n{basic_res}"
-        )
-
-        assert not BASIC_DF.equals(res), "Note_df was not copied."
+            assert not BASIC_DF.equals(res), "Note_df was not copied."
 
     # Truly random testing
     for i in range(10):
         np.random.seed()
 
-        res = deg.time_shift(BASIC_DF, min_shift=10 * i,
-                             max_shift=10 * (i + 1))
-
-        equal = (res == BASIC_DF)
+        min_shift = 10 * i
+        max_shift = 10 * (i + 1)
+        res = deg.time_shift(BASIC_DF, min_shift=min_shift,
+                             max_shift=max_shift)
 
         # Check that only things that should have changed have changed
-        assert equal['track'].all(), "Time shift changed some track."
-        assert equal['pitch'].all(), "Time shift changed some pitch."
-        assert equal['dur'].all(), "Time shift changed some duration."
-        assert (1 - equal['onset']).sum() == 1, (
-            "Time shift did not change exactly one onset."
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert diff.shape[0] == 2, "Time shift changed more than 1 note."
+        assert diff.iloc[0]['onset'] != diff.iloc[1]['onset'], (
+            "Time shift did not change any onset time."
+        )
+        assert diff.iloc[0]['track'] == diff.iloc[1]['track'], (
+            "Time shift changed some track."
+        )
+        assert diff.iloc[0]['dur'] == diff.iloc[1]['dur'], (
+            "Time shift changed some duration."
+        )
+        assert diff.iloc[0]['pitch'] == diff.iloc[1]['pitch'], (
+            "Time shift changed some pitch."
         )
 
         # Check that changed onset is within given range
-        changed_onset = res[(res['onset'] !=
-                             BASIC_DF['onset'])]['onset'].iloc[0]
-        original_onset = BASIC_DF[(res['onset'] !=
-                                   BASIC_DF['onset'])]['onset'].iloc[0]
+        changed_onset = diff.iloc[0]['onset']
+        original_onset = diff.iloc[1]['onset']
         shift = abs(changed_onset - original_onset)
-        assert 10 * i <= shift <= 10 * (i + 1), (
-            f"Shift {shift} outside of range [{10 * i}, {10 * (i + 1)}]."
+        assert min_shift <= shift <= max_shift, (
+            f"Shift {shift} outside of range [{min_shift}, {max_shift}]."
         )
+
+        # Check with align_onset=True
+        if min_shift <= 200 and max_shift >= 100:
+            res = deg.time_shift(BASIC_DF, min_shift=min_shift,
+                                 max_shift=max_shift, align_onset=True)
+
+            # Check that only things that should have changed have changed
+            diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+            assert diff.shape[0] == 2, "Time shift changed more than 1 note." + f"\n{BASIC_DF}\n{res}\n{min_shift}_{max_shift}"
+            assert diff.iloc[0]['onset'] != diff.iloc[1]['onset'], (
+                "Time shift did not change any onset time."
+            )
+            assert diff.iloc[0]['track'] == diff.iloc[1]['track'], (
+                "Time shift changed some track."
+            )
+            assert diff.iloc[0]['dur'] == diff.iloc[1]['dur'], (
+                "Time shift changed some duration."
+            )
+            assert diff.iloc[0]['pitch'] == diff.iloc[1]['pitch'], (
+                "Time shift changed some pitch."
+            )
+            assert diff.iloc[0]['onset'] in BASIC_DF['onset'].unique(), (
+                "Time shift didn't change to an aligned onset."
+            )
+
+            # Check that changed onset is within given range
+            changed_onset = diff.iloc[0]['onset']
+            original_onset = diff.iloc[1]['onset']
+            shift = abs(changed_onset - original_onset)
+            assert min_shift <= shift <= max_shift, (
+                f"Shift {shift} outside of range [{min_shift}, {max_shift}]."
+            )
+        else:
+            with pytest.warns(UserWarning, match=re.escape('WARNING:')):
+                res = deg.time_shift(BASIC_DF, min_shift=min_shift,
+                                     max_shift=max_shift, align_onset=True)
 
     # Check for range too large warning
     with pytest.warns(UserWarning, match=re.escape('WARNING: No valid notes to '
@@ -234,6 +323,8 @@ def test_time_shift():
 def test_onset_shift():
     def check_onset_shift_result(df, res, min_shift, max_shift,
                                  min_duration, max_duration):
+        assert res is not None, "Onset shift returned None unexpectedly."
+
         diff = pd.concat([res, df]).drop_duplicates(keep=False)
         new_note = pd.merge(diff, res).reset_index()
         changed_note = pd.merge(diff, df).reset_index()
@@ -277,40 +368,22 @@ def test_onset_shift():
             "Onset shifting with empty data frame did not return None."
         )
 
-    # In place testing
-    for i in range(2):
-        copy = BASIC_DF.copy()
-        res = deg.onset_shift(copy, seed=1, inplace=True)
+    if BASIC_DF.equals(BASIC_DF_FINAL):
+        # Deterministic testing
+        for i in range(2):
+            res = deg.onset_shift(BASIC_DF, seed=1)
 
-        assert res is None, (
-            "Onset shift with inplace=True returned something."
-        )
+            basic_res = pd.DataFrame({'onset': [0, 150, 200, 200],
+                                      'track': [0, 1, 0, 1],
+                                      'pitch': [10, 20, 30, 40],
+                                      'dur': [100, 50, 100, 100]})
 
-        basic_res = pd.DataFrame({'onset': [0, 150, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 20, 30, 40],
-                                  'dur': [100, 50, 100, 100]})
+            assert res.equals(basic_res), (
+                f"Onset shifting \n{BASIC_DF}\nresulted in \n{res}\n"
+                f"instead of \n{basic_res}"
+            )
 
-        assert copy.equals(basic_res), (
-            f"Onset shifting \n{BASIC_DF}\nresulted in \n{copy}\n"
-            f"instead of \n{basic_res}"
-        )
-
-    # Deterministic testing
-    for i in range(2):
-        res = deg.onset_shift(BASIC_DF, seed=1)
-
-        basic_res = pd.DataFrame({'onset': [0, 150, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 20, 30, 40],
-                                  'dur': [100, 50, 100, 100]})
-
-        assert res.equals(basic_res), (
-            f"Onset shifting \n{BASIC_DF}\nresulted in \n{res}\n"
-            f"instead of \n{basic_res}"
-        )
-
-        assert not BASIC_DF.equals(res), "Note_df was not copied."
+            assert not BASIC_DF.equals(res), "Note_df was not copied."
 
     # Random testing
     for i in range(10):
@@ -385,6 +458,83 @@ def test_onset_shift():
         check_onset_shift_result(BASIC_DF, res, min_shift, max_shift, min_duration,
                                  max_duration)
 
+        # Test with various alignments
+        align_df = pd.DataFrame({'onset': [0, 50, 100, 150, 200],
+                                 'track': [0, 1, 0, 0, 1],
+                                 'pitch': [10, 20, 25, 30, 40],
+                                 'dur': [100, 100, 50, 150, 100]})
+        # Test with align_dur
+        res = deg.onset_shift(align_df, align_dur=True)
+        check_onset_shift_result(align_df, res, 50, np.inf, 50, np.inf)
+
+        assert (100 in list(res['dur']) and
+                (50 in list(res['dur']) or 150 in list(res['dur'])) and
+                res['dur'].isin([50, 100, 150]).all()), (
+            "Onset with align_dur didn't align duration."
+        )
+
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+            assert_none(res)
+
+        # Test with align_onset
+        res = deg.onset_shift(align_df, align_onset=True)
+        check_onset_shift_result(align_df, res, 50, np.inf, 50, np.inf)
+
+        assert (len(set([0, 50, 100, 150, 200]) - set(res['onset'])) == 1 and
+                len(set(res['onset'])) == 4), (
+            "Onset with align_onset didn't align onset."
+        )
+
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_shift=201)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_duration=301)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+            assert_none(res)
+
+        # Test with align both
+        res = deg.onset_shift(align_df, align_onset=True, align_dur=True)
+        check_onset_shift_result(align_df, res, 50, np.inf, 50, np.inf)
+
+        assert (100 in list(res['dur']) and
+                (50 in list(res['dur']) or 150 in list(res['dur'])) and
+                res['dur'].isin([50, 100, 150]).all()), (
+            "Onset with align_dur and align_onset didn't align duration."
+        )
+        assert (len(set([0, 50, 100, 150, 200]) - set(res['onset'])) == 1 and
+                len(set(res['onset'])) == 4), (
+            "Onset with align_dur and align_onset didn't align onset."
+        )
+
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
+            assert_none(res)
+        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+            assert_none(res)
+
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " onset shift. Returning "
                                                    "None.")):
@@ -441,40 +591,25 @@ def test_offset_shift():
             "Offset shifting with empty data frame did not return None."
         )
 
-    # In place testing
-    for i in range(2):
-        copy = BASIC_DF.copy()
-        res = deg.offset_shift(copy, seed=1, inplace=True)
+    if BASIC_DF.equals(BASIC_DF_FINAL):
+        # Deterministic testing
+        for i in range(2):
+            res = deg.offset_shift(BASIC_DF, seed=1)
+            basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
+                                      'track': [0, 1, 0, 1],
+                                      'pitch': [10, 20, 30, 40],
+                                      'dur': [100, 158, 100, 100]})
 
-        assert res is None, (
-            "Offset shift with inplace=True returned something."
-        )
+            assert res.equals(basic_res), (
+                f"Offset shifting \n{BASIC_DF}\nresulted in \n{res}\n"
+                f"instead of \n{basic_res}"
+            )
+            assert not BASIC_DF.equals(res), "Note_df was not copied."
 
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 20, 30, 40],
-                                  'dur': [100, 158, 100, 100]})
-
-        assert copy.equals(basic_res), (
-            f"Offset shifting \n{BASIC_DF}\nresulted in \n{copy}\n"
-            f"instead of \n{basic_res}"
-        )
-
-    # Deterministic testing
-    for i in range(2):
-        res = deg.offset_shift(BASIC_DF, seed=1)
-
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
-                                  'track': [0, 1, 0, 1],
-                                  'pitch': [10, 20, 30, 40],
-                                  'dur': [100, 158, 100, 100]})
-
-        assert res.equals(basic_res), (
-            f"Offset shifting \n{BASIC_DF}\nresulted in \n{res}\n"
-            f"instead of \n{basic_res}"
-        )
-
-        assert not BASIC_DF.equals(res), "Note_df was not copied."
+            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+                res = deg.offset_shift(BASIC_DF, seed=1, align_dur=True)
+                assert res is None, ("Offset shift with align_dur doesn't "
+                                     "fail on excerpt with only 1 duration.")
 
     # Random testing
     for i in range(10):
@@ -551,6 +686,29 @@ def test_offset_shift():
         check_offset_shift_result(BASIC_DF, res, min_shift, max_shift, min_duration,
                                   max_duration)
 
+        # Test align_dur
+        align_df = BASIC_DF.copy()
+        align_df.iloc[0]['dur'] = 150
+
+        if ((min_duration <= 150 and max_duration >= 100) and
+            (min_shift <= 50 <= max_shift)):
+            res = deg.offset_shift(align_df, min_shift=min_shift,
+                                   max_shift=max_shift, min_duration=min_duration,
+                                   max_duration=max_duration, align_dur=True)
+            assert ((tuple(res['dur']) in
+                     list(itertools.permutations([150, 150, 100, 100]))) or
+                    (list(res['dur']) == [100, 100, 100, 100])), (
+                "Offset shift with align_dur doesn't properly align duration."
+            )
+
+        else:
+            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+                res = deg.offset_shift(BASIC_DF, min_shift=300)
+                assert res is None, (
+                    "Offset shifting with align_dur but all durs outside "
+                    "valid range returns something."
+                )
+
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " offset shift. Returning "
                                                    "None.")):
@@ -568,40 +726,22 @@ def test_remove_note():
             "Remove note with empty data frame did not return None."
         )
 
-    # In place testing
-    for i in range(2):
-        copy = BASIC_DF.copy()
-        res = deg.remove_note(copy, seed=1, inplace=True)
+    if BASIC_DF.equals(BASIC_DF_FINAL):
+        # Deterministic testing
+        for i in range(2):
+            res = deg.remove_note(BASIC_DF, seed=1)
 
-        assert res is None, (
-            "Removing note with inplace=True returned something."
-        )
+            basic_res = pd.DataFrame({'onset': [0, 200, 200],
+                                      'track': [0, 0, 1],
+                                      'pitch': [10, 30, 40],
+                                      'dur': [100, 100, 100]})
 
-        basic_res = pd.DataFrame({'onset': [0, 200, 200],
-                                  'track': [0, 0, 1],
-                                  'pitch': [10, 30, 40],
-                                  'dur': [100, 100, 100]})
+            assert res.equals(basic_res), (
+                f"Removing note from \n{BASIC_DF}\n resulted in "
+                f"\n{res}\ninstead of \n{basic_res}"
+            )
 
-        assert copy.equals(basic_res), (
-            f"Removing note from \n{BASIC_DF}\n resulted in "
-            f"\n{copy}\ninstead of \n{basic_res}"
-        )
-
-    # Deterministic testing
-    for i in range(2):
-        res = deg.remove_note(BASIC_DF, seed=1)
-
-        basic_res = pd.DataFrame({'onset': [0, 200, 200],
-                                  'track': [0, 0, 1],
-                                  'pitch': [10, 30, 40],
-                                  'dur': [100, 100, 100]})
-
-        assert res.equals(basic_res), (
-            f"Removing note from \n{BASIC_DF}\n resulted in "
-            f"\n{res}\ninstead of \n{basic_res}"
-        )
-
-        assert not BASIC_DF.equals(res), "Note_df was not copied."
+            assert not BASIC_DF.equals(res), "Note_df was not copied."
 
     # Random testing
     for i in range(10):
@@ -619,25 +759,6 @@ def test_add_note():
     assert deg.add_note(EMPTY_DF) is not None, (
         "Add note to empty data frame returned None."
     )
-
-    # In place testing
-    for i in range(2):
-        copy = BASIC_DF.copy()
-        res = deg.add_note(copy, seed=1, inplace=True)
-
-        assert res is None, (
-            "Adding note with inplace=True returned something."
-        )
-
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 235],
-                                  'track': [0, 1, 0, 1, 0],
-                                  'pitch': [10, 20, 30, 40, 37],
-                                  'dur': [100, 100, 100, 100, 62]})
-
-        assert copy.equals(basic_res), (
-            f"Adding note to \n{BASIC_DF}\n resulted in "
-            f"\n{copy}\ninstead of \n{basic_res}"
-        )
 
     # Deterministic testing
     for i in range(2):
@@ -667,18 +788,20 @@ def test_add_note():
         res = deg.add_note(BASIC_DF, min_pitch=min_pitch, max_pitch=max_pitch,
                            min_duration=min_duration, max_duration=max_duration)
 
-        assert (res[:BASIC_DF.shape[0]] == BASIC_DF).all().all(), (
-            "Adding a note changed an existing note."
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert (diff.shape[0] == 1), (
+            "Adding a note changed an existing note, or added note is a "
+            "duplicate."
         )
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
 
-        note = res.loc[BASIC_DF.shape[0]]
+        note = diff.iloc[0]
         assert min_pitch <= note['pitch'] <= max_pitch, (
             f"Added note's pitch ({note.pitch}) not within range "
             f"[{min_pitch}, {max_pitch}]."
         )
         assert min_duration <= note['dur'] <= max_duration, (
-            f"Added note's duration ({note.pitch}) not within range "
+            f"Added note's duration ({note.dur}) not within range "
             f"[{min_duration}, {max_duration}]."
         )
         assert (note['onset'] >= 0 and note['onset'] + note['dur'] <=
@@ -687,10 +810,46 @@ def test_add_note():
             "bounds of given dataframe."
         )
 
+        # Test align_pitch and align_time
+        if (min_pitch > BASIC_DF['pitch'].max() or
+            max_pitch < BASIC_DF['pitch'].min() or
+            min_duration > BASIC_DF['dur'].max() or
+            max_duration < BASIC_DF['dur'].min()):
+            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
+                res = deg.add_note(BASIC_DF, min_pitch=min_pitch,
+                                   max_pitch=max_pitch, min_duration=min_duration,
+                                   max_duration=max_duration, align_pitch=True,
+                                   align_time=True)
+            continue
+
+        res = deg.add_note(BASIC_DF, min_pitch=min_pitch,
+                           max_pitch=max_pitch, min_duration=min_duration,
+                           max_duration=max_duration, align_pitch=True,
+                           align_time=True)
+
+        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+        assert (diff.shape[0] == 1), (
+            "Adding a note changed an existing note, or added note is a "
+            "duplicate." + "\n" + str(BASIC_DF) + "\n" + str(res)
+        )
+        assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
+
+        note = diff.iloc[0]
+        assert note['pitch'] in list(BASIC_DF['pitch']), (
+            f"Added note's pitch ({note.pitch}) not aligned to \n{BASIC_DF}"
+        )
+        assert note['dur'] in list(BASIC_DF['dur']), (
+            f"Added note's duration ({note.dur}) not aligned to \n{BASIC_DF}"
+        )
+        assert note['onset'] in list(BASIC_DF['onset']), (
+            f"Added note's onset ({note.onset}) not aligned to \n{BASIC_DF}"
+        )
+
     # Test min_duration too large
     res = deg.add_note(BASIC_DF, min_duration=500)
-    assert (res.loc[BASIC_DF.shape[0]]['onset'] == 0 and
-            res.loc[BASIC_DF.shape[0]]['dur'] == 500), (
+    diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+    note = diff.iloc[0]
+    assert (note['onset'] == 0 and note['dur'] == 500), (
         "Adding note with large min_duration does not set duration "
         "to full dataframe length."
     )
@@ -703,40 +862,22 @@ def test_split_note():
             "Split note with empty data frame did not return None."
         )
 
-    # In place testing
-    for i in range(2):
-        copy = BASIC_DF.copy()
-        res = deg.split_note(copy, seed=1, inplace=True)
+    if BASIC_DF.equals(BASIC_DF_FINAL):
+        # Deterministic testing
+        for i in range(2):
+            res = deg.split_note(BASIC_DF, seed=1)
 
-        assert res is None, (
-            "Splitting with inplace=True returned something."
-        )
+            basic_res = pd.DataFrame({'onset': [0, 100, 150, 200, 200],
+                                      'track': [0, 1, 1, 0, 1],
+                                      'pitch': [10, 20, 20, 30, 40],
+                                      'dur': [100, 50, 50, 100, 100]})
 
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 150],
-                                  'track': [0, 1, 0, 1, 1],
-                                  'pitch': [10, 20, 30, 40, 20],
-                                  'dur': [100, 50, 100, 100, 50]})
+            assert res.equals(basic_res), (
+                f"Splitting note in \n{BASIC_DF}\n resulted in "
+                f"\n{res}\ninstead of \n{basic_res}"
+            )
 
-        assert copy.equals(basic_res), (
-            f"Splitting note in \n{BASIC_DF}\n resulted in "
-            f"\n{res}\ninstead of \n{basic_res}"
-        )
-
-    # Deterministic testing
-    for i in range(2):
-        res = deg.split_note(BASIC_DF, seed=1)
-
-        basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 150],
-                                  'track': [0, 1, 0, 1, 1],
-                                  'pitch': [10, 20, 30, 40, 20],
-                                  'dur': [100, 50, 100, 100, 50]})
-
-        assert res.equals(basic_res), (
-            f"Splitting note in \n{BASIC_DF}\n resulted in "
-            f"\n{res}\ninstead of \n{basic_res}"
-        )
-
-        assert not BASIC_DF.equals(res), "Note_df was not copied."
+            assert not BASIC_DF.equals(res), "Note_df was not copied."
 
     # Random testing
     for i in range(8):
@@ -751,6 +892,14 @@ def test_split_note():
         new_notes = pd.merge(diff, res).reset_index()
         changed_notes = pd.merge(diff, BASIC_DF).reset_index()
         unchanged_notes = pd.merge(res, BASIC_DF).reset_index()
+        
+        print("READY")
+        print(BASIC_DF)
+        print(res)
+        print(diff)
+        print(new_notes)
+        print(changed_notes)
+        print(unchanged_notes)
 
         assert changed_notes.shape[0] == 1, (
             "More than 1 note changed when splitting."
@@ -817,33 +966,21 @@ def test_join_notes():
             "Joining notes with none back-to-back didn't return None."
         )
 
+    # Create a garbled df with indices: [0, 2, 2, 4]
     join_df = pd.DataFrame({
-        'onset': [0, 100, 200, 200],
-        'track': [0, 0, 0, 1],
-        'pitch': [10, 10, 10, 40],
-        'dur': [100, 100, 100, 100]
+        'onset': [0, 100, 200, 200, 200],
+        'track': [0, 0, 0, 1, 1],
+        'pitch': [10, 10, 10, 40, 40],
+        'dur': [100, 100, 100, 100, 100]
     })
+    join_df = pd.concat([join_df.iloc[[0,2]], join_df.iloc[[2,4]]])
+    join_df.iloc[1]['onset'] = 100
+    join_df.iloc[1]['track'] = 0
+    join_df.iloc[1]['pitch'] = 10
+    join_df.iloc[1]['dur'] = 100
 
-    # In place testing
-    for i in range(2):
-        copy = join_df.copy()
-        res = deg.join_notes(copy, seed=1, inplace=True)
-
-        assert res is None, (
-            "Joining with inplace=True returned something."
-        )
-
-        join_res = pd.DataFrame({
-            'onset': [0, 100, 200],
-            'track': [0, 0, 1],
-            'pitch': [10, 10, 40],
-            'dur': [100, 200, 100]
-        })
-
-        assert copy.equals(join_res), (
-            f"Joining \n{join_df}\nresulted in \n{copy}\n"
-            f"instead of \n{join_res}"
-        )
+    # Create an unsorted join_df
+    unsorted_join_df = join_df.iloc[[0,2,3,1]]
 
     # Deterministic testing
     for i in range(2):
@@ -861,18 +998,24 @@ def test_join_notes():
             f"instead of \n{join_res}"
         )
 
+        res = deg.join_notes(unsorted_join_df, seed=1)
+        assert res.equals(join_res), (
+            f"Joining \n{unsorted_join_df}\nresulted in \n{res}\n"
+            f"instead of \n{join_res}"
+        )
+
         assert not join_df.equals(res), "Note_df was not copied."
 
     # Check different pitch and track
-    join_df.loc[1]['pitch'] = 20
+    join_df.iloc[1]['pitch'] = 20
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " join. Returning None.")):
         assert deg.join_notes(join_df) is None, (
             "Joining notes with different pitches didn't return None."
         )
 
-    join_df.loc[1]['pitch'] = 10
-    join_df.loc[1]['track'] = 1
+    join_df.iloc[1]['pitch'] = 10
+    join_df.iloc[1]['track'] = 1
     with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
                                                    " join. Returning None.")):
         assert deg.join_notes(join_df) is None, (
@@ -880,18 +1023,18 @@ def test_join_notes():
         )
 
     # Check some with different max_gaps
-    join_df.loc[1]['track'] = 0
+    join_df.iloc[1]['track'] = 0
     for i in range(10):
         np.random.seed()
 
         max_gap = i * 10
 
-        join_df.loc[0]['dur'] = join_df.loc[1]['onset'] - \
-            max_gap - join_df.loc[0]['onset']
-        join_df.loc[1]['dur'] = join_df.loc[2]['onset'] - \
-            max_gap - join_df.loc[1]['onset']
+        join_df.iloc[0]['dur'] = join_df.iloc[1]['onset'] - \
+            max_gap - join_df.iloc[0]['onset']
+        join_df.iloc[1]['dur'] = join_df.iloc[2]['onset'] - \
+            max_gap - join_df.iloc[1]['onset']
 
-        res = deg.join_notes(join_df, max_gap=max_gap)
+        res = deg.join_notes(join_df, max_notes=2, max_gap=max_gap)
 
         # Gap should work
         diff = pd.concat([res, join_df]).drop_duplicates(keep=False)
@@ -918,13 +1061,88 @@ def test_join_notes():
             "Joined track not equal to original pitch."
         )
         assert (new_note.loc[0]['dur'] ==
-                joined_notes.loc[1]['dur'] + joined_notes.loc[1]['onset'] -
+                joined_notes.iloc[-1]['onset'] +
+                joined_notes.iloc[-1]['dur'] -
                 joined_notes.loc[0]['onset']), (
             "Joined duration not equal to original durations plus gap."
         )
 
-        join_df.loc[0]['dur'] -= 1
-        join_df.loc[1]['dur'] -= 1
+        # Test joining multiple notes at first
+        max_notes = max(2, i)
+        num_joined = min(max_notes, 3)
+        res = deg.join_notes(join_df, max_notes=max_notes, only_first=True,
+                             max_gap=max_gap)
+
+        diff = pd.concat([res, join_df]).drop_duplicates(keep=False)
+        new_note = pd.merge(diff, res).reset_index(drop=True)
+        joined_notes = pd.merge(diff, join_df).reset_index(drop=True)
+        unchanged_notes = pd.merge(res, join_df).reset_index(drop=True)
+
+        assert (unchanged_notes.shape[0] ==
+                join_df.shape[0] - num_joined), (
+            "Joining notes changed too many notes."
+        )
+        assert new_note.shape[0] == 1, (
+            "Joining notes resulted in more than 1 new note."
+        )
+        assert joined_notes.shape[0] == num_joined, (
+            "Joining notes changed too many notes."
+        )
+        assert joined_notes.loc[0].equals(join_df.loc[0]), (
+            "Joining didn't start at first."
+        )
+        assert new_note.loc[0]['onset'] == joined_notes.loc[0]['onset'], (
+            "Joined onset not equal to original onset."
+        )
+        assert new_note.loc[0]['pitch'] == joined_notes.loc[0]['pitch'], (
+            "Joined pitch not equal to original pitch."
+        )
+        assert new_note.loc[0]['track'] == joined_notes.loc[0]['track'], (
+            "Joined track not equal to original pitch."
+        )
+        assert (new_note.loc[0]['dur'] ==
+                joined_notes.iloc[-1]['onset'] +
+                joined_notes.iloc[-1]['dur'] -
+                joined_notes.loc[0]['onset']), (
+            "Joined duration not equal to original durations plus gap."
+        )
+
+        # Test joining multiple notes not at first
+        res = deg.join_notes(join_df, max_notes=max_notes, max_gap=max_gap)
+
+        diff = pd.concat([res, join_df]).drop_duplicates(keep=False)
+        new_note = pd.merge(diff, res).reset_index()
+        joined_notes = pd.merge(diff, join_df).reset_index()
+        unchanged_notes = pd.merge(res, join_df).reset_index()
+
+        assert (unchanged_notes.shape[0] >= join_df.shape[0] - max_notes and
+                unchanged_notes.shape[0] <= join_df.shape[0] - 2), (
+            "Joining notes changed too many notes."
+        )
+        assert new_note.shape[0] == 1, (
+            "Joining notes resulted in more than 1 new note."
+        )
+        assert 2 <= joined_notes.shape[0] <= 3, (
+            "Joining notes changed too many notes."
+        )
+        assert new_note.loc[0]['onset'] == joined_notes.loc[0]['onset'], (
+            "Joined onset not equal to original onset."
+        )
+        assert new_note.loc[0]['pitch'] == joined_notes.loc[0]['pitch'], (
+            "Joined pitch not equal to original pitch."
+        )
+        assert new_note.loc[0]['track'] == joined_notes.loc[0]['track'], (
+            "Joined track not equal to original pitch."
+        )
+        assert (new_note.loc[0]['dur'] ==
+                joined_notes.iloc[-1]['onset'] +
+                joined_notes.iloc[-1]['dur'] -
+                joined_notes.loc[0]['onset']), (
+            "Joined duration not equal to original durations plus gap."
+        )
+
+        join_df.iloc[0]['dur'] -= 1
+        join_df.iloc[1]['dur'] -= 1
 
         # Gap too large
         with pytest.warns(UserWarning, match=re.escape("WARNING: No valid notes to"
