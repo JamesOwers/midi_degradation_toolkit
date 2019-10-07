@@ -5,7 +5,6 @@ import json
 import argparse
 from glob import glob
 import warnings
-import pandas as pd
 
 import numpy as np
 from tqdm import tqdm
@@ -76,16 +75,17 @@ def parse_degradation_kwargs(kwarg_dict):
 
 def parse_args(args_input=None):
     """Convenience function for parsing user supplied command line args"""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     default_outdir = os.path.join(os.getcwd(), 'acme')
     parser.add_argument('-o', '--output-dir', type=str, default=default_outdir,
-                        help='the directory to write the dataset to (defaults '
-                        f'to current working directory: {default_outdir})')
+                        help='the directory to write the dataset to.')
     default_indir = os.path.join(os.getcwd(), 'input_data')
     parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
                         help='the directory to store the preprocessed '
-                        'downloaded data to (defaults to current working '
-                        f'directory: {default_indir})')
+                        'downloaded data to.')
     # TODO: implement this - users could have directories containing midi they
     #       want to use in conjunction with any downloaded for them
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
@@ -107,8 +107,7 @@ def parse_args(args_input=None):
     parser.add_argument('--download-cache-dir', type=str,
                         default=downloaders.DEFAULT_CACHE_PATH, help='The '
                         'directory to use for storing intermediate downloaded '
-                        'data e.g. zip files, and prior to preprocessing. By '
-                        f'default is set to {downloaders.DEFAULT_CACHE_PATH}')
+                        'data e.g. zip files, and prior to preprocessing.')
     # TODO: check this works!
     parser.add_argument('--clear-download-cache', action='store_true',
                         help='clear downloaded data cache')
@@ -142,9 +141,10 @@ def parse_args(args_input=None):
                         '--degradation-kwargs', type=json.load, default=None)
     # TODO: check this works!
     parser.add_argument('--degradation-dist', metavar='relative_probability',
-                        nargs='*', default=None, help='a list of relative '
+                        nargs='*', default=None, help='A list of relative '
                         'probabilities that each degradation will used. Must '
-                        'be the same length as --degradations')
+                        'be the same length as --degradations. Defaults to a '
+                        'uniform distribution.')
     # TODO: Test these
     parser.add_argument('--clean-prop', type=float, help='The proportion of '
                         'excerpts in the final dataset that should be clean.',
