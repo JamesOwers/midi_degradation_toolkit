@@ -87,12 +87,11 @@ def parse_args(args_input=None):
     parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
                         help='the directory to store the preprocessed '
                         'downloaded data to.')
-    # TODO: implement this - users could have directories containing midi they
-    #       want to use in conjunction with any downloaded for them
+    # TODO: check this works!
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
                         'include in the dataset', default=[])
-    # TODO: implement this - users could have csv data of their own
+    # TODO: check this works!
     parser.add_argument('--local-csv-dirs', metavar='csv_dir', type=str,
                         nargs='*', help='directories containing csv files to '
                         'include in the dataset', default=[])
@@ -118,7 +117,6 @@ def parse_args(args_input=None):
                         help='degradations to use on the data. Must match '
                         'names of functions in the degradations module. By '
                         'default, will use them all.')
-    # TODO: Check these
     parser.add_argument('--excerpt-length', metavar='ms', type=int,
                         help='The length of the excerpt (in ms) to take from '
                         'each piece. The excerpt will start on a note onset '
@@ -200,9 +198,6 @@ if __name__ == '__main__':
     assert min(ARGS.splits) >= 0, "--splits values must not be negative."
     assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
 
-    # TODO: handle csv downloading if csv data is available in downloader...
-    #       then there's no need for midi conversion
-
     # Instantiate downloaders =================================================
     # TODO: make OVERWRITE this an arg for the script
     OVERWRITE = None
@@ -230,19 +225,34 @@ if __name__ == '__main__':
         for path in output_dirs:
             make_directory(path)
 
-
     # Download data ===========================================================
     for name in downloader_dict:
         downloader = downloader_dict[name]
-        output_path = midi_input_dirs[name]
-        downloader.download_midi(output_path=output_path,
-                                 overwrite=OVERWRITE)
+        midi_output_path = midi_input_dirs[name]
+        csv_output_path = csv_input_dirs[name]
+        try:
+            downloader.download_csv(output_path=csv_output_path,
+                                    overwrite=OVERWRITE)
+        except NotImplementedError:
+            downloader.download_midi(output_path=midi_output_path,
+                                     overwrite=OVERWRITE)
 
     # Copy over user midi =====================================================
     for path in ARGS.local_midi_dirs:
-        dirname = os.path.basename(path)
-        outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
+        dirname = f'local_{os.path.basename(path)}'
+        outdir = os.path.join(ARGS.input_dir, 'midi', dirname)
+        midi_input_dirs[dirname] = outdir
+        csv_outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
+        csv_input_dirs[dirname] = csv_outdir
         for filepath in glob(os.path.join(path, '*.mid')):
+            copy_file(filepath, outdir)
+
+    # Copy over user csv ======================================================
+    for path in ARGS.local_csv_dirs:
+        dirname = f'local_{os.path.basename(path)}'
+        outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
+        csv_input_dirs[dirname] = outdir
+        for filepath in glob(os.path.join(path, '*.csv')):
             copy_file(filepath, outdir)
 
     # Convert from midi to csv ================================================
