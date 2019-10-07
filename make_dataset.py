@@ -95,6 +95,10 @@ def parse_args(args_input=None):
     parser.add_argument('--local-csv-dirs', metavar='csv_dir', type=str,
                         nargs='*', help='directories containing csv files to '
                         'include in the dataset', default=[])
+    # TODO: check this works!
+    parser.add_argument('--recursive', action='store_true', help='Search local'
+                        ' dataset directories recursively for all midi or csv '
+                        'files.')
     parser.add_argument('--datasets', metavar='dataset_name',
                         nargs='*', choices=downloaders.DATASETS,
                         default=downloaders.DATASETS,
@@ -244,7 +248,10 @@ if __name__ == '__main__':
         midi_input_dirs[dirname] = outdir
         csv_outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
         csv_input_dirs[dirname] = csv_outdir
-        for filepath in glob(os.path.join(path, '*.mid')):
+        if ARGS.recursive:
+            path = os.path.join(path, '**')
+        for filepath in glob(os.path.join(path, '*.mid'),
+                             recursive=ARGS.recursive):
             copy_file(filepath, outdir)
 
     # Copy over user csv ======================================================
@@ -252,7 +259,10 @@ if __name__ == '__main__':
         dirname = f'local_{os.path.basename(path)}'
         outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
         csv_input_dirs[dirname] = outdir
-        for filepath in glob(os.path.join(path, '*.csv')):
+        if ARGS.recursive:
+            path = os.path.join(path, '**')
+        for filepath in glob(os.path.join(path, '*.csv'),
+                             recursive=ARGS.recursive):
             copy_file(filepath, outdir)
 
     # Convert from midi to csv ================================================
