@@ -169,7 +169,7 @@ if __name__ == '__main__':
     ARGS = parse_args()
     print(ARGS)
     if ARGS.seed is None:
-        seed = np.random.seed()
+        seed = np.random.randint(0, 2**32)
     else:
         seed = ARGS.seed
     np.random.seed(seed)
