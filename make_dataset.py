@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Script to generate Altered and Corrupted Midi Exerpt (ACME) datasets"""
+"""Script to generate Altered and Corrupted Midi excerpt (ACME) datasets"""
 import os
 import json
 import argparse
@@ -27,7 +27,7 @@ with open('./img/logo.txt', 'r') as ff:
     LOGO = ff.read()
 
 
-DESCRIPTION = "Make datasets of altered and corrupted midi exerpts."
+DESCRIPTION = "Make datasets of altered and corrupted midi excerpts."
 
 
 
@@ -381,7 +381,8 @@ if __name__ == '__main__':
     # the goal distribution. We do the same for splits.
     current_counts = np.zeros(len(deg_choices))
     current_splits = np.zeros(len(splits))
-
+    
+    
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
