@@ -6,6 +6,7 @@ import argparse
 from glob import glob
 import warnings
 import pandas as pd
+import shutil
 
 import numpy as np
 from tqdm import tqdm
@@ -87,7 +88,9 @@ def parse_args(args_input=None):
     parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
                         help='the directory to store the preprocessed '
                         'downloaded data to.')
-    # TODO: check this works!
+    parser.add_argument('--clear', action='store_true', help='Delete '
+                        '--input-dir and --output-dir prior to creating this '
+                        'dataset. This ensures no stale data remains.')
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
                         'include in the dataset', default=[])
@@ -95,7 +98,6 @@ def parse_args(args_input=None):
     parser.add_argument('--local-csv-dirs', metavar='csv_dir', type=str,
                         nargs='*', help='directories containing csv files to '
                         'include in the dataset', default=[])
-    # TODO: check this works!
     parser.add_argument('--recursive', action='store_true', help='Search local'
                         ' dataset directories recursively for all midi or csv '
                         'files.')
@@ -202,6 +204,18 @@ if __name__ == '__main__':
     assert min(ARGS.splits) >= 0, "--splits values must not be negative."
     assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
 
+    # Clear input and output dirs =============================================
+    if ARGS.clear:
+        if os.path.exists(ARGS.input_dir):
+            shutil.rmtree(ARGS.input_dir)
+        if os.path.exists(ARGS.output_dir):
+            shutil.rmtree(ARGS.output_dir)
+    # This avoids an error if no datasets are selected
+    if not os.path.exists(ARGS.input_dir):
+        os.makedirs(ARGS.input_dir, exist_ok=True)
+    if not os.path.exists(ARGS.output_dir):
+        os.makedirs(ARGS.output_dir, exist_ok=True)
+
     # Instantiate downloaders =================================================
     # TODO: make OVERWRITE this an arg for the script
     OVERWRITE = None
@@ -219,9 +233,6 @@ if __name__ == '__main__':
                       for name in ds_names}
 
     # Set up directories ======================================================
-    # TODO: Should we delete ARGS.output_dir and ARGS.input_dir?
-    # Not doing so leads to problems (existing input_dir files are used, even
-    # if unwanted, and extra output_dir files are confusing).
     for path in midi_input_dirs.values():
         make_directory(path)
     for path in csv_input_dirs.values():
