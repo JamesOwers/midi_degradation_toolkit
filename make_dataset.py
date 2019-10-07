@@ -398,7 +398,7 @@ if __name__ == '__main__':
         # Grab an excerpt from this composition
         excerpt = None
         if len(comp.note_df) >= ARGS.min_notes:
-            for iter in range(10):
+            for _ in range(10):
                 note_index = np.random.choice(list(comp.note_df.index.values)
                                               [:-ARGS.min_notes])
                 note_onset = comp.note_df.loc[note_index]['onset']
