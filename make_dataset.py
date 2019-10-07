@@ -102,12 +102,12 @@ def parse_args(args_input=None):
                         ' dataset directories recursively for all midi or csv '
                         'files.')
     parser.add_argument('--datasets', metavar='dataset_name',
-                        nargs='*', choices=downloaders.DATASETS,
-                        default=[],
+                        nargs='*', default=downloaders.DATASETS,
                         help='datasets to download and use. Must match names '
                         'of classes in the downloaders module. By default, '
                         'will use cached downloaded data if available, see '
-                        '--download-cache-dir and --clear-download-cache',
+                        '--download-cache-dir and --clear-download-cache. To '
+                        'download no data, provide an input of "None"',
                         )
     # TODO: check this works!
     parser.add_argument('--download-cache-dir', type=str,
@@ -167,7 +167,7 @@ def parse_args(args_input=None):
 if __name__ == '__main__':
     # TODO: set warning level such that we avoid warning fatigue
     ARGS = parse_args()
-
+    print(ARGS)
     np.random.seed(ARGS.seed)
 
     # Check given degradation_kwargs
@@ -220,6 +220,13 @@ if __name__ == '__main__':
     # TODO: make OVERWRITE this an arg for the script
     OVERWRITE = None
     ds_names = ARGS.datasets
+    if len(ds_names) == 1 and ds_names[0].lower() == 'none':
+        ds_names = []
+    else:
+        assert all([name in downloaders.DATASETS for name in ds_names]), (
+                f"all provided dataset names {ds_names} must be in the "
+                "list of available datasets for download "
+                f"{downloaders.DATASETS}")
     # Instantiated downloader classes
     downloader_dict = {
         ds_name: getattr(downloaders, ds_name)(
