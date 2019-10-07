@@ -87,7 +87,7 @@ def extract_zip(zip_path, out_path, overwrite=None, verbose=True):
     return extracted_path
 
 
-def copy_file(filepath, output_path, overwrite=None):
+def copy_file(filepath, output_path, overwrite=None, mkdir=False):
     """Convenience function to copy a file from filepath to output_path."""
     path = os.path.join(output_path, os.path.basename(filepath))
     if os.path.exists(path):     
