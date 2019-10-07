@@ -138,7 +138,9 @@ def parse_args(args_input=None):
     # TODO: check this works!
     parser.add_argument('--degradation-kwarg-json', metavar='json_file',
                         help='A file containing parameters as described in '
-                        '--degradation-kwargs', type=json.load, default=None)
+                        '--degradation-kwargs. If this file is given, '
+                        '--degradation-kwargs is ignored.', type=json.load,
+                        default=None)
     # TODO: check this works!
     parser.add_argument('--degradation-dist', metavar='relative_probability',
                         nargs='*', default=None, help='A list of relative '
@@ -174,6 +176,11 @@ if __name__ == '__main__':
         )
     # TODO: warn user they specified kwargs for degradation not being used
     # TODO: bomb out if degradation-dist is a diff length to degradations
+    assert (ARGS.degradation_dist is None or
+            len(ARGS.degradation_dist) == len(ARGS.degradations)), (
+        "Given degradation_dist is not the same length as degradations:\n"
+        f"len({ARGS.degradations_dist}) != len({ARGS.degradations})"
+    )
     # TODO: handle csv downloading if csv data is available in downloader...
     #       then there's no need for midi conversion
 
