@@ -62,6 +62,8 @@ class DataDownloader:
 # TODO: since these datasets already have CSV in the right format, we should
 #       implement download_csv() methods to use in favour of the download_midi
 #       this method would reformat csv to be correct (cols need renaming etc.)
+# TODO: handle conversion from quarters to ms - use tempo data, but use min/max
+#       tempo values as some were a bit spurious
 class PPDDSep2018Monophonic(DataDownloader):
     """Patterns for Preditction Development Dataset. Monophonic data only.
 
