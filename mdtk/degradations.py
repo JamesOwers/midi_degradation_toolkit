@@ -23,7 +23,7 @@ def set_random_seed(func, seed=None):
         function to be decorated
     seed : int or None
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
     Returns
     -------
@@ -150,7 +150,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
 
     Returns
@@ -257,7 +257,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
 
     Returns
@@ -393,7 +393,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
     Returns
     -------
@@ -559,7 +559,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
 
     Returns
@@ -654,7 +654,7 @@ def remove_note(excerpt):
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
     Returns
     -------
@@ -719,7 +719,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
 
     Returns
@@ -831,7 +831,7 @@ def split_note(excerpt, min_duration=50, num_splits=1):
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
     Returns
     -------
@@ -915,7 +915,7 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False):
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
-        leaves numpy's random state unchanged.
+        random state unchanged.
 
     Returns
     -------
