@@ -146,7 +146,7 @@ def parse_args(args_input=None):
                         nargs='*', default=None, help='A list of relative '
                         'probabilities that each degradation will used. Must '
                         'be the same length as --degradations. Defaults to a '
-                        'uniform distribution.')
+                        'uniform distribution.', type=float)
     # TODO: Test these
     parser.add_argument('--clean-prop', type=float, help='The proportion of '
                         'excerpts in the final dataset that should be clean.',
@@ -164,7 +164,10 @@ def parse_args(args_input=None):
 if __name__ == '__main__':
     # TODO: set warning level such that we avoid warning fatigue
     ARGS = parse_args()
+
     np.random.seed(ARGS.seed)
+
+    # Check given degradation_kwargs
     assert (ARGS.degradation_kwargs is None or
             ARGS.degradation_kwarg_json is None), ("Don't specify both "
                 "--degradation-kwargs and --degradation-kwarg-json")
@@ -174,13 +177,31 @@ if __name__ == '__main__':
         degradation_kwargs = parse_degradation_kwargs(
             ARGS.degradation_kwarg_json
         )
-    # TODO: warn user they specified kwargs for degradation not being used
-    # TODO: bomb out if degradation-dist is a diff length to degradations
-    assert (ARGS.degradation_dist is None or
-            len(ARGS.degradation_dist) == len(ARGS.degradations)), (
+    # Warn user they specified kwargs for degradation not being used
+    for deg, args in degradation_kwargs.items():
+        if deg not in ARGS.degradations and len(args) > 0:
+            warnings.warn("--degradation_kwargs contains args for unused "
+                          f'degradation "{deg}".', UserWarning)
+
+    # Exit if degradation-dist is a diff length to degradations
+    if ARGS.degradation_dist is None:
+        ARGS.degradation_dist = (np.ones(len(ARGS.degradations)) /
+                                 len(ARGS.degreadations))
+    assert len(ARGS.degradation_dist) == len(ARGS.degradations), (
         "Given degradation_dist is not the same length as degradations:\n"
-        f"len({ARGS.degradations_dist}) != len({ARGS.degradations})"
+        f"len({ARGS.degradation_dist}) != len({ARGS.degradations})"
     )
+
+    # Check that no probabilities are invalid
+    assert min(ARGS.degradation_dist) >= 0, ("--degradation-dist values must "
+                                             "not be negative.")
+    assert sum(ARGS.degradation_dist) > 0, ("Some --degradation-dist value "
+                                            "must be positive.")
+    assert 0 <= ARGS.clean_prop <= 1, ("--clean-prop must be between 0 and 1 "
+                                       "(inclusive).")
+    assert min(ARGS.splits) >= 0, "--splits values must not be negative."
+    assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
+
     # TODO: handle csv downloading if csv data is available in downloader...
     #       then there's no need for midi conversion
 
