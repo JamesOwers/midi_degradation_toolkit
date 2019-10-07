@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Script to generate Altered and Corrupted Midi excerpt (ACME) datasets"""
+"""Script to generate Altered and Corrupted Midi Excerpt (ACME) datasets"""
 import os
 import json
 import argparse
@@ -168,8 +168,12 @@ if __name__ == '__main__':
     # TODO: set warning level such that we avoid warning fatigue
     ARGS = parse_args()
     print(ARGS)
-    np.random.seed(ARGS.seed)
-
+    if ARGS.seed is None:
+        seed = np.random.seed()
+    else:
+        seed = ARGS.seed
+    np.random.seed(seed)
+    
     # Check given degradation_kwargs
     assert (ARGS.degradation_kwargs is None or
             ARGS.degradation_kwarg_json is None), ("Don't specify both "
@@ -497,5 +501,7 @@ if __name__ == '__main__':
     print('\t* which split (train, valid, test) the file should be used in')
     print('labels.csv is a mapping of degradation name to the id number used '
           'in metadata.csv')
+    print('To reproduce this dataset again, run the script with argument '
+          '--seed {seed}')
     #TODO: print('see the examples directory for baseline models using this data')
     print(LOGO)
