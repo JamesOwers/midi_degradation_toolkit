@@ -490,19 +490,19 @@ if __name__ == '__main__':
     print('Finished!')
     print(f'Count of degradations {deg_choices} = {current_counts}')
     print(f'The data used as input is contained in {ARGS.input_dir}')
-    print(f'You will find the generated data at {ARGS.output_dir} '
-          'with subdirectories\n')
+    print(f'\nYou will find the generated data at {ARGS.output_dir} '
+          'with subdirectories')
     print(f'\t* clean - contains the extracted clean excerpts')
     print(f'\t* altered - contains the excerpts altered by the degradations '
           'described in metadata.csv')
-    print('metadata.csv describes:\n')
+    print('\nmetadata.csv describes:')
     print('\t* (the id number for) the type of degradation used for the '
           'alteration')
     print('\t* the path for the altered and clean files')
     print('\t* which split (train, valid, test) the file should be used in')
-    print('degradation_ids.csv is a mapping of degradation name to the id number used '
-          'in metadata.csv')
-    print('To reproduce this dataset again, run the script with argument '
-          '--seed {seed}')
+    print('\ndegradation_ids.csv is a mapping of degradation name to the id '
+          'number used in metadata.csv')
+    print('\nTo reproduce this dataset again, run the script with argument '
+          f'--seed {seed}')
     #TODO: print('see the examples directory for baseline models using this data')
     print(LOGO)
