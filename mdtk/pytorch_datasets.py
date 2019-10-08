@@ -2,16 +2,41 @@
 import pandas as pd
 import numpy as np
 
-def df_to_one_hots(df, min_pitch=0, max_pitch=127, frame_length=40,
-                   max_shift=1000):
+#TODO: probably want to move everything but Pytorch dataset objects out of here
+
+
+# TODO: later can auto detect vocab from corpus
+class CommandVocab(object):
+    def __init__(self, min_pitch=0,
+                 max_pitch=127,
+                 time_increment=40,
+                 max_time_shift=4000, 
+                 specials=["<pad>", "<unk>", "<eos>", "<sos>"]):
+        self.pad_index = 0
+        self.unk_index = 1
+        self.eos_index = 2
+        self.sos_index = 3
+        # itos - integer to string
+        self.itos = (list(specials) +  # special tokens
+            [f'o{ii}' for ii in range(min_pitch, max_pitch+1)] +  # note_on
+            [f'f{ii}' for ii in range(min_pitch, max_pitch+1)] +  # note_off
+            [f't{ii}' for ii in range(time_increment, max_time_shift+1,
+                                      time_increment)])  # time_shift
+        self.stoi = {tok: ii for ii, tok in enumerate(self.itos)}
+    
+
+def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
+                      max_time_shift=4000):
     """
-    Convert a given pandas DataFrame into a sequence of one-hot vectors
-    representing commands (note_on, note_off, shift, and EOF).
+    Convert a given pandas DataFrame into a sequence commands, note_on (o),
+    note_off (f), and time_shift (t). Each command is followed by a number:
+    o10 means note_on<midinote 10>, t60 means time_shift<60 ms>. It is assumed
+    df has been sorted by onset.
 
     Parameters
     ----------
     df : pd.DataFrame
-        The pandas DataFrame which we will convert into one-hots.
+        The pandas DataFrame which we will convert into commands.
 
     min_pitch : int
         The minimum pitch at which notes will occur.
@@ -19,12 +44,12 @@ def df_to_one_hots(df, min_pitch=0, max_pitch=127, frame_length=40,
     max_pitch : int
         The maximum pitch at which notes will occur.
 
-    frame_length : float
+    time_increment : int
         The length of a single frame, in milliseconds.
 
-    max_shift : int
+    max_time_shift : int
         The maximum shift length, in milliseconds. Must be divisible by
-        frame_length.
+        time_increment. 
 
     Returns
     -------
@@ -32,62 +57,30 @@ def df_to_one_hots(df, min_pitch=0, max_pitch=127, frame_length=40,
         An array containing the one-hot vectors describing the given DataFrame.
     """
     # Input validation
-    assert max_shift % frame_length == 0, ("max_shift must be divisible by "
-                                           "frame_length.")
+    assert max_time_shift % time_increment == 0, ("max_time_shift must be "
+        "divisible by time_increment.")
     assert max_pitch >= min_pitch, "max_pitch must be >= min_pitch."
-    assert frame_length > 0, "frame_length must be positive."
-    assert max_shift > 0, "max_shift must be positive"
+    assert time_increment > 0, "time_increment must be positive."
+    assert max_time_shift > 0, "max_time_shift must be positive"
 
-    num_pitches = max_pitch - min_pitch + 1
-    num_shifts = round(max_shift // frame_length)
-    # note_on, note_off, shift, EOF
-    vector_length = num_pitches * 2 + num_shifts + 1
+    note_off = df.loc[:, ['onset', 'pitch']]
+    note_off['onset'] = note_off['onset'] + df['dur']
+    note_off['cmd'] = note_off['pitch'].apply(lambda x: f'f{x}')
+    note_off['cmd_type'] = 'f'
+    note_on = df.loc[:, ['onset', 'pitch']]
+    note_on['cmd'] = note_off['pitch'].apply(lambda x: f'o{x}')
+    note_on['cmd_type'] = 'o'
+    commands = pd.concat((note_on, note_off)).sort_values(
+                   ['onset', 'cmd_type', 'pitch'],
+                   ascending=[True, True, True])
+    
+    command_list = []
+    current_onset = commands.onset.iloc[0]
+    for idx, row in commands.iteritems():
+        time_shift = row.onset - current_onset
+        if time_shift != 0:
+            command_list += [f't{time_shift}']
+        command_list += [f'{row.cmd}']
+        current_onset = row.onset
 
-    OFFSET = 0
-    ONSET = 1
-
-    # Get all note on and offs
-    note_actions = []
-    offsets = df['onset'] + df['dur']
-    for (_, note), offset in zip(df.iterrows(), offsets):
-        onset_frame = round(note['onset'] / frame_length)
-        offset_frame = round(offset / frame_length)
-        if onset_frame == offset_frame:
-            warnings.warn(f"onset_frame ({onset_frame}) == offset_frame "
-                          f"({offset_frame}) for note {note}. Skipping note. "
-                          f"Try using a smaller frame_rate (currently "
-                          f"{frame_rate}).")
-        else:
-            note_actions.append((onset_frame, ONSET, note['pitch']))
-            note_actions.append((offset_frame, OFFSET, note['pitch']))
-
-    # Sort the note actions by time, then on/off, then pitch
-    note_actions = sorted(note_actions)
-
-    # Create one-hot sequence
-    one_hots = []
-    current_frame = int(note_actions[0][0])
-    for frame, action, pitch in note_actions:
-        # Shift
-        # TODO: Do we want to support iterative shifts like this or just error
-        while frame != current_frame:
-            diff = int(min(num_shifts, frame - current_frame))
-            shift_vector = np.zeros(vector_length)
-            shift_vector[2 * num_pitches + diff] = 1
-            one_hots.append(shift_vector)
-            current_frame += diff
-
-        # Perform action
-        assert min_pitch <= pitch <= max_pitch, (
-            f"All pitches must be in range [{min_pitch}, {max_pitch}]."
-        )
-        action_vector = np.zeros(vector_length)
-        action_vector[action * num_pitches + pitch - min_pitch] = 1
-        one_hots.append(action_vector)
-
-    # Add EOF
-    eof = np.zeros(vector_length)
-    eof[-1] = 1
-    one_hots.append(eof)
-
-    return np.array(one_hots)
+    return ' '.join(command_list)
