@@ -484,8 +484,13 @@ if __name__ == '__main__':
             warnings.warn("Unable to degrade chosen excerpt from "
                           f"{comp.csv_path} and no clean excerpts requested."
                           " Skipping.", UserWarning)
-
+    
     meta_file.close()
+    
+    # TODO: make this work!
+    # Parse metadata.txt to create {train,valid,test}_cmd_corpus.csv:
+    #     in_cmd,out_cmd,deg
+    # Add cols corpus_path and corpus_line_nr to metadata.csv
 
     print('Finished!')
     print(f'Count of degradations {deg_choices} = {current_counts}')
