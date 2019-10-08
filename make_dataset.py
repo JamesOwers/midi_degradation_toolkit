@@ -22,6 +22,12 @@ from mdtk.filesystem_utils import make_directory, copy_file
 #    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
 
 
+# For user mode warnings...
+import sys
+if not sys.warnoptions:
+    warnings.simplefilter("ignore") # Change the filter in this process
+    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
+
 
 with open('./img/logo.txt', 'r') as ff:
     LOGO = ff.read()
@@ -316,8 +322,8 @@ if __name__ == '__main__':
 
     # Convert from midi to csv ================================================
     for name in tqdm(midi_input_dirs, desc=f"Converting midi from "
-                     f"{list(midi_input_dirs.values())} to csv at "
-                     f"{list(csv_input_dirs.values())}"):
+                     f"{os.path.join(ARGS.input_dir, 'midi')} to csv at "
+                     f"{os.path.join(ARGS.input_dir, 'csv')}"):
         midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
                              recursive=ARGS.recursive)
 
