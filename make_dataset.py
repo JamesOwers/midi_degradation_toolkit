@@ -375,8 +375,10 @@ if __name__ == '__main__':
     splits = np.array(splits)[non_zero]
     split_props = np.array(split_props)[non_zero]
 
-    # Write out deg_choices to labels.csv
-    with open(os.path.join(ARGS.output_dir, 'labels.csv'), 'w') as file:
+    # Write out deg_choices to degradation_ids.csv
+    with open(
+            os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
+            'w') as file:
         file.write('id,degradation_name\n')
         for i, deg_name in enumerate(deg_choices):
             file.write(f'{i},{deg_name}\n')
@@ -499,7 +501,7 @@ if __name__ == '__main__':
           'alteration')
     print('\t* the path for the altered and clean files')
     print('\t* which split (train, valid, test) the file should be used in')
-    print('labels.csv is a mapping of degradation name to the id number used '
+    print('degradation_ids.csv is a mapping of degradation name to the id number used '
           'in metadata.csv')
     print('To reproduce this dataset again, run the script with argument '
           '--seed {seed}')
