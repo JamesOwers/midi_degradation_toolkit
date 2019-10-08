@@ -82,7 +82,7 @@ def df_to_one_hots(df, min_pitch=0, max_pitch=127, frame_length=40,
             f"All pitches must be in range [{min_pitch}, {max_pitch}]."
         )
         action_vector = np.zeros(vector_length)
-        action_vector[action * num_pitches + pitch] = 1
+        action_vector[action * num_pitches + pitch - min_pitch] = 1
         one_hots.append(action_vector)
 
     # Add EOF
