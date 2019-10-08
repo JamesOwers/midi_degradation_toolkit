@@ -1022,6 +1022,28 @@ def test_join_notes():
             "Joining notes with different tracks didn't return None."
         )
 
+    # Test real example which erred (because it had multiple possible notes)
+    excerpt = pd.DataFrame({
+        'onset': [0, 250, 625, 875, 1000, 1500, 1750, 1875, 2250, 2625, 2875,
+                  3000, 3250, 3375, 3625, 3750, 3875, 4000, 4250, 4625, 4875,
+                  5000],
+        'track': [0] * 22,
+        'pitch': [47, 47, 47, 50, 43, 43, 43, 43, 50, 50, 62, 50, 50,
+                  62, 62, 48, 48, 47, 47, 47, 50, 43],
+        'dur': [83] + [125] * 10 + [83] + [125] * 5 + [83] + [125] * 4
+    })
+    correct = pd.DataFrame({
+        'onset': [0, 250, 625, 875, 1000, 1500, 1750, 1875, 2250, 2625, 2875,
+                  3000, 3250, 3375, 3625, 3750, 4000, 4250, 4625, 4875, 5000],
+        'track': [0] * 21,
+        'pitch': [47, 47, 47, 50, 43, 43, 43, 43, 50, 50, 62, 50, 50,
+                  62, 62, 48, 47, 47, 47, 50, 43],
+        'dur': [83] + [125] * 10 + [83] + [125] * 3 + [250, 83] + [125] * 4
+    })
+    res = deg.join_notes(excerpt, seed=1)
+    assert res.equals(correct), ("join_notes failed on excerpt with multiple "
+                                 "pitches containing joinable notes." + f'{res}')
+
     # Check some with different max_gaps
     join_df.iloc[1]['track'] = 0
     for i in range(10):

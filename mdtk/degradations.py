@@ -951,17 +951,19 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False):
                 valid = (gap_after <= max_gap) & (gap_before > max_gap)
             else:
                 valid = gap_after <= max_gap
-            valid_starts.extend(list(valid.index[valid]))
+            valid_starts_this = list(valid.index[valid])
             valid_next_bool = gap_before <= max_gap
 
             # Get notes to join for each valid start
-            for start in valid_starts:
+            for start in valid_starts_this:
+                iloc = pitch_df.index.get_loc(start)
                 valid_next = []
-                for i, v in enumerate(valid_next_bool[start + 1:]):
+                for i, v in enumerate(valid_next_bool[iloc + 1:]):
                     if i + 2 > max_notes or not v:
                         break
-                    valid_next.append(valid_next_bool.index[start + 1 + i])
+                    valid_next.append(valid_next_bool.index[iloc + 1 + i])
                 valid_nexts.append(valid_next)
+            valid_starts.extend(valid_starts_this)
 
     if not valid_starts:
         warnings.warn('WARNING: No valid notes to join. Returning '
