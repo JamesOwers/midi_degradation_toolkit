@@ -167,7 +167,6 @@ def parse_args(args_input=None):
 if __name__ == '__main__':
     # TODO: set warning level such that we avoid warning fatigue
     ARGS = parse_args()
-    print(ARGS)
     if ARGS.seed is None:
         seed = np.random.randint(0, 2**32)
     else:
