@@ -138,10 +138,12 @@ def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
     note_on = df.loc[:, ['onset', 'pitch']]
     note_on['cmd'] = note_off['pitch'].apply(lambda x: f'o{x}')
     note_on['cmd_type'] = 'o'
-    commands = pd.concat((note_on, note_off)).sort_values(
-                   ['onset', 'cmd_type', 'pitch'],
-                   ascending=[True, True, True])
-    
+    commands = pd.concat((note_on, note_off))
+    commands['onset'] = ((commands['onset'] / time_increment)
+                         .round().astype(int) * time_increment)
+    commands = commands.sort_values(['onset', 'cmd_type', 'pitch'],
+                                    ascending=[True, True, True])
+
     command_list = []
     current_onset = commands.onset.iloc[0]
     for idx, row in commands.iterrows():
