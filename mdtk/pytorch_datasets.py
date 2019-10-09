@@ -53,6 +53,9 @@ class CommandVocab(object):
                                       time_increment)])  # time_shift
         self.stoi = {tok: ii for ii, tok in enumerate(self.itos)}
     
+    def __len__(self):
+        return len(self.itos)
+        
 
 def create_corpus_csvs(acme_dir, name, prefix, df_converter_func):
     """
