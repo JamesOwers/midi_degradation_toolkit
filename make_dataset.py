@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from mdtk import degradations, downloaders, data_structures, midi
 from mdtk.filesystem_utils import make_directory, copy_file
-from mdtk.pytorch_datasets import df_to_command_str
+from mdtk.pytorch_datasets import df_to_command_str, create_command_csvs
 
 ## For dev mode warnings...
 #import sys
@@ -507,35 +507,7 @@ if __name__ == '__main__':
     meta_file.close()
 
     if ARGS.command:
-        fh_dict = {
-            split: open(
-                os.path.join(ARGS.output_dir, f'{split}_cmd_corpus.csv'
-            ), 'w') for split in ['train', 'valid', 'test']
-        }
-        line_counts = {
-            split: 0 for split in ['train', 'valid', 'test']
-        }
-        meta_df = pd.read_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
-        for idx, row in tqdm(meta_df.iterrows(), total=meta_df.shape[0],
-                             desc='Creating command corpus'):
-            alt_df = pd.read_csv(os.path.join(ARGS.output_dir,
-                                              row.altered_csv_path),
-                                 header=None,
-                                 names=['onset', 'track', 'pitch', 'dur'])
-            alt_cmd_str = df_to_command_str(alt_df)
-            clean_df = pd.read_csv(os.path.join(ARGS.output_dir,
-                                                row.clean_csv_path),
-                                   header=None,
-                                   names=['onset', 'track', 'pitch', 'dur'])
-            clean_cmd_str = df_to_command_str(clean_df)
-            deg_num = row.degradation_id
-            split = row.split
-            fh = fh_dict[split]
-            fh.write(f'{alt_cmd_str},{clean_cmd_str},{deg_num}\n')
-            meta_df.loc[idx, 'corpus_path'] = fh.name
-            meta_df.loc[idx, 'corpus_line_nr'] = line_counts[split]
-            line_counts[split] += 1
-        meta_df.to_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
+        create_command_csvs(ARGS.output_dir)
 
     print('Finished!')
     print(f'Count of degradations {list(zip(deg_choices, current_counts))}')

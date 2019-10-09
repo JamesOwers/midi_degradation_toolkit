@@ -5,6 +5,7 @@ import torch
 import random
 import pandas as pd
 import numpy as np
+import os
 
 #TODO: probably want to move everything but Pytorch dataset objects out of here
 
@@ -51,6 +52,36 @@ class CommandVocab(object):
                                       time_increment)])  # time_shift
         self.stoi = {tok: ii for ii, tok in enumerate(self.itos)}
     
+
+def create_command_csvs(acme_dir):
+    fh_dict = {
+        split: open(
+            os.path.join(acme_dir, f'{split}_cmd_corpus.csv'
+        ), 'w') for split in ['train', 'valid', 'test']
+    }
+    line_counts = {
+        split: 0 for split in ['train', 'valid', 'test']
+    }
+    meta_df = pd.read_csv(os.path.join(acme_dir, 'metadata.csv'))
+    for idx, row in tqdm.tqdm(meta_df.iterrows(), total=meta_df.shape[0],
+                         desc='Creating command corpus'):
+        alt_df = pd.read_csv(os.path.join(acme_dir, row.altered_csv_path),
+                             header=None,
+                             names=['onset', 'track', 'pitch', 'dur'])
+        alt_cmd_str = df_to_command_str(alt_df)
+        clean_df = pd.read_csv(os.path.join(acme_dir, row.clean_csv_path),
+                               header=None,
+                               names=['onset', 'track', 'pitch', 'dur'])
+        clean_cmd_str = df_to_command_str(clean_df)
+        deg_num = row.degradation_id
+        split = row.split
+        fh = fh_dict[split]
+        fh.write(f'{alt_cmd_str},{clean_cmd_str},{deg_num}\n')
+        meta_df.loc[idx, 'corpus_path'] = fh.name
+        meta_df.loc[idx, 'corpus_line_nr'] = line_counts[split]
+        line_counts[split] += 1
+    meta_df.to_csv(os.path.join(acme_dir, 'metadata.csv'))
+
 
 def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
                       max_time_shift=4000):
