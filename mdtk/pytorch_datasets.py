@@ -54,6 +54,16 @@ class CommandVocab(object):
     
 
 def create_command_csvs(acme_dir):
+    """
+    From a given acme dataset, create command-based csv files to use with
+    our provided pytorch Dataset classes. This is the same as running
+    make_datset.py with the --command flag.
+
+    Parameters
+    ----------
+    acme_dir : string
+        The directory containing the acme data.
+    """
     fh_dict = {
         split: open(
             os.path.join(acme_dir, f'{split}_cmd_corpus.csv'
