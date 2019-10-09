@@ -37,7 +37,6 @@ with open('./img/logo.txt', 'r') as ff:
 DESCRIPTION = "Make datasets of altered and corrupted midi excerpts."
 
 
-
 def parse_degradation_kwargs(kwarg_dict):
     """Convenience function to parse a dictionary of keyword arguments for
     the functions within the degradations module. All keys in the kwarg_dict
@@ -161,9 +160,9 @@ def parse_args(args_input=None):
     parser.add_argument('--clean-prop', type=float, help='The proportion of '
                         'excerpts in the final dataset that should be clean.',
                         default=1 / (1 + len(degradations.DEGRADATIONS)))
-    parser.add_argument('--splits', metavar=('train', 'test', 'valid'),
+    parser.add_argument('--splits', metavar=['train', 'valid', 'test'],
                         nargs=3, type=float, help='The relative sizes of the '
-                        'train, test, and validation sets respectively.',
+                        'train, validation, and test sets respectively.',
                         default=[0.8, 0.1, 0.1])
     parser.add_argument('--seed', type=int, default=None, help='The numpy seed'
                         ' to use when creating the dataset.')
@@ -383,7 +382,7 @@ if __name__ == '__main__':
         goal_dist = np.array([1])
 
     # Normalize split proportions and remove 0s
-    splits = ['train', 'test', 'valid']
+    splits = ['train', 'valid', 'test']
     split_props = np.array(ARGS.splits)
     split_props /= np.sum(split_props)
     non_zero = [i for i, p in enumerate(split_props) if p != 0]
