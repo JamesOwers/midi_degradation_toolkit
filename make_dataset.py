@@ -102,9 +102,6 @@ def parse_args(args_input=None):
                         'with our provided pytorch Dataset classes. To create '
                         'none, provide a format of "None".', nargs='*',
                         default=FORMATS)
-    parser.add_argument('--pianoroll', action='store_true', help='Create '
-                        'piano-roll-based versions of the acme data for easier'
-                        'loading with our provided pytorch Dataset classes.')
     parser.add_argument('--clear', action='store_true', help='Delete '
                         '--input-dir and --output-dir prior to creating this '
                         'dataset. This ensures no stale data remains.')
