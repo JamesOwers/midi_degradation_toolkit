@@ -518,11 +518,13 @@ if __name__ == '__main__':
         meta_df = pd.read_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
         for idx, row in tqdm(meta_df.iterrows(), total=meta_df.shape[0],
                              desc='Creating command corpus'):
-            alt_df = pd.read_csv(os.path.join('acme', row.altered_csv_path),
+            alt_df = pd.read_csv(os.path.join(ARGS.output_dir,
+                                              row.altered_csv_path),
                                  header=None,
                                  names=['onset', 'track', 'pitch', 'dur'])
             alt_cmd_str = df_to_command_str(alt_df)
-            clean_df = pd.read_csv(os.path.join('acme', row.clean_csv_path),
+            clean_df = pd.read_csv(os.path.join(ARGS.output_dir,
+                                                row.clean_csv_path),
                                    header=None,
                                    names=['onset', 'track', 'pitch', 'dur'])
             clean_cmd_str = df_to_command_str(clean_df)
