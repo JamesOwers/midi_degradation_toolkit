@@ -81,10 +81,11 @@ task_criteria = [
 
 if __name__ == '__main__':
     
-    # TODO: Do this!
+    # TODO: Actually do proper arg parsing as opposed to hacking it >_<
+    base_dir = '/Users/kungfujam/git/midi_degradation_toolkit'
     args = parse_args()
-    args.train_dataset = './acme/train_cmd_corpus.csv'
-    args.test_dataset = './acme/valid_cmd_corpus.csv' 
+    args.train_dataset = f'{base_dir}/acme/train_cmd_corpus.csv'
+    args.test_dataset = f'{base_dir}/acme/valid_cmd_corpus.csv' 
     # TODO: decide on reasonable length
     args.seq_len = 100
     args.in_memory = True
@@ -99,6 +100,8 @@ if __name__ == '__main__':
     args.batch_log_freq = 10
     args.epoch_log_freq = 1
     args.epochs = 1000
+    args.output_path = f'{base_dir}/model.checkpoint'
+    
     
     task_idx = args.task_number - 1
     task_name = task_names[task_idx]
@@ -139,7 +142,7 @@ if __name__ == '__main__':
         dropout_prob=0.1
     )
     
-    print(f"Using {Criterion.__str__()} as loss funciton")
+    print(f"Using {Criterion.__str__()} as loss function")
     
     print("Creating Trainer")
     trainer = Trainer(
