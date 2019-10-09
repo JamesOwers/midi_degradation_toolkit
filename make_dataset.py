@@ -13,7 +13,8 @@ from tqdm import tqdm
 
 from mdtk import degradations, downloaders, data_structures, midi
 from mdtk.filesystem_utils import make_directory, copy_file
-from mdtk.pytorch_datasets import df_to_command_str, create_command_csvs
+from mdtk.pytorch_datasets import (df_to_command_str, df_to_pianoroll_str,
+                                   create_corpus_csvs)
 
 ## For dev mode warnings...
 #import sys
@@ -35,6 +36,8 @@ with open('./img/logo.txt', 'r') as ff:
 
 
 DESCRIPTION = "Make datasets of altered and corrupted midi excerpts."
+
+FORMATS = ['pianoroll', 'command']
 
 
 def parse_degradation_kwargs(kwarg_dict):
@@ -94,10 +97,14 @@ def parse_args(args_input=None):
     parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
                         help='the directory to store the preprocessed '
                         'downloaded data to.')
-    parser.add_argument('--command', action='store_true', help='Create command'
-                        '-based (note_on, note_off, shift) versions of the '
-                        'acme data for easier loading with our provided '
-                        'pytorch Dataset classes.')
+    parser.add_argument('--formats', metavar='format', help='Create '
+                        'custom versions of the acme data for easier loading'
+                        'with our provided pytorch Dataset classes. To create '
+                        'none, provide a format of "None".', nargs='*',
+                        default=FORMATS)
+    parser.add_argument('--pianoroll', action='store_true', help='Create '
+                        'piano-roll-based versions of the acme data for easier'
+                        'loading with our provided pytorch Dataset classes.')
     parser.add_argument('--clear', action='store_true', help='Delete '
                         '--input-dir and --output-dir prior to creating this '
                         'dataset. This ensures no stale data remains.')
@@ -217,6 +224,13 @@ if __name__ == '__main__':
     assert min(ARGS.splits) >= 0, "--splits values must not be negative."
     assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
 
+    if len(ARGS.formats) == 1 and ARGS.formats[0].lower() == 'none':
+        ARGS.formats = []
+    else:
+        assert all([name in FORMATS for name in ARGS.formats]), (
+            f"all provided formats {ARGS.formats} must be in the "
+            f"list of available formats {FORMATS}"
+        )
 
     # Clear input and output dirs =============================================
     if ARGS.clear:
@@ -506,8 +520,10 @@ if __name__ == '__main__':
 
     meta_file.close()
 
-    if ARGS.command:
-        create_command_csvs(ARGS.output_dir)
+    if 'command' in ARGS.formats:
+        create_corpus_csvs(ARGS.output_dir, 'command', 'cmd', df_to_command_str)
+    if 'pianoroll' in ARGS.formats:
+        create_corpus_csvs(ARGS.output_dir, 'pianoroll', 'pr', df_to_pianoroll_str)
 
     print('Finished!')
     print(f'Count of degradations {list(zip(deg_choices, current_counts))}')
@@ -528,10 +544,14 @@ if __name__ == '__main__':
     print('\ndegradation_ids.csv is a mapping of degradation name to the id '
           'number used in metadata.csv')
 
-    if ARGS.command:
+    if 'command' in ARGS.formats:
         print('\nThe {train,valid,test}_cmd_corpus.csv are command-based '
               '(note_on, note_off, shift) versions of the acme data more '
               'convenient for our provided pytorch Dataset classes')
+    if 'pianoroll' in ARGS.formats:
+        print('\nThe {train,valid,test}_pr_corpus.csv are piano-roll-based '
+              'versions of the acme data more convenient for our provided '
+              'pytorch Dataset classes')
 
     print('\nTo reproduce this dataset again, run the script with argument '
           f'--seed {seed}')

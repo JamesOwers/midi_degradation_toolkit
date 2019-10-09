@@ -53,20 +53,32 @@ class CommandVocab(object):
         self.stoi = {tok: ii for ii, tok in enumerate(self.itos)}
     
 
-def create_command_csvs(acme_dir):
+def create_corpus_csvs(acme_dir, name, prefix, df_converter_func):
     """
-    From a given acme dataset, create command-based csv files to use with
-    our provided pytorch Dataset classes. This is the same as running
-    make_datset.py with the --command flag.
+    From a given acme dataset, create formatted csv files to use with
+    our provided pytorch Dataset classes.
 
     Parameters
     ----------
     acme_dir : string
         The directory containing the acme data.
+
+    name : string
+        The name to print in the loading message.
+
+    prefix : string
+        The string to prepend to "_corpus_path" and "_corpus_lin_nr" columns
+        in the resulting metadata.csv file, as well as to use in the names
+        of the resulting corpus-specific csv files like:
+        {split}_{prefix}_corpus.csv
+
+    df_converter_func : function
+        The function to convert from a pandas DataFrame to a string in the
+        desired format.
     """
     fh_dict = {
         split: open(
-            os.path.join(acme_dir, f'{split}_cmd_corpus.csv'
+            os.path.join(acme_dir, f'{split}_{prefix}_corpus.csv'
         ), 'w') for split in ['train', 'valid', 'test']
     }
     line_counts = {
@@ -74,23 +86,69 @@ def create_command_csvs(acme_dir):
     }
     meta_df = pd.read_csv(os.path.join(acme_dir, 'metadata.csv'))
     for idx, row in tqdm.tqdm(meta_df.iterrows(), total=meta_df.shape[0],
-                         desc='Creating command corpus'):
+                         desc=f'Creating {name} corpus'):
         alt_df = pd.read_csv(os.path.join(acme_dir, row.altered_csv_path),
                              header=None,
                              names=['onset', 'track', 'pitch', 'dur'])
-        alt_cmd_str = df_to_command_str(alt_df)
+        alt_cmd_str = df_converter_func(alt_df)
         clean_df = pd.read_csv(os.path.join(acme_dir, row.clean_csv_path),
                                header=None,
                                names=['onset', 'track', 'pitch', 'dur'])
-        clean_cmd_str = df_to_command_str(clean_df)
+        clean_cmd_str = df_converter_func(clean_df)
         deg_num = row.degradation_id
         split = row.split
         fh = fh_dict[split]
         fh.write(f'{alt_cmd_str},{clean_cmd_str},{deg_num}\n')
-        meta_df.loc[idx, 'corpus_path'] = fh.name
-        meta_df.loc[idx, 'corpus_line_nr'] = line_counts[split]
+        meta_df.loc[idx, f'{prefix}_corpus_path'] = fh.name
+        meta_df.loc[idx, f'{prefix}_corpus_line_nr'] = line_counts[split]
         line_counts[split] += 1
     meta_df.to_csv(os.path.join(acme_dir, 'metadata.csv'))
+
+
+def df_to_pianoroll_str(df, time_increment=40):
+    """
+    Convert a given pandas DataFrame into a packed piano-roll representation:
+    Each string will look like:
+    
+    "notes1_onsets1,notes2_onsets2,..."
+    
+    where notes and onsets are space-separated strings of pitches. notes
+    contains those pitches which are present at each frame, and onsets
+    contains those pitches which have and onset at a given frame.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The pandas DataFrame which we will convert into the piano-roll.
+
+    time_increment : int
+        The length of a single frame, in milliseconds.
+    """
+    # Input validation
+    assert time_increment > 0, "time_increment must be positive."
+
+    quant_df = df.loc[:, ['pitch']]
+    quant_df['onset'] = (df['onset'] / time_increment).round().astype(int)
+    quant_df['offset'] = (((df['onset'] + df['dur']) / time_increment)
+                          .round().astype(int).clip(lower=quant_df['onset'] + 1))
+
+    # Create piano rolls
+    length = quant_df['offset'].max()
+    max_pitch = quant_df['pitch'].max() + 1
+    note_pr = np.zeros((length, max_pitch))
+    onset_pr = np.zeros((length, max_pitch))
+    for _, note in quant_df.iterrows():
+        onset_pr[note.onset, note.pitch] = 1
+        note_pr[note.onset:note.offset, note.pitch] = 1
+
+    # Pack into format
+    strings = []
+    for note_frame, onset_frame in zip(note_pr, onset_pr):
+        strings.append(' '.join(map(str, np.where(note_frame == 1)[0])) +
+                       '_' +
+                       ' '.join(map(str, np.where(onset_frame == 1)[0])))
+
+    return ','.join(strings)
 
 
 def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
@@ -129,7 +187,7 @@ def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
         "divisible by time_increment.")
     assert max_pitch >= min_pitch, "max_pitch must be >= min_pitch."
     assert time_increment > 0, "time_increment must be positive."
-    assert max_time_shift > 0, "max_time_shift must be positive"
+    assert max_time_shift > 0, "max_time_shift must be positive."
 
     # TODO: This rounding may result in notes of length 0.
     note_off = df.loc[:, ['onset', 'pitch']]
