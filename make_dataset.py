@@ -499,9 +499,9 @@ if __name__ == '__main__':
             warnings.warn("Unable to degrade chosen excerpt from "
                           f"{comp.csv_path} and no clean excerpts requested."
                           " Skipping.", UserWarning)
-    
+
     meta_file.close()
-    
+
     fh_dict = {
         split: open(
             os.path.join(ARGS.output_dir, f'{split}_cmd_corpus.csv'
@@ -533,7 +533,7 @@ if __name__ == '__main__':
     print('Finished!')
     print(f'Count of degradations {zip(deg_choices, current_counts)}')
     print(f'The data used as input is contained in {ARGS.input_dir}')
-    
+
     print(f'\nYou will find the generated data at {ARGS.output_dir} '
           'with subdirectories')
     print(f'\t* clean - contains the extracted clean excerpts')
@@ -545,13 +545,14 @@ if __name__ == '__main__':
     print('\t* the path for the altered and clean files')
     print('\t* which split (train, valid, test) the file should be used in')
     print('\t* in which corpus and on what line the file is located')
-    
+
     print('\ndegradation_ids.csv is a mapping of degradation name to the id '
           'number used in metadata.csv')
-    
-    print('\nThe {train,valid,test}_cmd_corpus.csv are text versions of the '
-          'acme data more convenient for pytorch datasets')
-    
+
+    print('\nThe {train,valid,test}_cmd_corpus.csv are command-based '
+          '(note_on, note_off, shift) versions of the acme data more '
+          'convenient for our provided pytorch datasets')
+
     print('\nTo reproduce this dataset again, run the script with argument '
           f'--seed {seed}')
     #TODO: print('see the examples directory for baseline models using this data')
