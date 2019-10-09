@@ -510,7 +510,7 @@ if __name__ == '__main__':
     line_counts = {
         split: 0 for split in ['train', 'valid', 'test']
     }
-    meta_df = pd.read_csv(os.path.join('acme', 'metadata.csv'))
+    meta_df = pd.read_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
     for idx, row in tqdm(meta_df.iterrows(), total=meta_df.shape[0],
                          desc='Creating command corpus'):
         alt_df = pd.read_csv(os.path.join('acme', row.altered_csv_path),
