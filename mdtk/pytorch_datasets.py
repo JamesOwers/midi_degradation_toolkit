@@ -463,10 +463,13 @@ class PianorollDataset(Dataset):
         deg_pr, clean_pr, deg_num = self.get_corpus_line(item)
         deg_pr = self.get_full_pr(deg_pr)
         clean_pr = self.get_full_pr(clean_pr)
+        changed_frames = np.array([int(np.any(deg != clean))
+                                   for deg, clean in zip(deg_pr, clean_pr)])
 
         output = {"deg_pr": deg_pr,
                   "clean_pr": clean_pr,
-                  "deg_label": deg_num}
+                  "deg_label": deg_num,
+                  "changed_frames": changed_frames}
 
         # TODO: implement transform as in https://pytorch.org/tutorials/beginner/data_loading_tutorial.html
         if self.transform is not None:
