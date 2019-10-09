@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from mdtk import degradations, downloaders, data_structures, midi
 from mdtk.filesystem_utils import make_directory, copy_file
+from mdtk.pytorch_datasets import df_to_command_str, create_command_csvs
 
 ## For dev mode warnings...
 #import sys
@@ -22,13 +23,18 @@ from mdtk.filesystem_utils import make_directory, copy_file
 #    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
 
 
+# For user mode warnings...
+import sys
+if not sys.warnoptions:
+    warnings.simplefilter("ignore") # Change the filter in this process
+    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
+
 
 with open('./img/logo.txt', 'r') as ff:
     LOGO = ff.read()
 
 
 DESCRIPTION = "Make datasets of altered and corrupted midi excerpts."
-
 
 
 def parse_degradation_kwargs(kwarg_dict):
@@ -88,6 +94,10 @@ def parse_args(args_input=None):
     parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
                         help='the directory to store the preprocessed '
                         'downloaded data to.')
+    parser.add_argument('--command', action='store_true', help='Create command'
+                        '-based (note_on, note_off, shift) versions of the '
+                        'acme data for easier loading with our provided '
+                        'pytorch Dataset classes.')
     parser.add_argument('--clear', action='store_true', help='Delete '
                         '--input-dir and --output-dir prior to creating this '
                         'dataset. This ensures no stale data remains.')
@@ -154,9 +164,9 @@ def parse_args(args_input=None):
     parser.add_argument('--clean-prop', type=float, help='The proportion of '
                         'excerpts in the final dataset that should be clean.',
                         default=1 / (1 + len(degradations.DEGRADATIONS)))
-    parser.add_argument('--splits', metavar=('train', 'test', 'valid'),
+    parser.add_argument('--splits', metavar=['train', 'valid', 'test'],
                         nargs=3, type=float, help='The relative sizes of the '
-                        'train, test, and validation sets respectively.',
+                        'train, validation, and test sets respectively.',
                         default=[0.8, 0.1, 0.1])
     parser.add_argument('--seed', type=int, default=None, help='The numpy seed'
                         ' to use when creating the dataset.')
@@ -167,9 +177,8 @@ def parse_args(args_input=None):
 if __name__ == '__main__':
     # TODO: set warning level such that we avoid warning fatigue
     ARGS = parse_args()
-    print(ARGS)
     if ARGS.seed is None:
-        seed = np.random.seed()
+        seed = np.random.randint(0, 2**32)
     else:
         seed = ARGS.seed
     np.random.seed(seed)
@@ -208,6 +217,7 @@ if __name__ == '__main__':
     assert min(ARGS.splits) >= 0, "--splits values must not be negative."
     assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
 
+
     # Clear input and output dirs =============================================
     if ARGS.clear:
         if os.path.exists(ARGS.input_dir):
@@ -219,6 +229,7 @@ if __name__ == '__main__':
         os.makedirs(ARGS.input_dir, exist_ok=True)
     if not os.path.exists(ARGS.output_dir):
         os.makedirs(ARGS.output_dir, exist_ok=True)
+
 
     # Instantiate downloaders =================================================
     # TODO: make OVERWRITE this an arg for the script
@@ -243,6 +254,7 @@ if __name__ == '__main__':
     csv_input_dirs = {name: os.path.join(ARGS.input_dir, 'csv', name)
                       for name in ds_names}
 
+
     # Set up directories ======================================================
     for path in midi_input_dirs.values():
         make_directory(path)
@@ -253,6 +265,7 @@ if __name__ == '__main__':
                        for name in ds_names]
         for path in output_dirs:
             make_directory(path)
+
 
     # Download data ===========================================================
     for name in downloader_dict:
@@ -265,6 +278,7 @@ if __name__ == '__main__':
         except NotImplementedError:
             downloader.download_midi(output_path=midi_output_path,
                                      overwrite=OVERWRITE)
+
 
     # Copy over user midi =====================================================
     for path in ARGS.local_midi_dirs:
@@ -292,6 +306,7 @@ if __name__ == '__main__':
             os.makedirs(os.path.dirname(outdir), exist_ok=True)
             copy_file(filepath, outdir)
 
+
     # Copy over user csv ======================================================
     for path in ARGS.local_csv_dirs:
         # Bugfix for paths ending in /
@@ -315,12 +330,14 @@ if __name__ == '__main__':
             os.makedirs(os.path.dirname(outdir), exist_ok=True)
             copy_file(filepath, outdir)
 
+
     # Convert from midi to csv ================================================
     for name in tqdm(midi_input_dirs, desc=f"Converting midi from "
-                     f"{list(midi_input_dirs.values())} to csv at "
-                     f"{list(csv_input_dirs.values())}"):
+                     f"{os.path.join(ARGS.input_dir, 'midi')} to csv at "
+                     f"{os.path.join(ARGS.input_dir, 'csv')}"):
         midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
                              recursive=ARGS.recursive)
+
 
     # Create all Composition objects and write clean data to output ===========
     # output to output_dir/clean/dataset_name/filename.csv
@@ -343,6 +360,7 @@ if __name__ == '__main__':
     np.random.shuffle(compositions) # This is important for join_notes
 
     meta_file = open(os.path.join(ARGS.output_dir, 'metadata.csv'), 'w')
+
 
     # Perform degradations and write degraded data to output ==================
     # output to output_dir/degraded/dataset_name/filename.csv
@@ -368,15 +386,17 @@ if __name__ == '__main__':
         goal_dist = np.array([1])
 
     # Normalize split proportions and remove 0s
-    splits = ['train', 'test', 'valid']
+    splits = ['train', 'valid', 'test']
     split_props = np.array(ARGS.splits)
     split_props /= np.sum(split_props)
     non_zero = [i for i, p in enumerate(split_props) if p != 0]
     splits = np.array(splits)[non_zero]
     split_props = np.array(split_props)[non_zero]
 
-    # Write out deg_choices to labels.csv
-    with open(os.path.join(ARGS.output_dir, 'labels.csv'), 'w') as file:
+    # Write out deg_choices to degradation_ids.csv
+    with open(
+            os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
+            'w') as file:
         file.write('id,degradation_name\n')
         for i, deg_name in enumerate(deg_choices):
             file.write(f'{i},{deg_name}\n')
@@ -386,9 +406,9 @@ if __name__ == '__main__':
     # the goal distribution. We do the same for splits.
     current_counts = np.zeros(len(deg_choices))
     current_splits = np.zeros(len(splits))
-    
-    
-    meta_file.write('out_path,degraded,degradation_id,in_path,split\n')
+      
+    meta_file.write('altered_csv_path,degraded,degradation_id,'
+                    'clean_csv_path,split\n')
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
@@ -486,22 +506,34 @@ if __name__ == '__main__':
 
     meta_file.close()
 
+    if ARGS.command:
+        create_command_csvs(ARGS.output_dir)
+
     print('Finished!')
-    print(f'Count of degradations {deg_choices} = {current_counts}')
+    print(f'Count of degradations {list(zip(deg_choices, current_counts))}')
     print(f'The data used as input is contained in {ARGS.input_dir}')
-    print(f'You will find the generated data at {ARGS.output_dir} '
-          'with subdirectories\n')
+
+    print(f'\nYou will find the generated data at {ARGS.output_dir} '
+          'with subdirectories')
     print(f'\t* clean - contains the extracted clean excerpts')
     print(f'\t* altered - contains the excerpts altered by the degradations '
           'described in metadata.csv')
-    print('metadata.csv describes:\n')
+    print('\nmetadata.csv describes:')
     print('\t* (the id number for) the type of degradation used for the '
           'alteration')
     print('\t* the path for the altered and clean files')
     print('\t* which split (train, valid, test) the file should be used in')
-    print('labels.csv is a mapping of degradation name to the id number used '
-          'in metadata.csv')
-    print('To reproduce this dataset again, run the script with argument '
-          '--seed {seed}')
+    print('\t* in which corpus and on what line the file is located')
+
+    print('\ndegradation_ids.csv is a mapping of degradation name to the id '
+          'number used in metadata.csv')
+
+    if ARGS.command:
+        print('\nThe {train,valid,test}_cmd_corpus.csv are command-based '
+              '(note_on, note_off, shift) versions of the acme data more '
+              'convenient for our provided pytorch Dataset classes')
+
+    print('\nTo reproduce this dataset again, run the script with argument '
+          f'--seed {seed}')
     #TODO: print('see the examples directory for baseline models using this data')
     print(LOGO)

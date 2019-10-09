@@ -62,6 +62,8 @@ class DataDownloader:
 # TODO: since these datasets already have CSV in the right format, we should
 #       implement download_csv() methods to use in favour of the download_midi
 #       this method would reformat csv to be correct (cols need renaming etc.)
+# TODO: handle conversion from quarters to ms - use tempo data, but use min/max
+#       tempo values as some were a bit spurious
 class PPDDSep2018Monophonic(DataDownloader):
     """Patterns for Preditction Development Dataset. Monophonic data only.
 
@@ -113,8 +115,8 @@ class PPDDSep2018Monophonic(DataDownloader):
             midi_paths = [glob.glob(os.path.join(path, mp, '*.mid')) for mp
                           in self.midi_paths]
             midi_paths = [pp for sublist in midi_paths for pp in sublist]
-            for filepath in tqdm(midi_paths, desc=f"Copying midi from {path}: "
-                                 f"to {output_path}"):
+            for filepath in tqdm(midi_paths,
+                                 desc=f"Copying midi to {output_path}"):
                 copy_file(filepath, output_path)
         self.midi_output_path = output_path
 
@@ -253,8 +255,8 @@ class PianoMidi(DataDownloader):
         # Copying midi files to output_path ===================================
         for path in extracted_paths:
             midi_paths = glob.glob(os.path.join(path, '*.mid'))
-            for filepath in tqdm(midi_paths, desc=f"Copying midi from {path} "
-                                 f"to {output_path}: "):
+            for filepath in tqdm(midi_paths,
+                                 desc=f"Copying midi to {output_path}: "):
                 copy_file(filepath, output_path)
         self.midi_output_path = output_path
 
