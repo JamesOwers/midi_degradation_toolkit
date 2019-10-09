@@ -147,11 +147,11 @@ def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
     command_list = []
     current_onset = commands.onset.iloc[0]
     for idx, row in commands.iterrows():
-        time_shift = row.onset - current_onset
-        if time_shift != 0:
+        while current_onset != row.onset:
+            time_shift = min(row.onset - current_onset, max_time_shift)
             command_list += [f't{time_shift}']
+            current_onset += time_shift
         command_list += [f'{row.cmd}']
-        current_onset = row.onset
 
     return ' '.join(command_list)
 
