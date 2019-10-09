@@ -73,8 +73,8 @@ class BaseTrainer:
         self.test_data = test_dataloader
 
         # Setting the Adam optimizer with hyper-param
-        self.optim = Adam(self.model.parameters(), lr=lr, betas=betas,
-                          weight_decay=weight_decay)
+        self.optimizer = Adam(self.model.parameters(), lr=lr, betas=betas,
+                              weight_decay=weight_decay)
 
         self.criterion = criterion
 
@@ -96,13 +96,15 @@ class BaseTrainer:
         """This must be overwritten by classes inheriting this"""
         raise NotImplementedError()
 
-    def save(self, epoch, file_path="output/trained.model"):
+    def save(self, epoch, file_path=None):
         """
         Saving the current model on file_path
         :param epoch: current epoch number
         :param file_path: model output path which gonna be file_path+"ep%d" % epoch
         :return: final_output_path
         """
+        if file_path is None:
+            file_path = "trained.model"
         output_path = file_path + ".ep%d" % epoch
         torch.save(self.model.cpu(), output_path)
         self.model.to(self.device)
@@ -177,10 +179,9 @@ class ErrorDetectionTrainer(BaseTrainer):
             # N tensors of integers representing (potentially) degraded midi
             input_data = data['deg_commands'].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
-            labels = (data['deg_label'] > 0).int().to(self.device)
-            
+            # N.B. CrossEntropy expects this to be of type long
+            labels = (data['deg_label'] > 0).long().to(self.device)
             model_output = self.model.forward(input_data)
-
             loss = self.criterion(model_output, labels)
             
             # backward pass and optimization only in train
