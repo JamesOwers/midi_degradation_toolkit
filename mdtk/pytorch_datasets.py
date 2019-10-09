@@ -6,6 +6,7 @@ import random
 import pandas as pd
 import numpy as np
 import os
+import warnings
 
 #TODO: probably want to move everything but Pytorch dataset objects out of here
 
@@ -475,15 +476,18 @@ class PianorollDataset(Dataset):
     def get_full_pr(self, pr):
         note_pr = np.zeros((self.max_len, self.max_pitch - self.min_pitch + 1))
         onset_pr = np.zeros((self.max_len, self.max_pitch - self.min_pitch + 1))
-        for frame_num, frame in enumerate(pr.split('/')):
+        frames = pr.split('/')
+        if len(frames) > self.max_len:
+            warnings.warn("Pianoroll data point exceeds given max_len: "
+                          f"{len(frames)} > {self.max_len}. Clipping.")
+            frames = frames[:self.max_len]
+        for frame_num, frame in enumerate(frames):
             note_pitches, onset_pitches = frame.split('_')
             if note_pitches != '':
                 note_pr[frame_num, list(map(int, note_pitches.split(' ')))] = 1
             if onset_pitches != '':
                 onset_pr[frame_num, list(map(int, onset_pitches.split(' ')))] = 1
         return np.hstack((note_pr, onset_pr))
-                
-                
 
     def get_corpus_line(self, item):
         if self.in_memory:
