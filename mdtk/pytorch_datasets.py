@@ -131,6 +131,7 @@ def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
     assert time_increment > 0, "time_increment must be positive."
     assert max_time_shift > 0, "max_time_shift must be positive"
 
+    # TODO: This rounding may result in notes of length 0.
     note_off = df.loc[:, ['onset', 'pitch']]
     note_off['onset'] = note_off['onset'] + df['dur']
     note_off['cmd'] = note_off['pitch'].apply(lambda x: f'f{x}')
