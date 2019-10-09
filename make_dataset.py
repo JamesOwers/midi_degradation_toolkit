@@ -94,6 +94,10 @@ def parse_args(args_input=None):
     parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
                         help='the directory to store the preprocessed '
                         'downloaded data to.')
+    parser.add_argument('--command', action='store_true', help='Create command'
+                        '-based (note_on, note_off, shift) versions of the '
+                        'acme data for easier loading with our provided '
+                        'pytorch Dataset classes.')
     parser.add_argument('--clear', action='store_true', help='Delete '
                         '--input-dir and --output-dir prior to creating this '
                         'dataset. This ensures no stale data remains.')
@@ -502,36 +506,37 @@ if __name__ == '__main__':
 
     meta_file.close()
 
-    fh_dict = {
-        split: open(
-            os.path.join(ARGS.output_dir, f'{split}_cmd_corpus.csv'
-        ), 'w') for split in ['train', 'valid', 'test']
-    }
-    line_counts = {
-        split: 0 for split in ['train', 'valid', 'test']
-    }
-    meta_df = pd.read_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
-    for idx, row in tqdm(meta_df.iterrows(), total=meta_df.shape[0],
-                         desc='Creating command corpus'):
-        alt_df = pd.read_csv(os.path.join('acme', row.altered_csv_path),
-                             header=None,
-                             names=['onset', 'track', 'pitch', 'dur'])
-        alt_cmd_str = df_to_command_str(alt_df)
-        clean_df = pd.read_csv(os.path.join('acme', row.clean_csv_path),
-                               header=None,
-                               names=['onset', 'track', 'pitch', 'dur'])
-        clean_cmd_str = df_to_command_str(clean_df)
-        deg_num = row.degradation_id
-        split = row.split
-        fh = fh_dict[split]
-        fh.write(f'{alt_cmd_str},{clean_cmd_str},{deg_num}\n')
-        meta_df.loc[idx, 'corpus_path'] = fh.name
-        meta_df.loc[idx, 'corpus_line_nr'] = line_counts[split]
-        line_counts[split] += 1
-    meta_df.to_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
+    if ARGS.command:
+        fh_dict = {
+            split: open(
+                os.path.join(ARGS.output_dir, f'{split}_cmd_corpus.csv'
+            ), 'w') for split in ['train', 'valid', 'test']
+        }
+        line_counts = {
+            split: 0 for split in ['train', 'valid', 'test']
+        }
+        meta_df = pd.read_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
+        for idx, row in tqdm(meta_df.iterrows(), total=meta_df.shape[0],
+                             desc='Creating command corpus'):
+            alt_df = pd.read_csv(os.path.join('acme', row.altered_csv_path),
+                                 header=None,
+                                 names=['onset', 'track', 'pitch', 'dur'])
+            alt_cmd_str = df_to_command_str(alt_df)
+            clean_df = pd.read_csv(os.path.join('acme', row.clean_csv_path),
+                                   header=None,
+                                   names=['onset', 'track', 'pitch', 'dur'])
+            clean_cmd_str = df_to_command_str(clean_df)
+            deg_num = row.degradation_id
+            split = row.split
+            fh = fh_dict[split]
+            fh.write(f'{alt_cmd_str},{clean_cmd_str},{deg_num}\n')
+            meta_df.loc[idx, 'corpus_path'] = fh.name
+            meta_df.loc[idx, 'corpus_line_nr'] = line_counts[split]
+            line_counts[split] += 1
+        meta_df.to_csv(os.path.join(ARGS.output_dir, 'metadata.csv'))
 
     print('Finished!')
-    print(f'Count of degradations {zip(deg_choices, current_counts)}')
+    print(f'Count of degradations {list(zip(deg_choices, current_counts))}')
     print(f'The data used as input is contained in {ARGS.input_dir}')
 
     print(f'\nYou will find the generated data at {ARGS.output_dir} '
@@ -549,9 +554,10 @@ if __name__ == '__main__':
     print('\ndegradation_ids.csv is a mapping of degradation name to the id '
           'number used in metadata.csv')
 
-    print('\nThe {train,valid,test}_cmd_corpus.csv are command-based '
-          '(note_on, note_off, shift) versions of the acme data more '
-          'convenient for our provided pytorch datasets')
+    if ARGS.command:
+        print('\nThe {train,valid,test}_cmd_corpus.csv are command-based '
+              '(note_on, note_off, shift) versions of the acme data more '
+              'convenient for our provided pytorch Dataset classes')
 
     print('\nTo reproduce this dataset again, run the script with argument '
           f'--seed {seed}')
