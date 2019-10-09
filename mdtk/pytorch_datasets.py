@@ -308,11 +308,6 @@ class CommandDataset(Dataset):
             The function transform is applied to the dictionary before it is
             returned so, for example, it can be used to convert all data to
             torch tensors.
-
-        Returns
-        -------
-        df : pd.DataFrame
-            The pandas DataFrame representing the note data
         """
         self.vocab = vocab
         self.seq_len = seq_len
@@ -360,7 +355,6 @@ class CommandDataset(Dataset):
                   "clean_commands": clean_cmd,
                   "deg_label": deg_num}
 
-        # TODO: implement transform as in https://pytorch.org/tutorials/beginner/data_loading_tutorial.html
         if self.transform is not None:
             output = self.transform(output)
         return output 
@@ -471,7 +465,6 @@ class PianorollDataset(Dataset):
                   "deg_label": deg_num,
                   "changed_frames": changed_frames}
 
-        # TODO: implement transform as in https://pytorch.org/tutorials/beginner/data_loading_tutorial.html
         if self.transform is not None:
             output = self.transform(output)
         return output 
