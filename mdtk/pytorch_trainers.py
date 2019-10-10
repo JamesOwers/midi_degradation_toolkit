@@ -181,10 +181,10 @@ class ErrorDetectionTrainer(BaseTrainer):
         
         for ii, data in data_iter:
             # N tensors of integers representing (potentially) degraded midi
-            input_data = data[formatter['deg_label']].to(self.device)
+            input_data = data[self.formatter['deg_label']].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
-            labels = (data[formatter['task_labels'][0]] > 0).long().to(self.device)
+            labels = (data[self.formatter['task_labels'][0]] > 0).long().to(self.device)
             model_output = self.model.forward(input_data)
             loss = self.criterion(model_output, labels)
             
@@ -289,10 +289,10 @@ class ErrorClassificationTrainer(BaseTrainer):
         
         for ii, data in data_iter:
             # N tensors of integers representing (potentially) degraded midi
-            input_data = data[formatter['deg_label']].to(self.device)
+            input_data = data[self.formatter['deg_label']].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
-            labels = (data[formatter['task_labels'][1]]).long().to(self.device)
+            labels = (data[self.formatter['task_labels'][1]]).long().to(self.device)
             model_output = self.model.forward(input_data)
             loss = self.criterion(model_output, labels)
             
@@ -399,10 +399,10 @@ class ErrorIdentificationTrainer(BaseTrainer):
         
         for ii, data in data_iter:
             # N tensors of integers representing (potentially) degraded midi
-            input_data = data[formatter['deg_label']].to(self.device)
+            input_data = data[self.formatter['deg_label']].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
-            labels = (data[formatter['task_labels'][2]]).long().to(self.device)
+            labels = (data[self.formatter['task_labels'][2]]).long().to(self.device)
             model_output = self.model.forward(input_data)
             loss = self.criterion(model_output, labels)
             

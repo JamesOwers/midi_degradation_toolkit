@@ -68,7 +68,7 @@ class CommandDataset(Dataset):
         self.encoding = encoding
 
         self.transform = transform
-        self.formatter = FORMATTERS['pianoroll']
+        self.formatter = FORMATTERS['command']
 
         with open(corpus_path, "r", encoding=encoding) as f:
             if self.corpus_lines is None and not in_memory:
@@ -134,9 +134,9 @@ class CommandDataset(Dataset):
 
 # This is adapted from https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
 class PianorollDataset(Dataset):
-    def __init__(self, corpus_path, max_len, min_pitch=0, max_pitch=127,
-                 encoding="utf-8", corpus_lines=None, in_memory=True,
-                 transform=None):
+    def __init__(self, corpus_path, max_len, min_pitch=0,
+                 max_pitch=127, encoding="utf-8", corpus_lines=None,
+                 in_memory=True, transform=None):
         """
         Returns piano-roll-based data for ACME tasks.
 
