@@ -8,7 +8,8 @@ from mdtk.data_structures import (
     check_overlap, check_monophonic, check_overlapping_pitch, check_note_df,
     get_monophonic_tracks, make_monophonic, quantize_df,
     plot_from_df, show_gridlines, plot_matrix, note_df_to_pretty_midi,
-    synthesize_from_quant_df, synthesize_from_note_df, NOTE_DF_SORT_ORDER
+    synthesize_from_quant_df, synthesize_from_note_df, NOTE_DF_SORT_ORDER,
+    fix_overlaps
 )
 
 
@@ -81,6 +82,18 @@ note_df_odd_names = pd.DataFrame({
     'midinote': [60, 61, 60, 60, 60, 60],
     'duration': [1, 3.75, 1, 0.5, 0.5, 2],
     'ch' :[0, 1, 0, 0, 0, 0]
+})
+note_df_complex_overlap = pd.DataFrame({
+    'onset': [50, 75, 150, 200, 200, 300, 300, 300],
+    'track': [0, 0, 0, 0, 0, 0, 0, 1],
+    'pitch': [10, 10, 20, 10, 20, 30, 30, 10],
+    'dur': [300, 25, 100, 125, 50, 50, 100, 100]
+})
+note_df_complex_overlap_fixed = pd.DataFrame({
+    'onset': [50, 75, 150, 200, 200, 300, 300],
+    'track': [0, 0, 0, 0, 0, 0, 1],
+    'pitch': [10, 10, 20, 10, 20, 30, 10],
+    'dur': [25, 125, 50, 150, 50, 100, 100]
 })
 # midinote keyboard range from 0 to 127 inclusive
 all_midinotes = list(range(0, 128))
@@ -389,6 +402,14 @@ def test_fix_overlapping_notes():
         )
     assert all(note_df_2pitch_weird_times.dtypes ==
                fix_overlapping_notes(note_df_2pitch_weird_times.copy()).dtypes)
+
+
+def test_fix_overlaps():
+    res = fix_overlaps(note_df_complex_overlap)
+    assert note_df_complex_overlap_fixed.equals(res), (
+        f"Complex overlap\n{note_df_complex_overlap}\nproduced\n{res}\n"
+        f"instead of\n{note_df_complex_overlap_fixed}"
+    )
 
 
 def test_get_monophonic_tracks():
