@@ -24,7 +24,7 @@ NR_MIDINOTES = 128
 
 def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
                   sort=True, header='infer', monophonic_tracks=None,
-                  max_note_len=None, overlap_check=True):
+                  max_note_len=None, overlap_check=True, flatten_tracks=False):
     """Read a csv and create a standard note event DataFrame - a `note_df`.
 
     Parameters
@@ -49,6 +49,13 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
         makes all tracks monophonic.
     max_note_len : int, float, or None
         A value for the maximum duration of a note
+    overlap_check : boolean
+        True to check and fix overlaps. This will create a situation where,
+        for every (track, pitch) pair, for any point in time which there is a
+        sustained note present in the input, there will be a sustained note
+        in the returned df. Likewise for any point with a note onset.
+    flatten_tracks : boolean
+        True to set the track of every note to 0.
     """
     cols = {}
     cols[onset] = 'onset'
@@ -63,7 +70,7 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
 
     df = pd.read_csv(path, header=header, usecols=list(cols.keys()))
     df.rename(columns=cols, inplace=True)
-    if track is None:
+    if track is None or flatten_tracks:
         df.loc[:, 'track'] = 0
     
     if overlap_check is True:

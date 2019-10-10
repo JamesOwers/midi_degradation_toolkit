@@ -362,7 +362,8 @@ if __name__ == '__main__':
         track=1,
         sort=False,
         header=None,
-        overlap_check=False
+        overlap_check=False,
+        flatten_tracks=True
     )
     compositions = [data_structures.Composition(
                         csv_path=csv_path,
