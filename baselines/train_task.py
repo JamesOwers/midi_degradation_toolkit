@@ -92,7 +92,7 @@ if __name__ == '__main__':
     
     if args.baseline:
         # Setup args for the baseline for args.task
-        pass
+        raise NotImplementedError(f"Baseline not created for task {args.task} yet.")
     else:
         assert args.format is not None, (
             '--format is a required argument if --baseline is not given.'
