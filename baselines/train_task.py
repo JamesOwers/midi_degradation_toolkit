@@ -60,6 +60,9 @@ def parse_args():
     parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay of adam")
     parser.add_argument("--b1", "--adam_beta1", type=float, default=0.9, help="adam first beta value")
     parser.add_argument("--b2", "--adam_beta2", type=float, default=0.999, help="adam first beta value")
+    
+    parser.add_argument("--pr-min-pitch", type=int, default=21, help="Minimum pianoroll pitch")
+    parser.add_argument("--pr-max-pitch", type=int, default=108, help="Maximum pianoroll pitch")
 
     args = parser.parse_args()
     return args
@@ -140,24 +143,30 @@ if __name__ == '__main__':
     elif args.format == 'pianoroll':
         dataset_args = [args.seq_len]
         dataset_kwargs = {
+            'min_pitch': args.pr_min_pitch,
+            'max_pitch': args.pr_max_pitch
         }
         model_args = []
         model_kwargs = {
+            'input_dim': 2 * (args.pr_max_pitch - args.pr_min_pitch + 1),
+            'hidden_dim': args.hidden,
+            'output_dim': 2 if args.task in [1, 3] else 9,
+            'dropout_prob': args.dropout
         }
         
 
     print(f"Loading train {Dataset.__name__} from {train_dataset}")
-    train_dataset = Dataset(train_dataset, *dataset_args,
+    train_dataset = Dataset(train_dataset, *dataset_args, **dataset_kwargs,
                             in_memory=args.in_memory,
                             transform=transform_to_torchtensor)
 
     print(f"Loading validation {Dataset.__name__} from {valid_dataset}")
-    train_dataset = Dataset(valid_dataset, *dataset_args,
+    train_dataset = Dataset(valid_dataset, *dataset_args, **dataset_kwargs,
                             in_memory=args.in_memory,
                             transform=transform_to_torchtensor)
 
     print(f"Loading test {Dataset.__name__} from {test_dataset}")
-    test_dataset = Dataset(test_dataset, *dataset_args,
+    test_dataset = Dataset(test_dataset, *dataset_args, **dataset_kwargs,
                            in_memory=args.in_memory,
                             transform=transform_to_torchtensor)
 

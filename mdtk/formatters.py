@@ -355,7 +355,7 @@ FORMATTERS = {
         'dataset': 'PianorollDataset',
         'models': [None,
                    None,
-                   None,
+                   'Pianoroll_ErrorIdentificationNet',
                    None]
     }
 }

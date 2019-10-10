@@ -106,14 +106,37 @@ class Command_ErrorClassificationNet(nn.Module):
 
 
 
-class ErrorIdentificationNet(nn.Module):
+class Pianoroll_ErrorIdentificationNet(nn.Module):
     """
     Baseline model for the Error Identification task, in which the label for
     each data point is a binary label for each frame of input, with  0 = not
     degraded and 1 = degraded.
     """
-    def __init__(self):
+    def __init__(self, input_dim, hidden_dim, output_dim, dropout_prob=0.1):
         super().__init__()
+        
+        self.hidden_dim = hidden_dim
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=1,
+                            bidirectional=True)
+        
+        self.hidden2out = nn.Linear(hidden_dim, output_dim)
+        self.dropout_layer = nn.Dropout(p=dropout_prob)
+        
+    def init_hidden(self, batch_size):
+        return (torch.randn(2, batch_size, self.hidden_dim),
+                torch.randn(2, batch_size, self.hidden_dim))
+        
+    def forward(self, batch):
+        batch_size = batch.shape[0]
+        self.hidden = self.init_hidden(batch_size)
+        # Weirdly have to permute batch dimension to second for LSTM...
+        batch = batch.permute(1, 0, 2)
+        outputs, _ = self.lstm(batch, self.hidden)
+        
+        output = self.dropout_layer(outputs)
+        output = self.hidden2out(output)
+
+        return output
 
 
 

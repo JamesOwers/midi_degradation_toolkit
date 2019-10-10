@@ -207,6 +207,7 @@ class PianorollDataset(Dataset):
 
     def __getitem__(self, item):
         deg_pr, clean_pr, deg_num = self.get_corpus_line(item)
+        deg_num = int(deg_num)
         deg_pr = self.get_full_pr(deg_pr)
         clean_pr = self.get_full_pr(clean_pr)
         changed_frames = np.array([int(np.any(deg != clean))
@@ -222,8 +223,8 @@ class PianorollDataset(Dataset):
         return output 
 
     def get_full_pr(self, pr):
-        note_pr = np.zeros((self.max_len, self.max_pitch - self.min_pitch + 1))
-        onset_pr = np.zeros((self.max_len, self.max_pitch - self.min_pitch + 1))
+        note_pr = np.zeros((self.max_len, 128))
+        onset_pr = np.zeros((self.max_len, 128))
         frames = pr.split('/')
         if len(frames) > self.max_len:
             warnings.warn("Pianoroll data point exceeds given max_len: "
@@ -235,7 +236,8 @@ class PianorollDataset(Dataset):
                 note_pr[frame_num, list(map(int, note_pitches.split(' ')))] = 1
             if onset_pitches != '':
                 onset_pr[frame_num, list(map(int, onset_pitches.split(' ')))] = 1
-        return np.hstack((note_pr, onset_pr))
+        return np.hstack((note_pr[:, self.min_pitch:self.max_pitch+1],
+                          onset_pr[:, self.min_pitch:self.max_pitch+1]))
 
     def get_corpus_line(self, item):
         if self.in_memory:
