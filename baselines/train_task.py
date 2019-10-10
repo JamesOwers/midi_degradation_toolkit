@@ -21,11 +21,15 @@ def parse_args():
 
     parser.add_argument("-i", "--input", default='acme', help='The '
                         'base directory of the ACME dataset to use as input.')
+
     parser.add_argument("--format", required=True, choices=FORMATTERS.keys(),
                         help='The format to use as input to the model. If the '
                         'format-specific csvs have not yet been created, this '
                         'will create them. Choices are '
                         f'{list(FORMATTERS.keys())}')
+
+    parser.add_argument("--task", required=True, choices=range(1, 5), help='The '
+                        'task number to train a model for.', type=int)
 
     parser.add_argument("-o", "--output_path", required=False, type=str, help="ex)output/bert.model")
 
@@ -120,17 +124,18 @@ if __name__ == '__main__':
     args.output_path = f'{base_dir}/model.checkpoint'
     
     
-    task_idx = args.task_number - 1
+    task_idx = args.task - 1
     task_name = task_names[task_idx]
     Model = task_models[task_idx]
     Trainer = task_trainers[task_idx]
     Dataset = task_datasets[task_idx]
     Criterion = task_criteria[task_idx]
     
-    print("Loading Vocab")
-    vocab = CommandVocab()
-    vocab_size = len(vocab)
-    print("Vocab Size: ", vocab_size)
+    if args.format == 'command':
+        print("Loading Vocab")
+        vocab = CommandVocab()
+        vocab_size = len(vocab)
+        print("Vocab Size: ", vocab_size)
 
     print(f"Loading train {Dataset.__name__} from {args.train_dataset}")
     train_dataset = Dataset(args.train_dataset, vocab,
@@ -172,7 +177,8 @@ if __name__ == '__main__':
         weight_decay=args.weight_decay,
         with_cuda=args.with_cuda,
         batch_log_freq=args.batch_log_freq,
-        epoch_log_freq=args.epoch_log_freq
+        epoch_log_freq=args.epoch_log_freq,
+        formatter=FORMATTERS[args.format]
     )
     
     print("Training Start")

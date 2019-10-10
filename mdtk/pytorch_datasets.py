@@ -8,6 +8,8 @@ import numpy as np
 import os
 import warnings
 
+from mdtk.formatters import FORMATTERS
+
 
 
 def transform_to_torchtensor(output):
@@ -66,6 +68,7 @@ class CommandDataset(Dataset):
         self.encoding = encoding
 
         self.transform = transform
+        self.formatter = FORMATTERS['pianoroll']
 
         with open(corpus_path, "r", encoding=encoding) as f:
             if self.corpus_lines is None and not in_memory:
@@ -99,9 +102,9 @@ class CommandDataset(Dataset):
         clean_cmd += [self.vocab.pad_index for _ in 
                       range(self.seq_len - len(clean_cmd))]
 
-        output = {"deg_commands": deg_cmd,
-                  "clean_commands": clean_cmd,
-                  "deg_label": deg_num}
+        output = {self.formatter['deg_label']: deg_cmd,
+                  self.formatter['clean_label']: clean_cmd,
+                  self.formatter['task_labels'][0]: deg_num}
 
         if self.transform is not None:
             output = self.transform(output)
@@ -183,6 +186,7 @@ class PianorollDataset(Dataset):
         self.encoding = encoding
 
         self.transform = transform
+        self.formatter = FORMATTERS['pianoroll']
 
         with open(corpus_path, "r", encoding=encoding) as f:
             if self.corpus_lines is None and not in_memory:
@@ -208,10 +212,10 @@ class PianorollDataset(Dataset):
         changed_frames = np.array([int(np.any(deg != clean))
                                    for deg, clean in zip(deg_pr, clean_pr)])
 
-        output = {"deg_pr": deg_pr,
-                  "clean_pr": clean_pr,
-                  "deg_label": deg_num,
-                  "changed_frames": changed_frames}
+        output = {self.formatter['deg_label']: deg_pr,
+                  self.formatter['clean_label']: clean_pr,
+                  self.formatter['task_labels'][0]: deg_num,
+                  self.formatter['task_labels'][2]: changed_frames}
 
         if self.transform is not None:
             output = self.transform(output)
