@@ -456,6 +456,9 @@ if __name__ == '__main__':
                           "lower --min-notes. Skipping.", UserWarning)
             continue
 
+        # Add some value so that not only degraded excerpts start from > 0
+        excerpt.loc[:, 'onset'] += np.random.randint(0, 200)
+
         # Try degradations in reverse order of the difference between
         # their current distribution and their desired distribution.
         diffs = goal_dist - current_dist
