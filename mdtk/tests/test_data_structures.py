@@ -244,6 +244,7 @@ ALL_VALID_DF = {
 
 for name, df in ALL_DF.items():
     df.to_csv(f'./{name}.csv', index=False)
+note_df_complex_overlap.to_csv(f'./note_df_complex_overlap.csv', index=False)
 
 all_pitch_df_tracks_sparecol.to_csv(
         './all_pitch_df_tracks_sparecol_noheader.csv',
@@ -344,6 +345,10 @@ def test_read_note_csv():
             read_note_csv('./note_df_odd_names.csv', onset='note_on',
                           track='ch', pitch='midinote', dur='duration'))
         )
+    assert all(read_note_csv('./note_df_complex_overlap.csv',
+                             flatten_tracks=True)['track'] == 0), (
+        "flatten_tracks=True didn't set all tracks to 0."
+    )
 
 
 def test_check_overlap():
