@@ -362,7 +362,7 @@ if __name__ == '__main__':
         track=1,
         sort=False,
         header=None,
-        overlap_check=False,
+        overlap_check=True,
         flatten_tracks=True
     )
     compositions = [data_structures.Composition(

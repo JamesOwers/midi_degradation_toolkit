@@ -3,6 +3,7 @@ for converting between different data formats.
 """
 import copy
 import warnings
+import itertools
 
 import numpy as np
 import pandas as pd
@@ -40,7 +41,9 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
     track : str or int
         The name or index of the column in the csv describing the midi track
     sort : bool
-        Whether to sort the resulting DataFrame to the default sort order
+        Whether to sort the resulting DataFrame to the default sort order.
+        Regardless of this value, if overlap_check is True, the df will be
+        sorted.
     header : int, list of int, default ‘infer’
         parameter to pass to pandas read_csv - see their documentation. Must
         set to None if your csv has no header.
@@ -53,7 +56,8 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
         True to check and fix overlaps. This will create a situation where,
         for every (track, pitch) pair, for any point in time which there is a
         sustained note present in the input, there will be a sustained note
-        in the returned df. Likewise for any point with a note onset.
+        in the returned df. Likewise for any point with a note onset. If True,
+        the resulting df will be sorted, even if sort is False.
     flatten_tracks : boolean
         True to set the track of every note to 0.
     """
@@ -74,8 +78,8 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
         df.loc[:, 'track'] = 0
     
     if overlap_check is True:
-        # Check no overlapping notes of the same pitch
-        df = df.groupby('track').apply(fix_overlapping_pitches)
+        df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
+        df = fix_overlaps(df)
 
     if monophonic_tracks is not None:
         df = make_monophonic(df, tracks=monophonic_tracks)
@@ -83,7 +87,7 @@ def read_note_csv(path, onset='onset', track='track', pitch='pitch', dur='dur',
     if max_note_len is not None:
         df.loc[df['dur'] > max_note_len, 'dur'] = max_note_len
 
-    if sort:
+    if sort and not overlap_check:
         df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
         df.reset_index(drop=True, inplace=True)
     return df.loc[:, NOTE_DF_SORT_ORDER]
@@ -243,6 +247,68 @@ def fix_overlapping_pitches(df):
     df.loc[bad_note, 'dur'] = (next_note_on[bad_note[:-1]]
                                - df.loc[bad_note, 'onset'].values)
     # TODO: add an assertion to catch dur==0 and add a test
+    return df
+
+
+def fix_overlaps(df):
+    """
+    Returns a version of the given df with all overlaps fixed as:
+
+    For every (track, pitch) pair, for any point in time which there is a
+    sustained note present in the input, there will be a sustained note
+    in the returned df. Likewise for any point with a note onset.
+
+    This relies on the given df being sorted already.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Pandas DataFrame with at least the columns onset, pitch, track, and dur,
+        sorted in that order.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        A non-overlapping version of the given df, as described above.
+    """
+    if len(df) < 2:
+        return df
+
+    # Copy since we're going to be editing in place
+    df = df.copy()
+
+    # We'll work with onsets here, and fix dur at the end
+    df.loc[:, 'offset'] = df['onset'] + df['dur']
+
+    for track, track_df in df.groupby('track'):
+        if len(track_df) < 2:
+            continue
+
+        for pitch, pitch_df in track_df.groupby('pitch'):
+            if len(pitch_df) < 2:
+                continue
+
+            # Last of any offset in the current set of overlapping notes
+            current_offset = pitch_df.iloc[0]['offset']
+            # We will need to change the previous offset in the case of an overlap
+            prev_idx = pitch_df.index[0]
+
+            for idx, note in itertools.islice(pitch_df.iterrows(), 1, None):
+                if current_offset > note.onset:
+                    # Overlap found. Cut previous note and extend offset
+                    # Changes here are performed in the original df
+                    df.loc[prev_idx, 'offset'] = note.onset
+                    current_offset = max(current_offset, note.offset)
+                    df.loc[idx, 'offset'] = current_offset
+                # Always iterate, but no need to update current_offset here,
+                # because it will definitely be < next_note.onset (because sorted).
+                prev_idx = idx
+
+    # Fix dur based on offsets and remove offset column
+    df.loc[:, 'dur'] = df['offset'] - df['onset']
+    df = df.loc[df['dur'] != 0, ['onset', 'track', 'pitch', 'dur']]
+    df.reset_index(drop=True, inplace=True)
+
     return df
 
 
