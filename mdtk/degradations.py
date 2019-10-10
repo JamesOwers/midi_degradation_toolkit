@@ -254,8 +254,10 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     # Shift its pitch
     if distribution is None:
         # Uniform distribution
-        degraded.loc[note_index, 'pitch'] = randint(min_pitch,
-                                                    max_pitch + 1)
+        if min_pitch != max_pitch or min_pitch != pitch:
+            while degraded.loc[note_index, 'pitch'] == pitch:
+                degraded.loc[note_index, 'pitch'] = randint(min_pitch,
+                                                            max_pitch + 1)
     else:
         zero_idx = len(distribution) // 2
         pitches = np.array(range(pitch - zero_idx,
@@ -267,7 +269,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         degraded.loc[note_index, 'pitch'] = choice(pitches, p=distribution)
 
     # Check if overlaps
-    if overlaps(degraded, note_index):
+    if (overlaps(degraded, note_index) or
+        degraded.loc[note_index, 'pitch'] == pitch):
         if tries == 1:
             warnings.warn(TRIES_WARN_MSG)
             return None
