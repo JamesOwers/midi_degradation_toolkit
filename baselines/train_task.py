@@ -26,16 +26,19 @@ def parse_args():
                         "e.g.: output/model.checkpoint",
                         default=os.path.join('.', 'model.checkpoint'))
 
-    parser.add_argument("--format", required=True, choices=FORMATTERS.keys(),
+    parser.add_argument("--format", required=False, choices=FORMATTERS.keys(),
                         help='The format to use as input to the model. If the '
                         'format-specific csvs have not yet been created, this '
                         'will create them. Choices are '
-                        f'{list(FORMATTERS.keys())}')
+                        f'{list(FORMATTERS.keys())}. Required if --baseline '
+                        'is not given.')
 
     parser.add_argument("--task", required=True, choices=range(1, 5), help='The '
                         'task number to train a model for.', type=int)
 
-    
+    parser.add_argument("--baseline", action='store_true', help='Ignore all '
+                        'arguments (besides --input and --output) and run the '
+                        'baseline model for the given --task.')
 
     parser.add_argument("-hs", "--hidden", type=int, default=256, help="hidden size of transformer model")
     parser.add_argument("-l", "--layers", type=int, default=8, help="number of layers")
@@ -70,11 +73,6 @@ task_names = [
     'ErrorCorrection'
 ]
 
-task_models = [
-    getattr(mdtk.pytorch_models, f'{task_name}Net')
-    for task_name in task_names
-]
-
 task_trainers = [
     getattr(mdtk.pytorch_trainers, f'{task_name}Trainer')
     for task_name in task_names
@@ -92,6 +90,15 @@ task_criteria = [
 if __name__ == '__main__':
     args = parse_args()
     
+    if args.baseline:
+        # Setup args for the baseline for args.task
+        pass
+    else:
+        assert args.format is not None, (
+            '--format is a required argument if --baseline is not given.'
+        )
+        
+    
     if os.path.split(args.output)[0]:
         os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
@@ -107,7 +114,11 @@ if __name__ == '__main__':
     
     task_idx = args.task - 1
     task_name = task_names[task_idx]
-    Model = task_models[task_idx]
+    model_name = FORMATTERS[args.format]['models'][task_idx]
+    if model_name is None:
+        raise NotImplementedError(f"No model implemented for task {task_name} "
+                                  f"with format {args.format}")
+    Model = getattr(mdtk.pytorch_models, model_name)
     Dataset = getattr(mdtk.pytorch_datasets, FORMATTERS[args.format]['dataset'])
     Trainer = task_trainers[task_idx]
     Criterion = task_criteria[task_idx]
@@ -123,7 +134,7 @@ if __name__ == '__main__':
             'vocab_size': vocab_size,
             'embedding_dim': 128,
             'hidden_dim': 100,
-            'output_size': 2,
+            'output_size': 2 if args.task == 1 else 9,
             'dropout_prob': 0.1
         }
     elif args.format == 'pianoroll':

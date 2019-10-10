@@ -124,6 +124,9 @@ class ErrorDetectionTrainer(BaseTrainer):
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
                  batch_log_freq=None, epoch_log_freq=1, formatter=None):
+        if formatter['task_labels'][0] is None:
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
         super().__init__(
             model=model,
             criterion=criterion,
@@ -232,6 +235,9 @@ class ErrorClassificationTrainer(BaseTrainer):
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
                  batch_log_freq=None, epoch_log_freq=1, formatter=None):
+        if formatter['task_labels'][1] is None:
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
         super().__init__(
             model=model,
             criterion=criterion,
@@ -341,7 +347,8 @@ class ErrorIdentificationTrainer(BaseTrainer):
                  weight_decay: float=0.01, with_cuda: bool=True,
                  batch_log_freq=None, epoch_log_freq=1, formatter=None):
         if formatter['task_labels'][2] is None:
-            raise NotImplementedError()
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
         super().__init__(
             model=model,
             criterion=criterion,
