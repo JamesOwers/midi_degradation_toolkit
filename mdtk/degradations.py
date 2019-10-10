@@ -130,7 +130,7 @@ def post_process(df, sort=True):
     """
     Function which will post-process a degraded dataframe.
 
-    That means optionally sorting it, and resetting the indeces to be
+    That means optionally sorting it, resetting the indices to be
     consecutive ints starting from 0. All degradations call this
     function after their execution.
 
