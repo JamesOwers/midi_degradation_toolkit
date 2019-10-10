@@ -40,10 +40,10 @@ def parse_args():
                         'arguments (besides --input and --output) and run the '
                         'baseline model for the given --task.')
 
-    parser.add_argument("-hs", "--hidden", type=int, default=256, help="hidden size of transformer model")
-    parser.add_argument("-l", "--layers", type=int, default=8, help="number of layers")
-    parser.add_argument("-a", "--attn_heads", type=int, default=8, help="number of attention heads")
+    parser.add_argument("-hs", "--hidden", type=int, default=100, help="hidden size of model")
+    parser.add_argument("-d", "--dropout", type=float, default=0.1, help="dropout to use")
     parser.add_argument("-s", "--seq_len", type=int, default=100, help="maximum sequence len")
+    parser.add_argument("--embedding", type=int, default=128, help="size of embedding vector")
 
     parser.add_argument("-b", "--batch_size", type=int, default=64, help="number of batch_size")
     parser.add_argument("-e", "--epochs", type=int, default=1000, help="number of epochs")
@@ -108,9 +108,9 @@ if __name__ == '__main__':
             os.path.join(args.input, f'{split}_{prefix}_corpus.csv')
         ) for split in ['train', 'valid', 'test']]):
         create_corpus_csvs(args.input, FORMATTERS[args.format])
-    args.train_dataset = os.path.join(args.input, f'train_{prefix}_corpus.csv')
-    args.valid_dataset = os.path.join(args.input, f'valid_{prefix}_corpus.csv')
-    args.test_dataset = os.path.join(args.input, f'test_{prefix}_corpus.csv')
+    train_dataset = os.path.join(args.input, f'train_{prefix}_corpus.csv')
+    valid_dataset = os.path.join(args.input, f'valid_{prefix}_corpus.csv')
+    test_dataset = os.path.join(args.input, f'test_{prefix}_corpus.csv')
     
     task_idx = args.task - 1
     task_name = task_names[task_idx]
@@ -132,10 +132,10 @@ if __name__ == '__main__':
         model_args = []
         model_kwargs = {
             'vocab_size': vocab_size,
-            'embedding_dim': 128,
-            'hidden_dim': 100,
+            'embedding_dim': args.embedding,
+            'hidden_dim': args.hidden,
             'output_size': 2 if args.task == 1 else 9,
-            'dropout_prob': 0.1
+            'dropout_prob': args.dropout
         }
     elif args.format == 'pianoroll':
         dataset_args = [args.seq_len]
@@ -146,13 +146,18 @@ if __name__ == '__main__':
         }
         
 
-    print(f"Loading train {Dataset.__name__} from {args.train_dataset}")
-    train_dataset = Dataset(args.train_dataset, *dataset_args,
+    print(f"Loading train {Dataset.__name__} from {train_dataset}")
+    train_dataset = Dataset(train_dataset, *dataset_args,
                             in_memory=args.in_memory,
                             transform=transform_to_torchtensor)
 
-    print(f"Loading test {Dataset.__name__} from {args.test_dataset}")
-    test_dataset = Dataset(args.test_dataset, *dataset_args,
+    print(f"Loading validation {Dataset.__name__} from {valid_dataset}")
+    train_dataset = Dataset(valid_dataset, *dataset_args,
+                            in_memory=args.in_memory,
+                            transform=transform_to_torchtensor)
+
+    print(f"Loading test {Dataset.__name__} from {test_dataset}")
+    test_dataset = Dataset(test_dataset, *dataset_args,
                            in_memory=args.in_memory,
                             transform=transform_to_torchtensor)
 
