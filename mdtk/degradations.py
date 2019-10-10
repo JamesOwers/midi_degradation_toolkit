@@ -45,6 +45,9 @@ def set_tries(func, tries=10):
     if not, retry with `tries=tries - 1`. If tries is 0, the function should
     return None and warn.
 
+    Note that some degradations (e.g., remove_note) will not need to use this.
+    Nevertheless, we add tries to to those functions for consistency.
+
     Parameters
     ----------
     func : function
@@ -63,6 +66,31 @@ def set_tries(func, tries=10):
         return func(*args, **kwargs)
     return seeded_func
 
+TRIES_WARN_MSG = ("WARNING: Generated invalid (overlapping) degraded excerpt "
+                  "too many times. Try raising tries parameter (default 10). "
+                  "Returning None.")
+
+
+def overlaps(df, idx):
+    """
+    Check if the note at the given index in the given dataframe overlaps any
+    other notes in the dataframe.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to check for overlaps.
+
+    idx : int
+        The index of the note within df that might overlap.
+
+    Returns
+    -------
+    overlap : boolean
+        True if the note overlaps some other note. False otherwise.
+    """
+    pass
+
 
 def pre_process(df, sort=False):
     """
@@ -75,7 +103,7 @@ def pre_process(df, sort=False):
     Parameters
     ----------
     df : pd.DataFrame
-        The dataframe to pre-process
+        The dataframe to pre-process.
 
     sort : boolean
         True to sort the dataframe. Flase to leave the ordering as given.
@@ -91,25 +119,29 @@ def pre_process(df, sort=False):
     return df
 
 
-def post_process(df):
+def post_process(df, sort=True):
     """
     Function which will post-process a degraded dataframe.
 
-    Currently, that just means sorting it. All degradations call this
-    function after their execution (except for remove_note, since that will
-    never change sorting).
+    That means optionally sorting it, and resetting the indeces to be
+    consecutive ints starting from 0. All degradations call this
+    function after their execution.
 
     Parameters
     ----------
     df : pd.DataFrame
-        The dataframe to post-process
+        The dataframe to post-process.
+
+    sort : boolean
+        True to sort the dataframe. Flase to leave the ordering as given.
 
     Returns
     -------
     df : pd.DataFrame
         The postprocessed dataframe.
     """
-    df = df.sort_values(NOTE_DF_SORT_ORDER)
+    if sort:
+        df = df.sort_values(NOTE_DF_SORT_ORDER)
     df = df.reset_index(drop=True)
     return df
 
@@ -196,6 +228,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         return None
 
     excerpt = pre_process(excerpt)
+    orig_dist = distribution
 
     # Assume all notes can be shifted initially
     valid_notes = list(excerpt.index)
@@ -248,9 +281,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     # Shift its pitch
     if distribution is None:
         # Uniform distribution
-        while degraded.loc[note_index, 'pitch'] == pitch:
-            degraded.loc[note_index, 'pitch'] = randint(min_pitch,
-                                                        max_pitch + 1)
+        degraded.loc[note_index, 'pitch'] = randint(min_pitch,
+                                                    max_pitch + 1)
     else:
         zero_idx = len(distribution) // 2
         pitches = np.array(range(pitch - zero_idx,
@@ -260,6 +292,14 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
         distribution = np.where(pitches > max_pitch, 0, distribution)
         distribution = distribution / np.sum(distribution)
         degraded.loc[note_index, 'pitch'] = choice(pitches, p=distribution)
+
+    # Check if overlaps
+    if overlaps(degraded, note_index):
+        if tries == 1:
+            warnings.warn(TRIES_WARN_MSG)
+            return None
+        return pitch_shift(excerpt, min_pitch=min_pitch, max_pitch=max_pitch,
+                           distribution=orig_dist, tries=tries - 1)
 
     degraded = post_process(degraded)
     return degraded
@@ -357,39 +397,24 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
     llo = max(latest_later_onset[index], elo)
 
     if align_onset:
-        for iters in range(10):
-            valid_onsets = (onset.between(eeo, leo - 1) |
-                            onset.between(elo, llo - 1))
-            valid_onsets = list(onset[valid_onsets])
-            on = choice(valid_onsets)
-            note = {'onset': on,
-                    'pitch': excerpt.loc[index]['pitch'],
-                    'dur': excerpt.loc[index]['dur'],
-                    'track': excerpt.loc[index]['track']}
-            if not (excerpt == note).all(1).any():
-                # The sample note is unique
-                onset = on
-                break
-            elif iters == 9:
-                warnings.warn("WARNING: 10 iterations didn't find non-"
-                              "duplicate onset to shift to. Returning None.",
-                              category=UserWarning)
-                return None
-
-            # Re-sample and iteratre
-            index = choice(valid_notes)
-
-            eeo = earliest_earlier_onset[index]
-            leo = max(latest_earlier_onset[index], eeo)
-            elo = earliest_later_onset[index]
-            llo = max(latest_later_onset[index], elo)
-
+        valid_onsets = (onset.between(eeo, leo - 1) |
+                        onset.between(elo, llo - 1))
+        valid_onsets = list(onset[valid_onsets])
+        onset = choice(valid_onsets)
     else:
         onset = split_range_sample([(eeo, leo), (elo, llo)])
 
     degraded = excerpt
 
     degraded.loc[index, 'onset'] = onset
+
+    # Check if overlaps
+    if overlaps(degraded, index):
+        if tries == 1:
+            warnings.warn(TRIES_WARN_MSG)
+            return None
+        return time_shift(excerpt, min_shift=min_shift, max_shift=max_shift,
+                          align_onset=align_onset, tries=tries - 1)
 
     degraded = post_process(degraded)
     return degraded
@@ -506,7 +531,6 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
             latest_shortened_onset, earliest_shortened_onset)):
             # Go through each range to check there is a valid dur
             result = offset[i] - durs
-            print(result, elo, llo, eso, lso)
             lengthened_valid = result.between(elo, llo - 1).any()
             shortened_valid = result.between(eso, lso - 1).any()
 
@@ -553,7 +577,6 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
         valid_durs = (onsets.between(elo, llo - 1) |
                       onsets.between(eso, lso - 1))
         valid_durs = list(durs[valid_durs])
-        print(f'{min_shift}, {max_shift}, {min_duration}, {max_duration}\n.\n{excerpt}\n.\n{offset[index]}\n.\n{valid_durs}\n.\n{onsets}\n.\n{durs}\n.\n{elo}, {llo}, {eso}, {lso}')
         onset = offset[index] - choice(valid_durs)
 
     else:
@@ -564,6 +587,16 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     degraded.loc[index, 'onset'] = onset
     degraded.loc[index, 'dur'] = offset[index] - onset
+
+    # Check if overlaps
+    if overlaps(degraded, index):
+        if tries == 1:
+            warnings.warn(TRIES_WARN_MSG)
+            return None
+        return onset_shift(excerpt, min_shift=min_shift, max_shift=max_shift,
+                           min_duration=min_duration + 1, # Changed above
+                           max_duration=max_duration, align_onset=align_onset,
+                           align_dur=align_dur, tries=tries - 1)
 
     degraded = post_process(degraded)
     return degraded
@@ -684,6 +717,16 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
     degraded.loc[index, 'dur'] = duration
 
+    # Check if overlaps
+    if overlaps(degraded, index):
+        if tries == 1:
+            warnings.warn(TRIES_WARN_MSG)
+            return None
+        return offset_shift(excerpt, min_shift=min_shift,
+                            max_shift=max_shift, min_duration=min_duration,
+                            max_duration=max_duration - 1, # Changed above
+                            align_dur=align_dur, tries=tries - 1)
+
     degraded = post_process(degraded)
     return degraded
 
@@ -726,7 +769,8 @@ def remove_note(excerpt):
     # Remove that note
     degraded = degraded.drop(note_index)
 
-    degraded = post_process(degraded)
+    # No need to check for overlap
+    degraded = post_process(degraded, sort=False)
     return degraded
 
 
@@ -795,73 +839,75 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
     end_time = excerpt[['onset', 'dur']].sum(axis=1).max()
 
-    for iters in range(10):
-        if align_pitch:
-            pitch = excerpt['pitch'].between(min_pitch, max_pitch,
-                                             inclusive=True)
-            pitch = excerpt['pitch'][pitch].unique()
-            if len(pitch) == 0:
-                warnings.warn("WARNING: No valid aligned pitch in given "
-                              "range.", category=UserWarning)
-                return None
-            pitch = choice(pitch)
-        else:
-            pitch = randint(min_pitch, max_pitch + 1)
-
-        # Find onset and duration
-        if align_time:
-            if (min_duration > excerpt['dur'].max() or
-                max_duration < excerpt['dur'].min()):
-                warnings.warn("WARNING: No valid aligned duration in "
-                              "given range.", category=UserWarning)
-                return None
-
-            durations = excerpt['dur'].between(min_duration, max_duration,
-                                               inclusive=True)
-            durations = excerpt['dur'][durations]
-            min_dur = durations.min()
-            onset = excerpt['onset'].between(0, end_time - min_dur,
-                                             inclusive=True)
-            onset = choice(excerpt['onset'][onset].unique())
-            dur_unique = durations[durations.between(
-                min_dur, end_time - onset, inclusive=True)].unique()
-            duration = choice(dur_unique)
-        elif min_duration > end_time:
-            onset = 0
-            duration = min_duration
-        elif excerpt.shape[0] == 0:
-            onset = 0
-            duration = randint(min_duration,
-                               min(max_duration + 1, sys.maxsize))
-        else:
-            onset = randint(excerpt['onset'].min(),
-                            end_time - min_duration)
-            duration = randint(min_duration,
-                               min(end_time - onset, max_duration + 1))
-
-        # Track is random one of existing tracks
-        try:
-            track = choice(excerpt['track'].unique())
-        except KeyError:  # No track col in df
-            track = 0
-        except ValueError:  # Empty dataframe
-            track = 0
-
-        # Check if we have a non-duplicate solution
-        note = {'pitch': pitch,
-                'onset': onset,
-                'dur': duration,
-                'track': track}
-        if not (excerpt == note).all(1).any():
-            break
-        elif iters == 9:
-            warnings.warn("WARNING: 10 iterations didn't find non-"
-                          "duplicate note to add. Returning None.",
-                          category=UserWarning)
+    if align_pitch:
+        pitch = excerpt['pitch'].between(min_pitch, max_pitch,
+                                         inclusive=True)
+        pitch = excerpt['pitch'][pitch].unique()
+        if len(pitch) == 0:
+            warnings.warn("WARNING: No valid aligned pitch in given "
+                          "range.", category=UserWarning)
             return None
+        pitch = choice(pitch)
+    else:
+        pitch = randint(min_pitch, max_pitch + 1)
+
+    # Find onset and duration
+    if align_time:
+        if (min_duration > excerpt['dur'].max() or
+            max_duration < excerpt['dur'].min()):
+            warnings.warn("WARNING: No valid aligned duration in "
+                          "given range.", category=UserWarning)
+            return None
+
+        durations = excerpt['dur'].between(min_duration, max_duration,
+                                           inclusive=True)
+        durations = excerpt['dur'][durations]
+        min_dur = durations.min()
+        onset = excerpt['onset'].between(0, end_time - min_dur,
+                                         inclusive=True)
+        onset = choice(excerpt['onset'][onset].unique())
+        dur_unique = durations[durations.between(
+            min_dur, end_time - onset, inclusive=True)].unique()
+        duration = choice(dur_unique)
+    elif min_duration > end_time:
+        onset = 0
+        duration = min_duration
+    elif excerpt.shape[0] == 0:
+        onset = 0
+        duration = randint(min_duration,
+                           min(max_duration + 1, sys.maxsize))
+    else:
+        onset = randint(excerpt['onset'].min(),
+                        end_time - min_duration)
+        duration = randint(min_duration,
+                           min(end_time - onset, max_duration + 1))
+
+    # Track is random one of existing tracks
+    try:
+        track = choice(excerpt['track'].unique())
+    except KeyError:  # No track col in df
+        track = 0
+    except ValueError:  # Empty dataframe
+        track = 0
+
+    # Create and add note
+    note = {'pitch': pitch,
+            'onset': onset,
+            'dur': duration,
+            'track': track}
 
     degraded = excerpt
     degraded = degraded.append(note, ignore_index=True)
+
+    # Check if overlaps
+    if overlaps(degraded, degraded.index[-1]):
+        if tries == 1:
+            warnings.warn(TRIES_WARN_MSG)
+            return None
+        return add_note(excerpt, min_pitch=min_pitch, max_pitch=max_pitch,
+                        min_duration=min_duration, max_duration=max_duration,
+                        align_pitch=align_pitch, align_time=align_time,
+                        tries=tries - 1)
 
     degraded = post_process(degraded)
     return degraded
@@ -945,6 +991,7 @@ def split_note(excerpt, min_duration=50, num_splits=1):
                            'dur': durs})
     degraded = degraded.append(new_df, ignore_index=True)
 
+    # No need to check for overlap
     degraded = post_process(degraded)
     return degraded
 
@@ -1051,6 +1098,7 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False):
     # Drop all following notes note
     degraded = degraded.drop(nexts)
 
+    # No need to check for overlap
     degraded = post_process(degraded)
     return degraded
 
