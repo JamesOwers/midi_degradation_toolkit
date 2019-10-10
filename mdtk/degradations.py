@@ -38,6 +38,32 @@ def set_random_seed(func, seed=None):
     return seeded_func
 
 
+def set_tries(func, tries=10):
+    """This is a function decorator which just adds the keyword argument
+    `tries` to the end of the supplied function that it decorates.
+    Each degradation should check if its generated DataFrame is valid, and
+    if not, retry with `tries=tries - 1`. If tries is 0, the function should
+    return None and warn.
+
+    Parameters
+    ----------
+    func : function
+        function to be decorated
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
+
+    Returns
+    -------
+    seeded_func : function
+        The originally supplied function, but now with an aditional optional
+        tries keyword argument.
+    """
+    def seeded_func(*args, tries=tries, **kwargs):
+        return func(*args, **kwargs)
+    return seeded_func
+
+
 def pre_process(df, sort=False):
     """
     Function which will pre-process a dataframe to be degraded.
@@ -124,6 +150,7 @@ def split_range_sample(split_range, p=None):
 
 
 @set_random_seed
+@set_tries
 def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
                 distribution=None):
     """
@@ -151,6 +178,10 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
 
     Returns
@@ -235,6 +266,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
+@set_tries
 def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
     """
     Shift the onset and offset times of one note from the given excerpt,
@@ -258,6 +290,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
 
     Returns
@@ -360,6 +396,7 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
 
 
 @set_random_seed
+@set_tries
 def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                 max_duration=np.inf, align_onset=False, align_dur=False):
     """
@@ -394,6 +431,10 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
     Returns
     -------
@@ -529,6 +570,7 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
+@set_tries
 def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
                  max_duration=np.inf, align_dur=False):
     """
@@ -560,6 +602,10 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
 
     Returns
@@ -643,6 +689,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
+@set_tries
 def remove_note(excerpt):
     """
     Remove one note from the given excerpt.
@@ -655,6 +702,10 @@ def remove_note(excerpt):
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
     Returns
     -------
@@ -680,6 +731,7 @@ def remove_note(excerpt):
 
 
 @set_random_seed
+@set_tries
 def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
              min_duration=50, max_duration=np.inf,
              align_pitch=False, align_time=False):
@@ -720,6 +772,10 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
 
     Returns
@@ -812,6 +868,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
+@set_tries
 def split_note(excerpt, min_duration=50, num_splits=1):
     """
     Split one note from the excerpt into two or more notes of equal
@@ -832,6 +889,10 @@ def split_note(excerpt, min_duration=50, num_splits=1):
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
     Returns
     -------
@@ -889,6 +950,7 @@ def split_note(excerpt, min_duration=50, num_splits=1):
 
 
 @set_random_seed
+@set_tries
 def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False):
     """
     Combine two notes of the same pitch and track into one.
@@ -916,6 +978,10 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False):
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
+
+    tries : int
+        The number of times to try the degradation before giving up, in the case
+        that the degraded excerpt overlaps.
 
     Returns
     -------
