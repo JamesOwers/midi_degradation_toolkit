@@ -177,6 +177,12 @@ def test_pitch_shift():
 
             assert not BASIC_DF.equals(res), "Note_df was not copied."
 
+    # Test if tries works
+    df = pd.DataFrame({'onset': [0], 'pitch': [10], 'track': [0], 'dur': [100]})
+    with pytest.warns(UserWarning, match=re.escape(deg.TRIES_WARN_MSG)):
+        res = deg.pitch_shift(df, min_pitch=10, max_pitch=10)
+        assert_none(res, msg="Pitch shift should run out of tries.")
+
     # Truly random testing
     for i in range(10):
         np.random.seed()

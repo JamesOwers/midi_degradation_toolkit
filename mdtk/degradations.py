@@ -11,6 +11,10 @@ from mdtk.data_structures import NOTE_DF_SORT_ORDER
 MIN_PITCH = 0
 MAX_PITCH = 127
 
+TRIES_WARN_MSG = ("WARNING: Generated invalid (overlapping) degraded excerpt "
+                  "too many times. Try raising tries parameter (default 10). "
+                  "Returning None.")
+
 
 def set_random_seed(func, seed=None):
     """This is a function decorator which just adds the keyword argument `seed`
