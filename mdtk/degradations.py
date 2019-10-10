@@ -38,39 +38,6 @@ def set_random_seed(func, seed=None):
     return seeded_func
 
 
-def set_tries(func, tries=10):
-    """This is a function decorator which just adds the keyword argument
-    `tries` to the end of the supplied function that it decorates.
-    Each degradation should check if its generated DataFrame is valid, and
-    if not, retry with `tries=tries - 1`. If tries is 0, the function should
-    return None and warn.
-
-    Note that some degradations (e.g., remove_note) will not need to use this.
-    Nevertheless, we add tries to to those functions for consistency.
-
-    Parameters
-    ----------
-    func : function
-        function to be decorated
-    tries : int
-        The number of times to try the degradation before giving up, in the case
-        that the degraded excerpt overlaps.
-
-    Returns
-    -------
-    seeded_func : function
-        The originally supplied function, but now with an aditional optional
-        tries keyword argument.
-    """
-    def seeded_func(*args, tries=tries, **kwargs):
-        return func(*args, **kwargs)
-    return seeded_func
-
-TRIES_WARN_MSG = ("WARNING: Generated invalid (overlapping) degraded excerpt "
-                  "too many times. Try raising tries parameter (default 10). "
-                  "Returning None.")
-
-
 def overlaps(df, idx):
     """
     Check if the note at the given index in the given dataframe overlaps any
@@ -189,9 +156,8 @@ def split_range_sample(split_range, p=None):
 
 
 @set_random_seed
-@set_tries
 def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
-                distribution=None):
+                distribution=None, tries=10):
     """
     Shift the pitch of one note from the given excerpt.
 
@@ -313,8 +279,8 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-@set_tries
-def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
+def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False,
+               tries=10):
     """
     Shift the onset and offset times of one note from the given excerpt,
     leaving its duration unchanged.
@@ -428,9 +394,9 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False):
 
 
 @set_random_seed
-@set_tries
 def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                max_duration=np.inf, align_onset=False, align_dur=False):
+                max_duration=np.inf, align_onset=False, align_dur=False,
+                tries=10):
     """
     Shift the onset time of one note from the given excerpt.
 
@@ -610,9 +576,8 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
-@set_tries
 def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                 max_duration=np.inf, align_dur=False):
+                 max_duration=np.inf, align_dur=False, tries=10):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -739,8 +704,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
-@set_tries
-def remove_note(excerpt):
+def remove_note(excerpt, tries=10):
     """
     Remove one note from the given excerpt.
 
@@ -755,7 +719,8 @@ def remove_note(excerpt):
 
     tries : int
         The number of times to try the degradation before giving up, in the case
-        that the degraded excerpt overlaps.
+        that the degraded excerpt overlaps. This is not used, but we keep it for
+        consistency.
 
     Returns
     -------
@@ -782,10 +747,9 @@ def remove_note(excerpt):
 
 
 @set_random_seed
-@set_tries
 def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
              min_duration=50, max_duration=np.inf,
-             align_pitch=False, align_time=False):
+             align_pitch=False, align_time=False, tries=10):
     """
     Add one note to the given excerpt.
 
@@ -921,8 +885,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-@set_tries
-def split_note(excerpt, min_duration=50, num_splits=1):
+def split_note(excerpt, min_duration=50, num_splits=1, tries=10):
     """
     Split one note from the excerpt into two or more notes of equal
     duration.
@@ -945,7 +908,8 @@ def split_note(excerpt, min_duration=50, num_splits=1):
 
     tries : int
         The number of times to try the degradation before giving up, in the case
-        that the degraded excerpt overlaps.
+        that the degraded excerpt overlaps. This is not used, but we keep it for
+        consistency.
 
     Returns
     -------
@@ -1004,8 +968,8 @@ def split_note(excerpt, min_duration=50, num_splits=1):
 
 
 @set_random_seed
-@set_tries
-def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False):
+def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False,
+               tries=10):
     """
     Combine two notes of the same pitch and track into one.
 
@@ -1035,7 +999,8 @@ def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False):
 
     tries : int
         The number of times to try the degradation before giving up, in the case
-        that the degraded excerpt overlaps.
+        that the degraded excerpt overlaps. This is not used, but we keep it for
+        consistency.
 
     Returns
     -------
