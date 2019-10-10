@@ -507,9 +507,7 @@ if __name__ == '__main__':
     meta_file.close()
 
     for f in ARGS.formats:
-        create_corpus_csvs(ARGS.output_dir, FORMATTERS[f]['name'],
-                           FORMATTERS[f]['prefix'],
-                           FORMATTERS[f]['converter_func'])
+        create_corpus_csvs(ARGS.output_dir, FORMATTERS[f])
 
     print('Finished!')
     print(f'Count of degradations {list(zip(deg_choices, current_counts))}')

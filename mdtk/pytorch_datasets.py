@@ -30,9 +30,9 @@ class CommandDataset(Dataset):
             string, then the degadation id label (0 is no degradation).
 
         vocab : Vocab class
-            A Vocab class object (see CommandVocab above). This is used to
-            convert the string commands to integers and serves as an easy
-            way of getting them back again.
+            A Vocab class object (see CommandVocab in formatters.py). This is
+            used to convert the string commands to integers and serves as an
+            easy way of getting them back again.
 
         seq_len : int
             The maximum length for a sequence (all sequences will be padded

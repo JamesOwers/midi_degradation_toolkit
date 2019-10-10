@@ -2,6 +2,7 @@
 # TODO: turn this into a script which can train any of the tasks given 
 # a command line argument
 import argparse
+import os
 
 import torch
 import torch.nn as nn
@@ -10,15 +11,22 @@ from torch.utils.data import DataLoader
 
 import mdtk.pytorch_models
 import mdtk.pytorch_trainers
-from mdtk.pytorch_datasets import (CommandVocab, transform_to_torchtensor,
+from mdtk.pytorch_datasets import (transform_to_torchtensor,
                                    CommandDataset, PianorollDataset)
+from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-c", "--train_dataset", required=False, type=str, help="train dataset for train bert")
-    parser.add_argument("-t", "--test_dataset", type=str, default=None, help="test set for evaluate train set")
+    parser.add_argument("-i", "--input", default='acme', help='The '
+                        'base directory of the ACME dataset to use as input.')
+    parser.add_argument("--format", required=True, choices=FORMATTERS.keys(),
+                        help='The format to use as input to the model. If the '
+                        'format-specific csvs have not yet been created, this '
+                        'will create them. Choices are '
+                        f'{list(FORMATTERS.keys())}')
+
     parser.add_argument("-o", "--output_path", required=False, type=str, help="ex)output/bert.model")
 
     parser.add_argument("-hs", "--hidden", type=int, default=256, help="hidden size of transformer model")
@@ -82,10 +90,19 @@ task_criteria = [
 if __name__ == '__main__':
     
     # TODO: Actually do proper arg parsing as opposed to hacking it >_<
-    base_dir = '/Users/kungfujam/git/midi_degradation_toolkit'
+    base_dir = '.'
     args = parse_args()
-    args.train_dataset = f'{base_dir}/acme/train_cmd_corpus.csv'
-    args.test_dataset = f'{base_dir}/acme/valid_cmd_corpus.csv' 
+
+    # Generate (if needed) and load formatted csv
+    prefix = FORMATTERS[args.format]["prefix"]
+    if not all([os.path.exists(
+            os.path.join(args.input, f'{split}_{prefix}_corpus.csv')
+        ) for split in ['train', 'valid', 'test']]):
+        create_corpus_csvs(args.input, FORMATTERS[args.format])
+    args.train_dataset = os.path.join(args.input, f'train_{prefix}_corpus.csv')
+    args.valid_dataset = os.path.join(args.input, f'valid_{prefix}_corpus.csv')
+    args.test_dataset = os.path.join(args.input, f'test_{prefix}_corpus.csv')
+
     # TODO: decide on reasonable length
     args.seq_len = 100
     args.in_memory = True
