@@ -1,6 +1,7 @@
 import torch
 import torch.autograd as autograd
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -135,18 +136,20 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
     
     The outputs and labels should be flattened when computing the CE Loss.
     """
-    def __init__(self, input_dim, hidden_dim, output_dim, layers=[], dropout_prob=0.1):
+    def __init__(self, input_dim, hidden_dim, output_dim, layers=[],
+                 dropout_prob=0.1):
         super().__init__()
         
         self.hidden_dim = hidden_dim
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=1,
-                            bidirectional=True)
+                            bidirectional=True, batch_first=True)
         
         current_dim = 2 * hidden_dim
         linear_list = []
         for dim in layers:
             linear_list.append(nn.Dropout(p=dropout_prob))
             linear_list.append(nn.Linear(current_dim, dim))
+            linear_list.append(nn.ELU())
             current_dim = dim
         
         self.linears = nn.ModuleList(linear_list)
@@ -159,12 +162,7 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
                 torch.randn(2, batch_size, self.hidden_dim))
         
     def forward(self, batch):
-        batch_size = batch.shape[0]
-        self.hidden = self.init_hidden(batch_size)
-        # Weirdly have to permute batch dimension to second for LSTM...
-        batch = batch.permute(1, 0, 2)
-        output, _ = self.lstm(batch.float(), self.hidden)
-        output = output.permute(1, 0, 2)
+        output, _ = self.lstm(batch.float(), self.init_hidden(batch.shape[0]))
         
         for module in self.linears:
             output = module(output)
@@ -176,10 +174,61 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
 
 
 
-class ErrorCorrectionNet(nn.Module):
+class Pianoroll_ErrorCorrectionNet(nn.Module):
     """
     Baseline model for the Error Correction task, in which the label for each
     data point is the clean data.
+    
+    The model consists of:
+    1) Bi-LSTM to embed the input.
+    2) A linear connection layer.
+    3) A 2nd Bi-LSTM to decode.
+    4) Final output layers.
     """
-    def __init__(self):
+    def __init__(self, input_dim, hidden_dim, output_dim, layers=[],
+                 dropout_prob=0.1):
         super().__init__()
+        
+        self.hidden_dim = hidden_dim
+        self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers=2,
+                               bidirectional=True, batch_first=True)
+        
+        self.connector = nn.Linear(hidden_dim * 2, input_dim)
+        self.connector_do = nn.Dropout(p=dropout_prob)
+        
+        self.decoder = nn.LSTM(input_dim, hidden_dim, num_layers=2,
+                               bidirectional=True, batch_first=True)
+        
+        current_dim = 2 * hidden_dim
+        linear_list = []
+        for dim in layers:
+            linear_list.append(nn.Dropout(p=dropout_prob))
+            linear_list.append(nn.Linear(current_dim, dim))
+            linear_list.append(nn.ELU())
+            current_dim = dim
+        
+        self.linears = nn.ModuleList(linear_list)
+        
+        self.hidden2out = nn.Linear(current_dim, output_dim)
+        self.dropout_layer = nn.Dropout(p=dropout_prob)
+
+    def init_hidden(self, batch_size):
+        return (torch.randn(2, batch_size, self.hidden_dim),
+                torch.randn(2, batch_size, self.hidden_dim))
+
+    def forward(self, batch, input_lengths):
+        output, _ = self.encoder(batch.float(),
+                                 self.init_hidden(batch.shape[0]))
+        
+        output = self.connector_do(F.ELU(self.connector(output)))
+        
+        output, _ = self.decoder(output,
+                                 self.init_hidden(batch.shape[0]))
+        
+        for module in self.linears:
+            output = module(output)
+        
+        output = self.dropout_layer(output)
+        output = self.hidden2out(output)
+        
+        return output

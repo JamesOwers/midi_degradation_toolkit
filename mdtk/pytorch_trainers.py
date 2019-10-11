@@ -453,10 +453,111 @@ class ErrorIdentificationTrainer(BaseTrainer):
 
 
 class ErrorCorrectionTrainer(BaseTrainer):
-    """
-    """
-    def __init__(self):
-        super().__init__()
+    """Trains Task 4 - Error identification. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorIdentificationNet. Expects a DataLoader using an
+    mdtk.pytorch_datasets.CommandDataset."""
+    def __init__(self, model, criterion, train_dataloader: DataLoader,
+                 test_dataloader: DataLoader = None,
+                 lr: float = 1e-4, betas=(0.9, 0.999),
+                 weight_decay: float=0.01, with_cuda: bool=True,
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+        if formatter['task_labels'][3] is None:
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
+        super().__init__(
+            model=model,
+            criterion=criterion,
+            train_dataloader=train_dataloader,
+            test_dataloader=test_dataloader,
+            lr=lr,
+            betas=betas,
+            weight_decay=weight_decay,
+            with_cuda=with_cuda,
+            batch_log_freq=batch_log_freq,
+            epoch_log_freq=epoch_log_freq,
+            formatter=formatter
+        )
 
     def iteration(self, epoch, data_loader, train=True):
-        raise NotImplementedError()
+        """
+        The loop used for train and test methods. Loops over the provided
+        data_loader for one epoch getting only the necessary data for the task.
+        If in train mode, a backward pass is performed, updating the parameters
+        and saving the model.
+
+        Paremeters
+        ----------
+        epoch: int
+            current epoch index, only used for progress bar
+        
+        data_loader: torch.utils.data.DataLoader
+            dataloader to get the data from
+        
+        train: bool
+            Whether to operate in train or test mode. Train mode performs
+            backpropagation and saves the model.
+            
+        Returns
+        -------
+        None
+        """
+        if train:
+            self.model.train()
+        else:
+            self.model.eval()  # informs batchnorm/dropout layers
+        
+        str_code = "train" if train else "test"
+
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"EP_{str_code}: {epoch}",
+                              total=len(data_loader),
+                              bar_format="{l_bar}{r_bar}")
+
+        # Values to accumulate over the batch
+        avg_loss = 0.0
+        total_correct = 0
+        total_element = 0
+        
+        for ii, data in data_iter:
+            input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
+            # N tensors of integers representing (potentially) degraded midi
+            input_data = data[self.formatter['deg_label']].to(self.device)
+            # N integers of the labels - 0 assumed to be no degradation
+            # N.B. CrossEntropy expects this to be of type long
+            labels = (data[self.formatter['task_labels'][1]]).long().to(self.device)
+            model_output = self.model.forward(input_data, input_lengths)
+            loss = self.criterion(model_output, labels)
+            
+            # backward pass and optimization only in train
+            if train:
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+            # values for logging
+            correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+                                     # summing the average losses over the
+                                     # batches and then dividing by the number
+                                     # of batches does not give you the true
+                                     # mean loss (though it is at least an
+                                     # unbiased estimate...)
+            total_correct += correct
+            total_element += labels.nelement()
+
+            post_fix = {
+                "epoch": epoch,
+                "iter": ii,
+                "avg_loss": avg_loss / (ii + 1),
+                "avg_acc": total_correct / total_element * 100,
+                "loss": loss.item()
+            }
+            
+            if ii % self.batch_log_freq == 0:
+                data_iter.write(str(post_fix))
+        
+        if epoch % self.epoch_log_freq == 0:
+            data_iter.write(str(post_fix))
+#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
+#              total_correct * 100.0 / total_element)
