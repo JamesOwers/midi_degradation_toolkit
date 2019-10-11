@@ -4,15 +4,12 @@
 import argparse
 import os
 
-import torch
 import torch.nn as nn
-from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 import mdtk.pytorch_models
 import mdtk.pytorch_trainers
-from mdtk.pytorch_datasets import (transform_to_torchtensor,
-                                   CommandDataset, PianorollDataset)
+from mdtk.pytorch_datasets import transform_to_torchtensor
 from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
 
 
