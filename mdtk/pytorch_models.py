@@ -119,7 +119,7 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=1,
                             bidirectional=True)
         
-        self.hidden2out = nn.Linear(hidden_dim, output_dim)
+        self.hidden2out = nn.Linear(hidden_dim * 2, output_dim)
         self.dropout_layer = nn.Dropout(p=dropout_prob)
         
     def init_hidden(self, batch_size):
@@ -131,11 +131,12 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
         self.hidden = self.init_hidden(batch_size)
         # Weirdly have to permute batch dimension to second for LSTM...
         batch = batch.permute(1, 0, 2)
-        outputs, _ = self.lstm(batch, self.hidden)
+        outputs, _ = self.lstm(batch.float(), self.hidden)
         
         output = self.dropout_layer(outputs)
         output = self.hidden2out(output)
 
+        output = output.permute(1, 0, 2)
         return output
 
 

@@ -410,7 +410,9 @@ class ErrorIdentificationTrainer(BaseTrainer):
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
             labels = (data[self.formatter['task_labels'][2]]).long().to(self.device)
+            labels = labels.reshape(labels.shape[0] * labels.shape[1])
             model_output = self.model.forward(input_data)
+            model_output = model_output.reshape((model_output.shape[0] * model_output.shape[1], -1))
             loss = self.criterion(model_output, labels)
             
             # backward pass and optimization only in train
