@@ -1,5 +1,4 @@
 import torch
-import torch.autograd as autograd
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -231,4 +230,4 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
         output = self.dropout_layer(output)
         output = self.hidden2out(output)
         
-        return F.sigmoid(output)
+        return torch.sigmoid(output)
