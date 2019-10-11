@@ -47,9 +47,8 @@ def parse_args():
                         help="Hidden size of the model LSTM layers of the model.")
     parser.add_argument("-d", "--dropout", type=float, default=0.1,
                         help="Dropout to use.")
-    parser.add_argument("-s", "--seq_len", type=int, default=100,
-                        help="maximum sequence length. Recommended is 100 for command "
-                        "and 250 for pianoroll.")
+    parser.add_argument("-s", "--seq_len", type=int, default=250,
+                        help="maximum sequence length.")
     parser.add_argument("--embedding", type=int, default=128,
                         help="Size of embedding vector. (--format command only)")
     parser.add_argument("--layers", type=int, default=[], nargs='*',

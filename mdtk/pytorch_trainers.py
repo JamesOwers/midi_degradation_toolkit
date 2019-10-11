@@ -183,12 +183,13 @@ class ErrorDetectionTrainer(BaseTrainer):
         total_element = 0
         
         for ii, data in data_iter:
+            input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
             # N tensors of integers representing (potentially) degraded midi
             input_data = data[self.formatter['deg_label']].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
             labels = (data[self.formatter['task_labels'][0]] > 0).long().to(self.device)
-            model_output = self.model.forward(input_data)
+            model_output = self.model.forward(input_data, input_lengths)
             loss = self.criterion(model_output, labels)
             
             # backward pass and optimization only in train
@@ -294,12 +295,13 @@ class ErrorClassificationTrainer(BaseTrainer):
         total_element = 0
         
         for ii, data in data_iter:
+            input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
             # N tensors of integers representing (potentially) degraded midi
             input_data = data[self.formatter['deg_label']].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
             labels = (data[self.formatter['task_labels'][1]]).long().to(self.device)
-            model_output = self.model.forward(input_data)
+            model_output = self.model.forward(input_data, input_lengths)
             loss = self.criterion(model_output, labels)
             
             # backward pass and optimization only in train
