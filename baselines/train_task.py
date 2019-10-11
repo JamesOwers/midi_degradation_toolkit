@@ -19,6 +19,7 @@ from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
 def parse_args():
     parser = argparse.ArgumentParser()
 
+    # Filepath stuff
     parser.add_argument("-i", "--input", default='acme', help='The '
                         'base directory of the ACME dataset to use as input.')
     parser.add_argument("-o", "--output", required=False, type=str,
@@ -26,6 +27,7 @@ def parse_args():
                         "e.g.: output/model.checkpoint",
                         default=os.path.join('.', 'model.checkpoint'))
 
+    # Basic task setup args
     parser.add_argument("--format", required=False, choices=FORMATTERS.keys(),
                         help='The format to use as input to the model. If the '
                         'format-specific csvs have not yet been created, this '
@@ -40,30 +42,53 @@ def parse_args():
                         'arguments (besides --input and --output) and run the '
                         'baseline model for the given --task.')
 
-    parser.add_argument("-hs", "--hidden", type=int, default=100, help="hidden size of model")
-    parser.add_argument("-d", "--dropout", type=float, default=0.1, help="dropout to use")
-    parser.add_argument("-s", "--seq_len", type=int, default=100, help="maximum sequence len")
-    parser.add_argument("--embedding", type=int, default=128, help="size of embedding vector")
-    parser.add_argument("--layers", type=int, default=[], nargs='*', help='Size of output layers')
+    # Network structure args
+    parser.add_argument("-hs", "--hidden", type=int, default=100,
+                        help="Hidden size of the model LSTM layers of the model.")
+    parser.add_argument("-d", "--dropout", type=float, default=0.1,
+                        help="Dropout to use.")
+    parser.add_argument("-s", "--seq_len", type=int, default=100,
+                        help="maximum sequence length. Recommended is 100 for command "
+                        "and 250 for pianoroll.")
+    parser.add_argument("--embedding", type=int, default=128,
+                        help="Size of embedding vector. (--format command only)")
+    parser.add_argument("--layers", type=int, default=[], nargs='*',
+                        help='Size of linear (post-LSTM) layers. '
+                        '(--format pianoroll only)')
 
-    parser.add_argument("-b", "--batch_size", type=int, default=64, help="number of batch_size")
-    parser.add_argument("-e", "--epochs", type=int, default=1000, help="number of epochs")
-    parser.add_argument("-w", "--num_workers", type=int, default=4, help="dataloader worker size")
+    # Training/DataLoading args
+    parser.add_argument("-b", "--batch_size", type=int, default=64,
+                        help="number of batch_size")
+    parser.add_argument("-e", "--epochs", type=int, default=1000,
+                        help="number of epochs")
+    parser.add_argument("-w", "--num_workers", type=int, default=4,
+                        help="dataloader worker size")
 
-    parser.add_argument("--with_cuda", type=bool, default=False, help="training with CUDA: true, or false")
-    parser.add_argument("--batch_log_freq", type=int, default=10, help="printing loss every n batches: setting n")
-    parser.add_argument("--epoch_log_freq", type=int, default=1, help="printing loss every n batches: setting n")
-    parser.add_argument("--corpus_lines", type=int, default=None, help="total number of lines in corpus")
-    parser.add_argument("--cuda_devices", type=int, nargs='+', default=None, help="CUDA device ids")
-    parser.add_argument("--in_memory", type=bool, default=True, help="Loading on memory: true or false")
+    parser.add_argument("--with_cuda", action='store_true', help="Train with CUDA.")
+    parser.add_argument("--cuda_devices", type=int, nargs='+',
+                        default=None, help="CUDA device ids")
+    parser.add_argument("--batch_log_freq", type=int, default=10,
+                        help="printing loss every n batches: setting n")
+    parser.add_argument("--epoch_log_freq", type=int, default=1,
+                        help="printing loss every n batches: setting n")
+    parser.add_argument("--in_memory", type=bool, default=True,
+                        help="Loading on memory: true or false")
 
-    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate of adam")
-    parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay of adam")
-    parser.add_argument("--b1", "--adam_beta1", type=float, default=0.9, help="adam first beta value")
-    parser.add_argument("--b2", "--adam_beta2", type=float, default=0.999, help="adam first beta value")
-    
-    parser.add_argument("--pr-min-pitch", type=int, default=21, help="Minimum pianoroll pitch")
-    parser.add_argument("--pr-max-pitch", type=int, default=108, help="Maximum pianoroll pitch")
+    # Optimizer args
+    parser.add_argument("--lr", type=float, default=1e-4,
+                        help="learning rate of adam")
+    parser.add_argument("--weight_decay", type=float, default=0.01,
+                        help="weight_decay of adam")
+    parser.add_argument("--b1", "--adam_beta1", type=float, default=0.9,
+                        help="adam first beta value")
+    parser.add_argument("--b2", "--adam_beta2", type=float, default=0.999,
+                        help="adam first beta value")
+
+    # Piano-roll specific size args
+    parser.add_argument("--pr-min-pitch", type=int, default=21,
+                        help="Minimum pianoroll pitch")
+    parser.add_argument("--pr-max-pitch", type=int, default=108,
+                        help="Maximum pianoroll pitch")
 
     args = parser.parse_args()
     return args

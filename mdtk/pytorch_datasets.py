@@ -138,7 +138,7 @@ class CommandDataset(Dataset):
 
 # This is adapted from https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
 class PianorollDataset(Dataset):
-    def __init__(self, corpus_path, max_len, min_pitch=0,
+    def __init__(self, corpus_path, seq_len, min_pitch=0,
                  max_pitch=127, encoding="utf-8", corpus_lines=None,
                  in_memory=True, transform=None):
         """
@@ -151,7 +151,7 @@ class PianorollDataset(Dataset):
             separated and contains the degraded command string, clean command
             string, then the degadation id label (0 is no degradation).
 
-        max_len : int
+        seq_len : int
             The maximum length for a piano-roll (all pianorolls will be 0-padded
             to this length)
 
@@ -180,7 +180,7 @@ class PianorollDataset(Dataset):
             returned so, for example, it can be used to convert all data to
             torch tensors.
         """
-        self.max_len = max_len
+        self.seq_len = seq_len
         self.min_pitch = min_pitch
         self.max_pitch = max_pitch
 
@@ -229,13 +229,13 @@ class PianorollDataset(Dataset):
         return output 
 
     def get_full_pr(self, pr):
-        note_pr = np.zeros((self.max_len, 128))
-        onset_pr = np.zeros((self.max_len, 128))
+        note_pr = np.zeros((self.seq_len, 128))
+        onset_pr = np.zeros((self.seq_len, 128))
         frames = pr.split('/')
-        if len(frames) > self.max_len:
-            warnings.warn("Pianoroll data point exceeds given max_len: "
-                          f"{len(frames)} > {self.max_len}. Clipping.")
-            frames = frames[:self.max_len]
+        if len(frames) > self.seq_len:
+            warnings.warn("Pianoroll data point exceeds given seq_len: "
+                          f"{len(frames)} > {self.seq_len}. Clipping.")
+            frames = frames[:self.seq_len]
         for frame_num, frame in enumerate(frames):
             note_pitches, onset_pitches = frame.split('_')
             if note_pitches != '':
