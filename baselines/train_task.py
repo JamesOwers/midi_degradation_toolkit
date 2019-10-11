@@ -197,12 +197,14 @@ if __name__ == '__main__':
                            in_memory=args.in_memory,
                             transform=transform_to_torchtensor)
 
-    print(f"Creating train and test DataLoaders")
+    print(f"Creating train, valid, and test DataLoaders")
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size,
                                   num_workers=args.num_workers, shuffle=True)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=args.batch_size,
+                                  num_workers=args.num_workers)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size,
                                  num_workers=args.num_workers)
-
+    
     print(f"Building {Model.__name__}")
     model = Model(*model_args, **model_kwargs)
     
@@ -222,7 +224,12 @@ if __name__ == '__main__':
         model=model,
         criterion=Criterion,
         train_dataloader=train_dataloader,
-        test_dataloader=test_dataloader,
+        # TODO: perhaps add a valid_dataloader option and make only function
+        #       of test dataloader to be printing the final test loss post
+        #       train. Low prio and argument this shouldn't be done (test set
+        #       should rarely be viewed, so should be accessed once in blue
+        #       moon...not at the end of each training session!)
+        test_dataloader=valid_dataloader,
         lr=args.lr,
         betas=(args.b1, args.b2),
         weight_decay=args.weight_decay,
