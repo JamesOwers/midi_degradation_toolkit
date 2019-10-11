@@ -94,13 +94,25 @@ class CommandDataset(Dataset):
         clean_cmd = self.tokenize_sentence(clean_cmd)
         clean_cmd = [self.vocab.sos_index] + clean_cmd + [self.vocab.eos_index]
         deg_num = int(deg_num)
-        deg_len = len(deg_cmd)
-        clean_len = len(clean_cmd)
 
-        deg_cmd = deg_cmd[:self.seq_len]
+        # Deg length and clipping
+        deg_len = len(deg_cmd)
+        if deg_len > self.seq_len:
+            warnings.warn("Command data point exceeds given seq_len: "
+                          f"{deg_len} > {self.seq_len}. Clipping.")
+            deg_len = self.seq_len
+            deg_cmd = deg_cmd[:self.seq_len]
+        # Clean length and clipping
+        clean_len = len(clean_cmd)
+        if clean_len > self.seq_len:
+            warnings.warn("Command data point exceeds given seq_len: "
+                          f"{clean_len} > {self.seq_len}. Clipping.")
+            clean_len = self.seq_len
+            clean_cmd = clean_cmd[:self.seq_len]
+
+        # Command padding
         deg_cmd += [self.vocab.pad_index for _ in 
                     range(self.seq_len - len(deg_cmd))]
-        clean_cmd = clean_cmd[:self.seq_len]
         clean_cmd += [self.vocab.pad_index for _ in 
                       range(self.seq_len - len(clean_cmd))]
 
