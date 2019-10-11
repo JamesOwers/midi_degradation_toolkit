@@ -74,10 +74,67 @@ def test_post_process():
         'dur': [100, 100, 100, 100]
     })
 
-    res = deg.post_process(UNSORTED_DF)
+    unsorted_res = pd.DataFrame({
+        'onset': [0, 200, 200, 100],
+        'track': [0, 0, 1, 1],
+        'pitch': [10, 30, 40, 20],
+        'dur': [100, 100, 100, 100]
+    })
+
+    res = deg.post_process(UNSORTED_DF, sort=False)
+    assert res.equals(unsorted_res), (
+        f"Post-processing \n{UNSORTED_DF}\n resulted in \n{res}\n"
+        f"instead of \n{unsorted_res}\n with sort=False"
+    )
+
+    res = deg.post_process(UNSORTED_DF, sort=True)
     assert res.equals(basic_res), (
-        f"Post-processing \n{UNSORTED_DF}\n  "
-        f"resulted in \n{res}\ninstead of \n{basic_res}"
+        f"Post-processing \n{UNSORTED_DF}\n with sort=True resulted in "
+        f"\n{res}\ninstead of \n{basic_res}"
+    )
+
+
+def test_overlaps():
+    fixed_basic = deg.pre_process(BASIC_DF)
+    assert not deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned True for:\n{fixed_basic}."
+    )
+
+    fixed_basic.loc[0, 'onset'] = 50
+    assert not deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned True for:\n{fixed_basic}."
+    )
+
+    fixed_basic.loc[0, 'pitch'] = 20
+    assert not deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned True for:\n{fixed_basic}."
+    )
+
+    fixed_basic.loc[0, 'track'] = 1
+    fixed_basic.loc[0, 'onset'] = 0
+    assert not deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned True for:\n{fixed_basic}."
+    )
+
+    fixed_basic.loc[0, 'onset'] = 50
+    assert deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned False for:\n{fixed_basic}."
+    )
+
+    fixed_basic.loc[0, 'onset'] = 150
+    assert deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned False for:\n{fixed_basic}."
+    )
+
+    fixed_basic.loc[0, 'dur'] = 25
+    assert deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned False for:\n{fixed_basic}."
+    )
+
+    fixed_basic.loc[0, 'dur'] = 150
+    fixed_basic.loc[0, 'onset'] = 75
+    assert deg.overlaps(fixed_basic, 0), (
+        f"Overlaps incorrectly returned False for:\n{fixed_basic}."
     )
 
 
@@ -119,6 +176,12 @@ def test_pitch_shift():
             )
 
             assert not BASIC_DF.equals(res), "Note_df was not copied."
+
+    # Test if tries works
+    df = pd.DataFrame({'onset': [0], 'pitch': [10], 'track': [0], 'dur': [100]})
+    with pytest.warns(UserWarning, match=re.escape(deg.TRIES_WARN_MSG)):
+        res = deg.pitch_shift(df, min_pitch=10, max_pitch=10)
+        assert_none(res, msg="Pitch shift should run out of tries.")
 
     # Truly random testing
     for i in range(10):
