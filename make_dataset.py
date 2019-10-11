@@ -351,7 +351,8 @@ if __name__ == '__main__':
         track=1,
         sort=False,
         header=None,
-        overlap_check=False
+        overlap_check=True,
+        flatten_tracks=True
     )
     compositions = [data_structures.Composition(
                         csv_path=csv_path,
@@ -444,6 +445,9 @@ if __name__ == '__main__':
                           f" {comp.csv_path}. Lengthen --excerpt-length or "
                           "lower --min-notes. Skipping.", UserWarning)
             continue
+
+        # Add some value so that not only degraded excerpts start from > 0
+        excerpt.loc[:, 'onset'] += np.random.randint(0, 200)
 
         # Try degradations in reverse order of the difference between
         # their current distribution and their desired distribution.

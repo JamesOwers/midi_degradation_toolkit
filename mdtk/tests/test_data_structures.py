@@ -8,7 +8,8 @@ from mdtk.data_structures import (
     check_overlap, check_monophonic, check_overlapping_pitch, check_note_df,
     get_monophonic_tracks, make_monophonic, quantize_df,
     plot_from_df, show_gridlines, plot_matrix, note_df_to_pretty_midi,
-    synthesize_from_quant_df, synthesize_from_note_df, NOTE_DF_SORT_ORDER
+    synthesize_from_quant_df, synthesize_from_note_df, NOTE_DF_SORT_ORDER,
+    fix_overlaps
 )
 
 
@@ -81,6 +82,18 @@ note_df_odd_names = pd.DataFrame({
     'midinote': [60, 61, 60, 60, 60, 60],
     'duration': [1, 3.75, 1, 0.5, 0.5, 2],
     'ch' :[0, 1, 0, 0, 0, 0]
+})
+note_df_complex_overlap = pd.DataFrame({
+    'onset': [50, 75, 150, 200, 200, 300, 300, 300],
+    'track': [0, 0, 0, 0, 0, 0, 0, 1],
+    'pitch': [10, 10, 20, 10, 20, 30, 30, 10],
+    'dur': [300, 25, 100, 125, 50, 50, 100, 100]
+})
+note_df_complex_overlap_fixed = pd.DataFrame({
+    'onset': [50, 75, 150, 200, 200, 300, 300],
+    'track': [0, 0, 0, 0, 0, 0, 1],
+    'pitch': [10, 10, 20, 10, 20, 30, 10],
+    'dur': [25, 125, 50, 150, 50, 100, 100]
 })
 # midinote keyboard range from 0 to 127 inclusive
 all_midinotes = list(range(0, 128))
@@ -231,6 +244,7 @@ ALL_VALID_DF = {
 
 for name, df in ALL_DF.items():
     df.to_csv(f'./{name}.csv', index=False)
+note_df_complex_overlap.to_csv('./note_df_complex_overlap.csv', index=False)
 
 all_pitch_df_tracks_sparecol.to_csv(
         './all_pitch_df_tracks_sparecol_noheader.csv',
@@ -245,7 +259,8 @@ all_pitch_df_tracks_sparecol[weird_col_order].to_csv(
 
 ALL_CSV = [f'./{name}.csv' for name in ALL_DF.keys()]
 ALL_CSV += ['./all_pitch_df_tracks_sparecol_noheader.csv',
-            './all_pitch_df_tracks_sparecol_weirdorder.csv']
+            './all_pitch_df_tracks_sparecol_weirdorder.csv',
+            './note_df_complex_overlap.csv']
 
 default_read_note_csv_kwargs = dict(
     onset='onset',
@@ -297,6 +312,8 @@ ALL_CSV_KWARGS = {
             header=None
         ),
     './all_pitch_df_tracks_sparecol_weirdorder.csv':
+        default_read_note_csv_kwargs,
+    './note_df_complex_overlap.csv':
         default_read_note_csv_kwargs
 }
 
@@ -331,6 +348,10 @@ def test_read_note_csv():
             read_note_csv('./note_df_odd_names.csv', onset='note_on',
                           track='ch', pitch='midinote', dur='duration'))
         )
+    assert all(read_note_csv('./note_df_complex_overlap.csv',
+                             flatten_tracks=True)['track'] == 0), (
+        "flatten_tracks=True didn't set all tracks to 0."
+    )
 
 
 def test_check_overlap():
@@ -389,6 +410,14 @@ def test_fix_overlapping_notes():
         )
     assert all(note_df_2pitch_weird_times.dtypes ==
                fix_overlapping_notes(note_df_2pitch_weird_times.copy()).dtypes)
+
+
+def test_fix_overlaps():
+    res = fix_overlaps(note_df_complex_overlap)
+    assert note_df_complex_overlap_fixed.equals(res), (
+        f"Complex overlap\n{note_df_complex_overlap}\nproduced\n{res}\n"
+        f"instead of\n{note_df_complex_overlap_fixed}"
+    )
 
 
 def test_get_monophonic_tracks():
