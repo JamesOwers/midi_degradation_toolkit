@@ -63,10 +63,12 @@ def parse_args():
     parser.add_argument("--with_cuda", action='store_true', help="Train with CUDA.")
     parser.add_argument("--cuda_devices", type=int, nargs='+',
                         default=None, help="CUDA device ids")
-    parser.add_argument("--batch_log_freq", type=int, default=10,
-                        help="printing loss every n batches: setting n")
-    parser.add_argument("--epoch_log_freq", type=int, default=1,
-                        help="printing loss every n batches: setting n")
+    parser.add_argument("--batch_log_freq", default='10',
+                        help="printing loss every n batches: setting to None "
+                        "means no logging.")
+    parser.add_argument("--epoch_log_freq", default='1',
+                        help="printing loss every n epochs: setting to None "
+                        "means no logging.")
     parser.add_argument("--in_memory", type=bool, default=True,
                         help="Loading on memory: true or false")
 
@@ -197,7 +199,7 @@ if __name__ == '__main__':
 
     print(f"Creating train and test DataLoaders")
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size,
-                                  num_workers=args.num_workers)
+                                  num_workers=args.num_workers, shuffle=True)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size,
                                  num_workers=args.num_workers)
 
@@ -206,6 +208,15 @@ if __name__ == '__main__':
     
     print(f"Using {Criterion.__str__()} as loss function")
     
+    if args.batch_log_freq.lower() == 'none':
+        batch_log_freq = None
+    else:
+        batch_log_freq = int(args.batch_log_freq)
+    if args.epoch_log_freq.lower() == 'none':
+        epoch_log_freq = None
+    else:
+        epoch_log_freq = int(args.epoch_log_freq)
+        
     print("Creating Trainer")
     trainer = Trainer(
         model=model,
@@ -216,12 +227,15 @@ if __name__ == '__main__':
         betas=(args.b1, args.b2),
         weight_decay=args.weight_decay,
         with_cuda=args.with_cuda,
-        batch_log_freq=args.batch_log_freq,
-        epoch_log_freq=args.epoch_log_freq,
+        batch_log_freq=batch_log_freq,
+        epoch_log_freq=epoch_log_freq,
         formatter=FORMATTERS[args.format]
     )
     
     print("Training Start")
+    print(f"Running {args.epochs} epochs")
+    # TODO: implement early stopping in Trainers
+    # TODO: implement a catch for ctrl+c in Trainers which saves current mdl
     for epoch in range(args.epochs):
         # I test before train as then both train and test values are using
         # the same set of parameters for the same epoch number
