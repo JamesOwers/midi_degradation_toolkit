@@ -94,6 +94,8 @@ class CommandDataset(Dataset):
         clean_cmd = self.tokenize_sentence(clean_cmd)
         clean_cmd = [self.vocab.sos_index] + clean_cmd + [self.vocab.eos_index]
         deg_num = int(deg_num)
+        deg_len = len(deg_cmd)
+        clean_len = len(clean_cmd)
 
         deg_cmd = deg_cmd[:self.seq_len]
         deg_cmd += [self.vocab.pad_index for _ in 
@@ -104,7 +106,9 @@ class CommandDataset(Dataset):
 
         output = {self.formatter['deg_label']: deg_cmd,
                   self.formatter['clean_label']: clean_cmd,
-                  self.formatter['task_labels'][0]: deg_num}
+                  self.formatter['task_labels'][0]: deg_num,
+                  'deg_len': deg_len,
+                  'clean_len': clean_len}
 
         if self.transform is not None:
             output = self.transform(output)
@@ -208,15 +212,17 @@ class PianorollDataset(Dataset):
     def __getitem__(self, item):
         deg_pr, clean_pr, deg_num = self.get_corpus_line(item)
         deg_num = int(deg_num)
-        deg_pr = self.get_full_pr(deg_pr)
-        clean_pr = self.get_full_pr(clean_pr)
+        deg_len, deg_pr = self.get_full_pr(deg_pr)
+        clean_len, clean_pr = self.get_full_pr(clean_pr)
         changed_frames = np.array([int(np.any(deg != clean))
                                    for deg, clean in zip(deg_pr, clean_pr)])
 
         output = {self.formatter['deg_label']: deg_pr,
                   self.formatter['clean_label']: clean_pr,
                   self.formatter['task_labels'][0]: deg_num,
-                  self.formatter['task_labels'][2]: changed_frames}
+                  self.formatter['task_labels'][2]: changed_frames,
+                  'deg_len': deg_len,
+                  'clean_len': clean_len}
 
         if self.transform is not None:
             output = self.transform(output)
@@ -236,8 +242,8 @@ class PianorollDataset(Dataset):
                 note_pr[frame_num, list(map(int, note_pitches.split(' ')))] = 1
             if onset_pitches != '':
                 onset_pr[frame_num, list(map(int, onset_pitches.split(' ')))] = 1
-        return np.hstack((note_pr[:, self.min_pitch:self.max_pitch+1],
-                          onset_pr[:, self.min_pitch:self.max_pitch+1]))
+        return len(frames), np.hstack((note_pr[:, self.min_pitch:self.max_pitch+1],
+                                       onset_pr[:, self.min_pitch:self.max_pitch+1]))
 
     def get_corpus_line(self, item):
         if self.in_memory:
