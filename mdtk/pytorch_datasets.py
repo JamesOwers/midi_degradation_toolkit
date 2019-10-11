@@ -97,16 +97,22 @@ class CommandDataset(Dataset):
 
         # Deg length and clipping
         deg_len = len(deg_cmd)
+        if self.in_memory:
+            item_nr_str = f' {item}'
+        else:
+            item_nr_str = ' <unknown>'
         if deg_len > self.seq_len:
-            warnings.warn("Command data point exceeds given seq_len: "
-                          f"{deg_len} > {self.seq_len}. Clipping.")
+            warnings.warn(f"Degraded command data point {item_nr_str} exceeds "
+                          f"given seq_len: {deg_len} > {self.seq_len}. "
+                          "Clipping.")
             deg_len = self.seq_len
             deg_cmd = deg_cmd[:self.seq_len]
         # Clean length and clipping
         clean_len = len(clean_cmd)
         if clean_len > self.seq_len:
-            warnings.warn("Command data point exceeds given seq_len: "
-                          f"{clean_len} > {self.seq_len}. Clipping.")
+            warnings.warn(f"Clean command data point {item_nr_str} exceeds "
+                          f"given seq_len: {deg_len} > {self.seq_len}. "
+                          "Clipping.")
             clean_len = self.seq_len
             clean_cmd = clean_cmd[:self.seq_len]
 
