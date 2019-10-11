@@ -110,7 +110,7 @@ task_criteria = [
     nn.CrossEntropyLoss(),
     nn.CrossEntropyLoss(),
     nn.CrossEntropyLoss(),
-    nn.CrossEntropyLoss()
+    nn.BCEWithLogitsLoss(reduction='mean')
 ]
 
 
@@ -179,6 +179,8 @@ if __name__ == '__main__':
             'layers': args.layers,
             'dropout_prob': args.dropout
         }
+        if args.task == 4:
+            model_kwargs['output_dim'] = model_kwargs['input_dim']
         
 
     print(f"Loading train {Dataset.__name__} from {train_dataset}")

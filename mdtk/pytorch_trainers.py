@@ -525,7 +525,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
             input_data = data[self.formatter['deg_label']].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
-            labels = (data[self.formatter['task_labels'][1]]).long().to(self.device)
+            labels = (data[self.formatter['task_labels'][3]]).float().to(self.device)
             model_output = self.model.forward(input_data, input_lengths)
             loss = self.criterion(model_output, labels)
             
@@ -536,7 +536,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 self.optimizer.step()
 
             # values for logging
-            correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            correct = model_output.round().eq(labels).sum().item()
             avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number

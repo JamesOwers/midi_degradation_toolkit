@@ -356,6 +356,6 @@ FORMATTERS = {
         'models': [None,
                    None,
                    'Pianoroll_ErrorIdentificationNet',
-                   None]
+                   'Pianoroll_ErrorCorrectionNet']
     }
 }

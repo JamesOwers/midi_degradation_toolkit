@@ -190,13 +190,13 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
         super().__init__()
         
         self.hidden_dim = hidden_dim
-        self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers=2,
+        self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers=1,
                                bidirectional=True, batch_first=True)
         
-        self.connector = nn.Linear(hidden_dim * 2, input_dim)
+        self.connector = nn.Linear(hidden_dim * 2, hidden_dim)
         self.connector_do = nn.Dropout(p=dropout_prob)
         
-        self.decoder = nn.LSTM(input_dim, hidden_dim, num_layers=2,
+        self.decoder = nn.LSTM(hidden_dim, hidden_dim, num_layers=1,
                                bidirectional=True, batch_first=True)
         
         current_dim = 2 * hidden_dim
@@ -220,7 +220,7 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
         output, _ = self.encoder(batch.float(),
                                  self.init_hidden(batch.shape[0]))
         
-        output = self.connector_do(F.ELU(self.connector(output)))
+        output = self.connector_do(F.elu(self.connector(output)))
         
         output, _ = self.decoder(output,
                                  self.init_hidden(batch.shape[0]))
@@ -231,4 +231,4 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
         output = self.dropout_layer(output)
         output = self.hidden2out(output)
         
-        return output
+        return F.sigmoid(output)
