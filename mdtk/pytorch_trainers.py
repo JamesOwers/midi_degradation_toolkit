@@ -14,7 +14,7 @@ class BaseTrainer:
                  test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
-                 batch_log_freq=None, epoch_log_freq=1):
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
         """
         Parameters
         ----------
@@ -47,7 +47,9 @@ class BaseTrainer:
         
         epoch_log_freq: int
             How many epoch iterations to run before logging results
-         
+        
+        formatter : dict
+            A formatter defined in formatters.py.FORMATTERS.
         """
 
         # Setup cuda device for BERT training, argument -c, --cuda should be true
@@ -81,7 +83,8 @@ class BaseTrainer:
         self.batch_log_freq = batch_log_freq if batch_log_freq else np.inf
         self.epoch_log_freq = epoch_log_freq if epoch_log_freq else np.inf
         
-
+        self.formatter = formatter
+        
         print("Total Parameters:", 
               sum([p.nelement() for p in self.model.parameters()]))
 
@@ -120,7 +123,10 @@ class ErrorDetectionTrainer(BaseTrainer):
                  test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
-                 batch_log_freq=None, epoch_log_freq=1):
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+        if formatter['task_labels'][0] is None:
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
         super().__init__(
             model=model,
             criterion=criterion,
@@ -131,7 +137,232 @@ class ErrorDetectionTrainer(BaseTrainer):
             weight_decay=weight_decay,
             with_cuda=with_cuda,
             batch_log_freq=batch_log_freq,
-            epoch_log_freq=epoch_log_freq
+            epoch_log_freq=epoch_log_freq,
+            formatter=formatter
+        )
+
+    def iteration(self, epoch, data_loader, train=True):
+        """
+        The loop used for train and test methods. Loops over the provided
+        data_loader for one epoch getting only the necessary data for the task.
+        If in train mode, a backward pass is performed, updating the parameters
+        and saving the model.
+
+        Paremeters
+        ----------
+        epoch: int
+            current epoch index, only used for progress bar
+        
+        data_loader: torch.utils.data.DataLoader
+            dataloader to get the data from
+        
+        train: bool
+            Whether to operate in train or test mode. Train mode performs
+            backpropagation and saves the model.
+            
+        Returns
+        -------
+        None
+        """
+        if train:
+            self.model.train()
+        else:
+            self.model.eval()  # informs batchnorm/dropout layers
+        
+        str_code = "train" if train else "test"
+
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"EP_{str_code}: {epoch}",
+                              total=len(data_loader),
+                              bar_format="{l_bar}{r_bar}")
+
+        # Values to accumulate over the batch
+        avg_loss = 0.0
+        total_correct = 0
+        total_element = 0
+        
+        for ii, data in data_iter:
+            input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
+            # N tensors of integers representing (potentially) degraded midi
+            input_data = data[self.formatter['deg_label']].to(self.device)
+            # N integers of the labels - 0 assumed to be no degradation
+            # N.B. CrossEntropy expects this to be of type long
+            labels = (data[self.formatter['task_labels'][0]] > 0).long().to(self.device)
+            model_output = self.model.forward(input_data, input_lengths)
+            loss = self.criterion(model_output, labels)
+            
+            # backward pass and optimization only in train
+            if train:
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+            # values for logging
+            correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+                                     # summing the average losses over the
+                                     # batches and then dividing by the number
+                                     # of batches does not give you the true
+                                     # mean loss (though it is at least an
+                                     # unbiased estimate...)
+            total_correct += correct
+            total_element += labels.nelement()
+
+            post_fix = {
+                "epoch": epoch,
+                "iter": ii,
+                "avg_loss": avg_loss / (ii + 1),
+                "avg_acc": total_correct / total_element * 100,
+                "loss": loss.item()
+            }
+            
+            if ii % self.batch_log_freq == 0:
+                data_iter.write(str(post_fix))
+        
+        if epoch % self.epoch_log_freq == 0:
+            data_iter.write(str(post_fix))
+#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
+#              total_correct * 100.0 / total_element)
+
+
+
+class ErrorClassificationTrainer(BaseTrainer):
+    """Trains Task 2 - Error classification. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorClassificationNet. Expects a DataLoader using an
+    mdtk.pytorch_datasets.CommandDataset."""
+    def __init__(self, model, criterion, train_dataloader: DataLoader,
+                 test_dataloader: DataLoader = None,
+                 lr: float = 1e-4, betas=(0.9, 0.999),
+                 weight_decay: float=0.01, with_cuda: bool=True,
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+        if formatter['task_labels'][1] is None:
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
+        super().__init__(
+            model=model,
+            criterion=criterion,
+            train_dataloader=train_dataloader,
+            test_dataloader=test_dataloader,
+            lr=lr,
+            betas=betas,
+            weight_decay=weight_decay,
+            with_cuda=with_cuda,
+            batch_log_freq=batch_log_freq,
+            epoch_log_freq=epoch_log_freq,
+            formatter=formatter
+        )
+
+    def iteration(self, epoch, data_loader, train=True):
+        """
+        The loop used for train and test methods. Loops over the provided
+        data_loader for one epoch getting only the necessary data for the task.
+        If in train mode, a backward pass is performed, updating the parameters
+        and saving the model.
+
+        Paremeters
+        ----------
+        epoch: int
+            current epoch index, only used for progress bar
+        
+        data_loader: torch.utils.data.DataLoader
+            dataloader to get the data from
+        
+        train: bool
+            Whether to operate in train or test mode. Train mode performs
+            backpropagation and saves the model.
+            
+        Returns
+        -------
+        None
+        """
+        if train:
+            self.model.train()
+        else:
+            self.model.eval()  # informs batchnorm/dropout layers
+        
+        str_code = "train" if train else "test"
+
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"EP_{str_code}: {epoch}",
+                              total=len(data_loader),
+                              bar_format="{l_bar}{r_bar}")
+
+        # Values to accumulate over the batch
+        avg_loss = 0.0
+        total_correct = 0
+        total_element = 0
+        
+        for ii, data in data_iter:
+            input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
+            # N tensors of integers representing (potentially) degraded midi
+            input_data = data[self.formatter['deg_label']].to(self.device)
+            # N integers of the labels - 0 assumed to be no degradation
+            # N.B. CrossEntropy expects this to be of type long
+            labels = (data[self.formatter['task_labels'][1]]).long().to(self.device)
+            model_output = self.model.forward(input_data, input_lengths)
+            loss = self.criterion(model_output, labels)
+            
+            # backward pass and optimization only in train
+            if train:
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+            # values for logging
+            correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+                                     # summing the average losses over the
+                                     # batches and then dividing by the number
+                                     # of batches does not give you the true
+                                     # mean loss (though it is at least an
+                                     # unbiased estimate...)
+            total_correct += correct
+            total_element += labels.nelement()
+
+            post_fix = {
+                "epoch": epoch,
+                "iter": ii,
+                "avg_loss": avg_loss / (ii + 1),
+                "avg_acc": total_correct / total_element * 100,
+                "loss": loss.item()
+            }
+            
+            if ii % self.batch_log_freq == 0:
+                data_iter.write(str(post_fix))
+        
+        if epoch % self.epoch_log_freq == 0:
+            data_iter.write(str(post_fix))
+#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
+#              total_correct * 100.0 / total_element)
+
+
+
+class ErrorIdentificationTrainer(BaseTrainer):
+    """Trains Task 3 - Error identification. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorIdentificationNet. Expects a DataLoader using an
+    mdtk.pytorch_datasets.CommandDataset."""
+    def __init__(self, model, criterion, train_dataloader: DataLoader,
+                 test_dataloader: DataLoader = None,
+                 lr: float = 1e-4, betas=(0.9, 0.999),
+                 weight_decay: float=0.01, with_cuda: bool=True,
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+        if formatter['task_labels'][2] is None:
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
+        super().__init__(
+            model=model,
+            criterion=criterion,
+            train_dataloader=train_dataloader,
+            test_dataloader=test_dataloader,
+            lr=lr,
+            betas=betas,
+            weight_decay=weight_decay,
+            with_cuda=with_cuda,
+            batch_log_freq=batch_log_freq,
+            epoch_log_freq=epoch_log_freq,
+            formatter=formatter
         )
 
     def iteration(self, epoch, data_loader, train=True):
@@ -177,11 +408,13 @@ class ErrorDetectionTrainer(BaseTrainer):
         
         for ii, data in data_iter:
             # N tensors of integers representing (potentially) degraded midi
-            input_data = data['deg_commands'].to(self.device)
+            input_data = data[self.formatter['deg_label']].to(self.device)
             # N integers of the labels - 0 assumed to be no degradation
             # N.B. CrossEntropy expects this to be of type long
-            labels = (data['deg_label'] > 0).long().to(self.device)
+            labels = (data[self.formatter['task_labels'][2]]).long().to(self.device)
+            labels = labels.reshape(labels.shape[0] * labels.shape[1])
             model_output = self.model.forward(input_data)
+            model_output = model_output.reshape((model_output.shape[0] * model_output.shape[1], -1))
             loss = self.criterion(model_output, labels)
             
             # backward pass and optimization only in train
@@ -219,33 +452,112 @@ class ErrorDetectionTrainer(BaseTrainer):
 
 
 
-class ErrorClassificationTrainer(BaseTrainer):
-    """
-    """
-    def __init__(self):
-        super().__init__()
-
-    def iteration(self, epoch, data_loader, train=True):
-        raise NotImplementedError()
-
-
-
-class ErrorIdentificationTrainer(BaseTrainer):
-    """
-    """
-    def __init__(self):
-        super().__init__()
-
-    def iteration(self, epoch, data_loader, train=True):
-        raise NotImplementedError()
-
-
-
 class ErrorCorrectionTrainer(BaseTrainer):
-    """
-    """
-    def __init__(self):
-        super().__init__()
+    """Trains Task 4 - Error identification. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorIdentificationNet. Expects a DataLoader using an
+    mdtk.pytorch_datasets.CommandDataset."""
+    def __init__(self, model, criterion, train_dataloader: DataLoader,
+                 test_dataloader: DataLoader = None,
+                 lr: float = 1e-4, betas=(0.9, 0.999),
+                 weight_decay: float=0.01, with_cuda: bool=True,
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+        if formatter['task_labels'][3] is None:
+            raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
+                                      ' implemented a ground truth for this task.')
+        super().__init__(
+            model=model,
+            criterion=criterion,
+            train_dataloader=train_dataloader,
+            test_dataloader=test_dataloader,
+            lr=lr,
+            betas=betas,
+            weight_decay=weight_decay,
+            with_cuda=with_cuda,
+            batch_log_freq=batch_log_freq,
+            epoch_log_freq=epoch_log_freq,
+            formatter=formatter
+        )
 
     def iteration(self, epoch, data_loader, train=True):
-        raise NotImplementedError()
+        """
+        The loop used for train and test methods. Loops over the provided
+        data_loader for one epoch getting only the necessary data for the task.
+        If in train mode, a backward pass is performed, updating the parameters
+        and saving the model.
+
+        Paremeters
+        ----------
+        epoch: int
+            current epoch index, only used for progress bar
+        
+        data_loader: torch.utils.data.DataLoader
+            dataloader to get the data from
+        
+        train: bool
+            Whether to operate in train or test mode. Train mode performs
+            backpropagation and saves the model.
+            
+        Returns
+        -------
+        None
+        """
+        if train:
+            self.model.train()
+        else:
+            self.model.eval()  # informs batchnorm/dropout layers
+        
+        str_code = "train" if train else "test"
+
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"EP_{str_code}: {epoch}",
+                              total=len(data_loader),
+                              bar_format="{l_bar}{r_bar}")
+
+        # Values to accumulate over the batch
+        avg_loss = 0.0
+        total_correct = 0
+        total_element = 0
+        
+        for ii, data in data_iter:
+            input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
+            # N tensors of integers representing (potentially) degraded midi
+            input_data = data[self.formatter['deg_label']].to(self.device)
+            # N integers of the labels - 0 assumed to be no degradation
+            # N.B. CrossEntropy expects this to be of type long
+            labels = (data[self.formatter['task_labels'][3]]).float().to(self.device)
+            model_output = self.model.forward(input_data, input_lengths)
+            loss = self.criterion(model_output, labels)
+            
+            # backward pass and optimization only in train
+            if train:
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+            # values for logging
+            correct = model_output.round().eq(labels).sum().item()
+            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+                                     # summing the average losses over the
+                                     # batches and then dividing by the number
+                                     # of batches does not give you the true
+                                     # mean loss (though it is at least an
+                                     # unbiased estimate...)
+            total_correct += correct
+            total_element += labels.nelement()
+
+            post_fix = {
+                "epoch": epoch,
+                "iter": ii,
+                "avg_loss": avg_loss / (ii + 1),
+                "avg_acc": total_correct / total_element * 100,
+                "loss": loss.item()
+            }
+            
+            if ii % self.batch_log_freq == 0:
+                data_iter.write(str(post_fix))
+        
+        if epoch % self.epoch_log_freq == 0:
+            data_iter.write(str(post_fix))
+#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
+#              total_correct * 100.0 / total_element)
