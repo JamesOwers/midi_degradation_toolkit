@@ -111,15 +111,32 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
     Baseline model for the Error Identification task, in which the label for
     each data point is a binary label for each frame of input, with  0 = not
     degraded and 1 = degraded.
+    
+    The model consists of:
+    1) A bidirectional LSTM.
+    2) A sequence of dropout layers followed by linear layers.
+    3) A final dropout layer.
+    4) A final output layer of dim 2.
+    
+    The outputs and labels should be flattened when computing the CE Loss.
     """
-    def __init__(self, input_dim, hidden_dim, output_dim, dropout_prob=0.1):
+    def __init__(self, input_dim, hidden_dim, output_dim, layers=[], dropout_prob=0.1):
         super().__init__()
         
         self.hidden_dim = hidden_dim
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=1,
                             bidirectional=True)
         
-        self.hidden2out = nn.Linear(hidden_dim * 2, output_dim)
+        current_dim = 2 * hidden_dim
+        linear_list = []
+        for dim in layers:
+            linear_list.append(nn.Dropout(p=dropout_prob))
+            linear_list.append(nn.Linear(current_dim, dim))
+            current_dim = dim
+        
+        self.linears = nn.ModuleList(linear_list)
+        
+        self.hidden2out = nn.Linear(current_dim, output_dim)
         self.dropout_layer = nn.Dropout(p=dropout_prob)
         
     def init_hidden(self, batch_size):
@@ -131,12 +148,15 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
         self.hidden = self.init_hidden(batch_size)
         # Weirdly have to permute batch dimension to second for LSTM...
         batch = batch.permute(1, 0, 2)
-        outputs, _ = self.lstm(batch.float(), self.hidden)
+        output, _ = self.lstm(batch.float(), self.hidden)
+        output = output.permute(1, 0, 2)
         
-        output = self.dropout_layer(outputs)
+        for module in self.linears:
+            output = module(output)
+        
+        output = self.dropout_layer(output)
         output = self.hidden2out(output)
 
-        output = output.permute(1, 0, 2)
         return output
 
 

@@ -44,6 +44,7 @@ def parse_args():
     parser.add_argument("-d", "--dropout", type=float, default=0.1, help="dropout to use")
     parser.add_argument("-s", "--seq_len", type=int, default=100, help="maximum sequence len")
     parser.add_argument("--embedding", type=int, default=128, help="size of embedding vector")
+    parser.add_argument("--layers", type=int, default=[], nargs='*', help='Size of output layers')
 
     parser.add_argument("-b", "--batch_size", type=int, default=64, help="number of batch_size")
     parser.add_argument("-e", "--epochs", type=int, default=1000, help="number of epochs")
@@ -151,6 +152,7 @@ if __name__ == '__main__':
             'input_dim': 2 * (args.pr_max_pitch - args.pr_min_pitch + 1),
             'hidden_dim': args.hidden,
             'output_dim': 2 if args.task in [1, 3] else 9,
+            'layers': args.layers,
             'dropout_prob': args.dropout
         }
         
