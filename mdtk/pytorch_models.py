@@ -36,7 +36,6 @@ class Command_ErrorDetectionNet(nn.Module):
 
         self.dropout_layer = nn.Dropout(p=dropout_prob)
 
-
     def init_hidden(self, batch_size, device):
         return (torch.randn(1, batch_size, self.hidden_dim, device=device),
                 torch.randn(1, batch_size, self.hidden_dim, device=device))
