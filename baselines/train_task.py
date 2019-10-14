@@ -59,8 +59,10 @@ def parse_args():
                         help="number of epochs")
     parser.add_argument("-w", "--num_workers", type=int, default=4,
                         help="dataloader worker size")
-
-    parser.add_argument("--with_cuda", action='store_true', help="Train with CUDA.")
+    parser.add_argument("--with_cpu", action='store_true', default=False,
+                        help="Train with CPU, default is to try and use CUDA. "
+                        "A warning will be thrown if CUDA is not available, "
+                        "and CPU used in that case.")
     parser.add_argument("--cuda_devices", type=int, nargs='+',
                         default=None, help="CUDA device ids")
     parser.add_argument("--batch_log_freq", default='10',
@@ -225,6 +227,7 @@ if __name__ == '__main__':
     #       train. Low prio and argument this shouldn't be done (test set
     #       should rarely be viewed, so should be accessed once in blue
     #       moon...not at the end of each training session!)
+    with_cuda = not args.with_cpu
     trainer = Trainer(
         model=model,
         criterion=Criterion,
@@ -233,7 +236,7 @@ if __name__ == '__main__':
         lr=args.lr,
         betas=(args.b1, args.b2),
         weight_decay=args.weight_decay,
-        with_cuda=args.with_cuda,
+        with_cuda=with_cuda,
         batch_log_freq=batch_log_freq,
         epoch_log_freq=epoch_log_freq,
         formatter=FORMATTERS[args.format]
