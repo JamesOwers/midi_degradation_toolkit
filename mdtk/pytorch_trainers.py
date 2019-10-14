@@ -1,5 +1,5 @@
+import sys
 import torch
-import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 import numpy as np
@@ -7,6 +7,9 @@ import tqdm
 
 
 
+# TODO: I don't like the fomatter being passed in here - would prefer these
+# Trainers to be more general except for the iteration method for which you
+# hardcode how to do the train/test iteration.
 class BaseTrainer:
     """Provides methods to train pytorch models. Adapted from:
     https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/trainer/pretrain.py"""
@@ -14,7 +17,8 @@ class BaseTrainer:
                  test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
-                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None,
+                 log_file=None):
         """
         Parameters
         ----------
@@ -50,6 +54,9 @@ class BaseTrainer:
         
         formatter : dict
             A formatter defined in formatters.py.FORMATTERS.
+            
+        log_file : filehandle
+            A file handle with a write method to write logs to
         """
 
         # Setup cuda device for BERT training, argument -c, --cuda should be true
@@ -80,8 +87,9 @@ class BaseTrainer:
 
         self.criterion = criterion
 
-        self.batch_log_freq = batch_log_freq if batch_log_freq else np.inf
-        self.epoch_log_freq = epoch_log_freq if epoch_log_freq else np.inf
+        self.log_file = log_file if log_file is not None else sys.stdout
+        self.batch_log_freq = batch_log_freq
+        self.epoch_log_freq = epoch_log_freq
         
         self.formatter = formatter
         
@@ -89,30 +97,38 @@ class BaseTrainer:
               sum([p.nelement() for p in self.model.parameters()]))
 
     def train(self, epoch):
-        self.iteration(epoch, self.train_data)
-
+        log_info = self.iteration(epoch, self.train_data)
+        self.log_file.flush()
+        return log_info
+        
     def test(self, epoch):
         with torch.no_grad():
-            self.iteration(epoch, self.test_data, train=False)
+            log_info = self.iteration(epoch, self.test_data, train=False)
+        self.log_file.flush()
+        return log_info
 
     def iteration(self, epoch, data_loader, train=True):
         """This must be overwritten by classes inheriting this"""
         raise NotImplementedError()
 
-    def save(self, epoch, file_path=None):
+    def save(self, file_path=None, epoch=None):
         """
         Saving the current model on file_path
+        :param file_path: model output path. If epoch is not None then this is
+            appended with .ep{epoch}
         :param epoch: current epoch number
-        :param file_path: model output path which gonna be file_path+"ep%d" % epoch
         :return: final_output_path
         """
         if file_path is None:
             file_path = "trained.model"
-        output_path = file_path + ".ep%d" % epoch
+        if epoch is not None:
+            output_path = file_path + ".ep%d" % epoch
         torch.save(self.model.cpu(), output_path)
         self.model.to(self.device)
-        print(f"EP:{epoch} Model saved {output_path}")
+        print(f"Model saved {output_path}")
         return output_path
+
+#   TODO: implement load method (for use with load from checkpoint)
 
 
 class ErrorDetectionTrainer(BaseTrainer):
@@ -123,7 +139,8 @@ class ErrorDetectionTrainer(BaseTrainer):
                  test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
-                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None,
+                 log_file=None):
         if formatter['task_labels'][0] is None:
             raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
                                       ' implemented a ground truth for this task.')
@@ -138,7 +155,8 @@ class ErrorDetectionTrainer(BaseTrainer):
             with_cuda=with_cuda,
             batch_log_freq=batch_log_freq,
             epoch_log_freq=epoch_log_freq,
-            formatter=formatter
+            formatter=formatter,
+            log_file=log_file
         )
 
     def iteration(self, epoch, data_loader, train=True):
@@ -173,7 +191,7 @@ class ErrorDetectionTrainer(BaseTrainer):
 
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
-                              desc=f"EP_{str_code}: {epoch}",
+                              desc=f"{str_code} epoch: {epoch}",
                               total=len(data_loader),
                               bar_format="{l_bar}{r_bar}")
 
@@ -209,19 +227,31 @@ class ErrorDetectionTrainer(BaseTrainer):
             total_correct += correct
             total_element += labels.nelement()
 
-            post_fix = {
+            log_info = {
                 "epoch": epoch,
-                "iter": ii,
+                "batch": ii,
+                "mode": str_code,
                 "avg_loss": avg_loss / (ii + 1),
-                "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "avg_acc": total_correct / total_element * 100
             }
             
-            if ii % self.batch_log_freq == 0:
-                data_iter.write(str(post_fix))
+            if self.batch_log_freq is not None:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.batch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
         
-        if epoch % self.epoch_log_freq == 0:
-            data_iter.write(str(post_fix))
+        if self.epoch_log_freq is not None:
+            if epoch % self.epoch_log_freq == 0:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.epoch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
+        
+        return log_info
+            
 #        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
 #              total_correct * 100.0 / total_element)
 
