@@ -47,7 +47,6 @@ class Command_ErrorDetectionNet(nn.Module):
         batch_size = batch.shape[0]
         device = batch.device
         self.hidden = self.init_hidden(batch_size, device=device)
-        # Weirdly have to permute batch dimension to second for LSTM...
 #        embeds = self.embedding(batch).permute(1, 0, 2)  # solved: batch_first
         embeds = self.embedding(batch)
         outputs, (ht, ct) = self.lstm(embeds, self.hidden)
