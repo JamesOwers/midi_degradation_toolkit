@@ -36,7 +36,6 @@ class Command_ErrorDetectionNet(nn.Module):
 
         self.dropout_layer = nn.Dropout(p=dropout_prob)
 
-
     def init_hidden(self, batch_size, device):
         return (torch.randn(1, batch_size, self.hidden_dim, device=device),
                 torch.randn(1, batch_size, self.hidden_dim, device=device))
@@ -47,9 +46,7 @@ class Command_ErrorDetectionNet(nn.Module):
             batch = batch[:, :batch_length]
         batch_size = batch.shape[0]
         device = batch.device
-        print(device)
         self.hidden = self.init_hidden(batch_size, device=device)
-        print([x.device for x in hidden])
         # Weirdly have to permute batch dimension to second for LSTM...
         embeds = self.embedding(batch).permute(1, 0, 2)
         outputs, (ht, ct) = self.lstm(embeds, self.hidden)
