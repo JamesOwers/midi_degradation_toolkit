@@ -21,7 +21,7 @@ class Command_ErrorDetectionNet(nn.Module):
     efficient and therefore I exclude a softmax layer from the model)
     """
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_size,
-                 dropout_prob=0.1):
+                 dropout_prob=0.1, num_lstm_layers=1):
         super().__init__()
 
         self.embedding_dim = embedding_dim
@@ -29,23 +29,25 @@ class Command_ErrorDetectionNet(nn.Module):
         self.vocab_size = vocab_size
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers=1)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim,
+                            num_layers=num_lstm_layers)
 
         self.hidden2out = nn.Linear(hidden_dim, output_size)
 
         self.dropout_layer = nn.Dropout(p=dropout_prob)
 
 
-    def init_hidden(self, batch_size):
-        return (torch.randn(1, batch_size, self.hidden_dim),
-                torch.randn(1, batch_size, self.hidden_dim))
+    def init_hidden(self, batch_size, device):
+        return (torch.randn(1, batch_size, self.hidden_dim, device=device),
+                torch.randn(1, batch_size, self.hidden_dim, device=device))
 
     def forward(self, batch, input_lengths=None):
         if input_lengths is not None:
             batch_length = np.max(input_lengths)
             batch = batch[:, :batch_length]
         batch_size = batch.shape[0]
-        self.hidden = self.init_hidden(batch_size)
+        device = batch.device
+        self.hidden = self.init_hidden(batch_size, device=device)
         # Weirdly have to permute batch dimension to second for LSTM...
         embeds = self.embedding(batch).permute(1, 0, 2)
         outputs, (ht, ct) = self.lstm(embeds, self.hidden)
