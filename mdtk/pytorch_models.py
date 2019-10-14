@@ -29,8 +29,9 @@ class Command_ErrorDetectionNet(nn.Module):
         self.vocab_size = vocab_size
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        # TODO: try getting batch_first to work on this model
         self.lstm = nn.LSTM(embedding_dim, hidden_dim,
-                            num_layers=num_lstm_layers, batch_first=True)
+                            num_layers=num_lstm_layers)
 
         self.hidden2out = nn.Linear(hidden_dim, output_size)
 
@@ -47,8 +48,9 @@ class Command_ErrorDetectionNet(nn.Module):
         batch_size = batch.shape[0]
         device = batch.device
         self.hidden = self.init_hidden(batch_size, device=device)
-#        embeds = self.embedding(batch).permute(1, 0, 2)  # solved: batch_first
-        embeds = self.embedding(batch)
+        embeds = self.embedding(batch).permute(1, 0, 2)
+        # TODO: try getting batch_first to work on this model
+#        embeds = self.embedding(batch)
         outputs, (ht, ct) = self.lstm(embeds, self.hidden)
         # ht is the last hidden state of the sequences
         # ht = (1 x batch_size x hidden_dim)
