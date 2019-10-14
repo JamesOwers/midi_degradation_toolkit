@@ -30,7 +30,7 @@ class Command_ErrorDetectionNet(nn.Module):
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.lstm = nn.LSTM(embedding_dim, hidden_dim,
-                            num_layers=num_lstm_layers)
+                            num_layers=num_lstm_layers, batch_first=True)
 
         self.hidden2out = nn.Linear(hidden_dim, output_size)
 
@@ -48,7 +48,8 @@ class Command_ErrorDetectionNet(nn.Module):
         device = batch.device
         self.hidden = self.init_hidden(batch_size, device=device)
         # Weirdly have to permute batch dimension to second for LSTM...
-        embeds = self.embedding(batch).permute(1, 0, 2)
+#        embeds = self.embedding(batch).permute(1, 0, 2)  # solved: batch_first
+        embeds = self.embedding(batch)
         outputs, (ht, ct) = self.lstm(embeds, self.hidden)
         # ht is the last hidden state of the sequences
         # ht = (1 x batch_size x hidden_dim)
@@ -96,11 +97,11 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
     The outputs and labels should be flattened when computing the CE Loss.
     """
     def __init__(self, input_dim, hidden_dim, output_dim, layers=[],
-                 dropout_prob=0.1):
+                 dropout_prob=0.1, num_lstm_layers=1):
         super().__init__()
         
         self.hidden_dim = hidden_dim
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=1,
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=num_lstm_layers,
                             bidirectional=True, batch_first=True)
         
         current_dim = 2 * hidden_dim
@@ -148,17 +149,19 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
     4) Final output layers.
     """
     def __init__(self, input_dim, hidden_dim, output_dim, layers=[],
-                 dropout_prob=0.1):
+                 dropout_prob=0.1, num_lstm_layers=1):
         super().__init__()
         
         self.hidden_dim = hidden_dim
-        self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers=1,
+        self.encoder = nn.LSTM(input_dim, hidden_dim,
+                               num_layers=num_lstm_layers,
                                bidirectional=True, batch_first=True)
         
         self.connector = nn.Linear(hidden_dim * 2, hidden_dim)
         self.connector_do = nn.Dropout(p=dropout_prob)
         
-        self.decoder = nn.LSTM(hidden_dim, hidden_dim, num_layers=1,
+        self.decoder = nn.LSTM(hidden_dim, hidden_dim,
+                               num_layers=num_lstm_layers,
                                bidirectional=True, batch_first=True)
         
         current_dim = 2 * hidden_dim
