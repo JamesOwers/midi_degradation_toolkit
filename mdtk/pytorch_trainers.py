@@ -123,6 +123,8 @@ class BaseTrainer:
             file_path = "trained.model"
         if epoch is not None:
             output_path = file_path + ".ep%d" % epoch
+        else:
+            output_path = file_path
         torch.save(self.model.cpu(), output_path)
         self.model.to(self.device)
         print(f"Model saved {output_path}")
