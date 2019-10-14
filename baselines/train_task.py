@@ -228,6 +228,10 @@ if __name__ == '__main__':
     #       should rarely be viewed, so should be accessed once in blue
     #       moon...not at the end of each training session!)
     with_cuda = not args.with_cpu
+    if with_cuda:
+        print("Attempting to train on GPU")
+    else:
+        print("Attempting to train on CPU")
     trainer = Trainer(
         model=model,
         criterion=Criterion,
