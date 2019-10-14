@@ -4,6 +4,8 @@
 import argparse
 import os
 
+import numpy as np
+
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
@@ -73,7 +75,12 @@ def parse_args():
                         "means no logging.")
     parser.add_argument("--in_memory", type=bool, default=True,
                         help="Loading on memory: true or false")
-
+    parser.add_argument("--early_stopping", type=int, default=50,
+                        help="Will stop training after this number of epochs "
+                        "with no improvement to the validation loss")
+    parser.add_argument("--log_file", type=str, default=None,
+                        help="Path to file for logging losses.")
+    
     # Optimizer args
     parser.add_argument("--lr", type=float, default=1e-4,
                         help="learning rate of adam")
@@ -232,6 +239,12 @@ if __name__ == '__main__':
         print("Attempting to train on GPU")
     else:
         print("Attempting to train on CPU")
+    
+    if args.log_file is not None:
+        log_fh = open(args.log_file, 'a')
+    else:
+        log_fh = None
+    
     trainer = Trainer(
         model=model,
         criterion=Criterion,
@@ -243,18 +256,31 @@ if __name__ == '__main__':
         with_cuda=with_cuda,
         batch_log_freq=batch_log_freq,
         epoch_log_freq=epoch_log_freq,
-        formatter=FORMATTERS[args.format]
+        formatter=FORMATTERS[args.format],
+        log_file=log_fh
     )
     
     print("Training Start")
     print(f"Running {args.epochs} epochs")
-    # TODO: implement early stopping in Trainers
+    print(f"Will stop training if no improvement in validation loss for "
+          f"{args.early_stopping} epochs.")
     # TODO: implement a catch for ctrl+c in Trainers which saves current mdl
+    best_vld_loss = np.inf
+    best_vld_epoch = 0
     for epoch in range(args.epochs):
-        # I test before train as then both train and test values are using
-        # the same set of parameters for the same epoch number
-        if test_dataloader is not None:
-            trainer.test(epoch)
-        
-        trainer.train(epoch)
-        trainer.save(epoch, args.output)
+        trn_log_info = trainer.train(epoch)
+        vld_log_info = trainer.test(epoch)
+        if vld_log_info['avg_loss'] < best_vld_loss:
+            best_vld_loss = vld_log_info['avg_loss']
+            best_vld_epoch = epoch
+            trainer.save(f'{args.output}.best')
+        if epoch - best_vld_epoch >= args.early_stopping:
+            print("EARLY STOPPING")
+            print(f"No improvement in validation loss for "
+                  f"{args.early_stopping} epochs.")
+            break
+    print(f"Best epoch was {best_vld_epoch} with a loss of {best_vld_loss}.")
+    print(f"Best model saved at '{args.output}.best'.")
+
+    if log_fh is not None:
+        log_fh.close()
