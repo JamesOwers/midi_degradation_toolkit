@@ -117,8 +117,8 @@ class Pianoroll_ErrorIdentificationNet(nn.Module):
         self.dropout_layer = nn.Dropout(p=dropout_prob)
         
     def init_hidden(self, batch_size, device):
-        return (torch.randn(1, batch_size, self.hidden_dim, device=device),
-                torch.randn(1, batch_size, self.hidden_dim, device=device))
+        return (torch.randn(2, batch_size, self.hidden_dim, device=device),
+                torch.randn(2, batch_size, self.hidden_dim, device=device))
         
     def forward(self, batch):
         batch_size = batch.shape[0]
@@ -175,8 +175,8 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
         self.dropout_layer = nn.Dropout(p=dropout_prob)
 
     def init_hidden(self, batch_size, device):
-        return (torch.randn(1, batch_size, self.hidden_dim, device=device),
-                torch.randn(1, batch_size, self.hidden_dim, device=device))
+        return (torch.randn(2, batch_size, self.hidden_dim, device=device),
+                torch.randn(2, batch_size, self.hidden_dim, device=device))
 
     def forward(self, batch, input_lengths):
         batch_size = batch.shape[0]
@@ -187,7 +187,7 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
         output = self.connector_do(F.elu(self.connector(output)))
         
         output, _ = self.decoder(output,
-                                 self.init_hidden(batch.shape[0]))
+                                 self.init_hidden(batch_size, device))
         
         for module in self.linears:
             output = module(output)
