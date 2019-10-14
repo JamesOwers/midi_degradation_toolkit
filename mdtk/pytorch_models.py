@@ -72,10 +72,12 @@ class Command_ErrorClassificationNet(Command_ErrorDetectionNet):
     It's precisely the same network design as for task 1 - error detection,
     except this has a number of output classes (9 for ACME1.0).
     """
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_size,
-                 dropout_prob=0.1):
-        super().__init__(self, vocab_size, embedding_dim, hidden_dim, 
-                         output_size=9, dropout_prob=0.1, num_lstm_layers=1)
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_size=9,
+                 dropout_prob=0.1, num_lstm_layers=1):
+        super().__init__(vocab_size=vocab_size, embedding_dim=embedding_dim,
+                         hidden_dim=hidden_dim, output_size=output_size,
+                         dropout_prob=dropout_prob,
+                         num_lstm_layers=num_lstm_layers)
 
 
 
