@@ -248,9 +248,8 @@ class ErrorDetectionTrainer(BaseTrainer):
             if epoch % self.epoch_log_freq == 0:
                 ordered_log_keys = ['epoch', 'batch', 'mode', 
                                     'avg_loss', 'avg_acc']
-                if self.epoch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
-                          file=self.log_file)
+                print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                      file=self.log_file)
         
         return log_info
             
