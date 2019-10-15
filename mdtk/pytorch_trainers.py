@@ -256,7 +256,7 @@ class ErrorDetectionTrainer(BaseTrainer):
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
 
-            data_iter.set_postfix(avg_loss=log_info['avg_loss']) 
+            data_iter.set_postfix(avg_loss=round(log_info['avg_loss'], ndigits=3)) 
 
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
