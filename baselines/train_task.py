@@ -241,8 +241,10 @@ if __name__ == '__main__':
         print("Attempting to train on CPU")
     
     if args.log_file is not None:
+        print(f'Writing logs to {args.log_file}')
         log_fh = open(args.log_file, 'a')
     else:
+        print('Logging to stdout')
         log_fh = None
     
     trainer = Trainer(
