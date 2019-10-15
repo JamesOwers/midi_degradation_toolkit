@@ -197,12 +197,6 @@ class ErrorDetectionTrainer(BaseTrainer):
         
         str_code = "train" if train else "test"
 
-        # Setting the tqdm progress bar
-        data_iter = tqdm.tqdm(enumerate(data_loader),
-                              desc=f"{str_code} epoch: {epoch}",
-                              total=len(data_loader),
-                              bar_format="{l_bar}{r_bar}")
-
         # Values to accumulate over the batch
         avg_loss = 0.0
         total_correct = 0
@@ -211,6 +205,13 @@ class ErrorDetectionTrainer(BaseTrainer):
         total_positive_labels = 0
         total_true_pos = 0
         
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"{str_code} epoch {epoch}",
+                              postfix={'avg_loss': avg_loss},
+                              bar_format='{l_bar}{bar} batch {r_bar}',
+                              total=len(data_loader))
+
         for ii, data in data_iter:
             input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
             # N tensors of integers representing (potentially) degraded midi
@@ -254,7 +255,9 @@ class ErrorDetectionTrainer(BaseTrainer):
                 if self.batch_log_freq % ii == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
-        
+
+            data_iter.set_postfix(avg_loss=log_info['avg_loss']) 
+
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
                 print(','.join([str(log_info[kk]) for kk in self.log_cols]),
