@@ -267,7 +267,8 @@ class ErrorClassificationTrainer(BaseTrainer):
                  test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
-                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None,
+                 log_file=None):
         if formatter['task_labels'][1] is None:
             raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
                                       ' implemented a ground truth for this task.')
@@ -282,7 +283,8 @@ class ErrorClassificationTrainer(BaseTrainer):
             with_cuda=with_cuda,
             batch_log_freq=batch_log_freq,
             epoch_log_freq=epoch_log_freq,
-            formatter=formatter
+            formatter=formatter,
+            log_file=log_file
         )
 
     def iteration(self, epoch, data_loader, train=True):
@@ -379,7 +381,8 @@ class ErrorIdentificationTrainer(BaseTrainer):
                  test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
-                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None,
+                 log_file=None):
         if formatter['task_labels'][2] is None:
             raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
                                       ' implemented a ground truth for this task.')
@@ -394,7 +397,8 @@ class ErrorIdentificationTrainer(BaseTrainer):
             with_cuda=with_cuda,
             batch_log_freq=batch_log_freq,
             epoch_log_freq=epoch_log_freq,
-            formatter=formatter
+            formatter=formatter,
+            log_file=log_file
         )
 
     def iteration(self, epoch, data_loader, train=True):
@@ -492,7 +496,8 @@ class ErrorCorrectionTrainer(BaseTrainer):
                  test_dataloader: DataLoader = None,
                  lr: float = 1e-4, betas=(0.9, 0.999),
                  weight_decay: float=0.01, with_cuda: bool=True,
-                 batch_log_freq=None, epoch_log_freq=1, formatter=None):
+                 batch_log_freq=None, epoch_log_freq=1, formatter=None,
+                 log_file=None):
         if formatter['task_labels'][3] is None:
             raise NotImplementedError('Formatter ' + formatter['name'] + ' has not'
                                       ' implemented a ground truth for this task.')
@@ -507,7 +512,8 @@ class ErrorCorrectionTrainer(BaseTrainer):
             with_cuda=with_cuda,
             batch_log_freq=batch_log_freq,
             epoch_log_freq=epoch_log_freq,
-            formatter=formatter
+            formatter=formatter,
+            log_file=log_file
         )
 
     def iteration(self, epoch, data_loader, train=True):
