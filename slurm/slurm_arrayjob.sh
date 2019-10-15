@@ -19,6 +19,8 @@
 # #SBATCH --exclude=charles15  # Had an outdated nvidia driver, fixed now
 
 
+# TODO: establish startup scripts run by slurm...
+source ~/.bashrc
 set -e  # make script bail out after first error
 
 
