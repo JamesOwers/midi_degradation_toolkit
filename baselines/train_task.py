@@ -265,7 +265,7 @@ if __name__ == '__main__':
         log_fh = open(args.log_file, 'w')
     else:
         print('Logging to stdout')
-        log_fh = None
+        log_fh = sys.stdout
     
     trainer = Trainer(
         model=model,
@@ -281,6 +281,9 @@ if __name__ == '__main__':
         formatter=FORMATTERS[args.format],
         log_file=log_fh
     )
+    
+    # Add a header to the log file
+    print(','.join(trainer.log_cols), file=log_fh)
     
     print("Training Start")
     print(f"Running {args.epochs} epochs")
@@ -304,5 +307,5 @@ if __name__ == '__main__':
     print(f"Best epoch was {best_vld_epoch} with a loss of {best_vld_loss}.")
     print(f"Best model saved at '{args.output}.best'.")
 
-    if log_fh is not None:
+    if log_fh is not sys.stdout:
         log_fh.close()
