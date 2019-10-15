@@ -355,7 +355,7 @@ class ErrorClassificationTrainer(BaseTrainer):
             total_correct += correct
             total_element += labels.nelement()
 
-            post_fix = {
+            log_info = {
                 "epoch": epoch,
                 "iter": ii,
                 "avg_loss": avg_loss / (ii + 1),
@@ -482,7 +482,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
             total_correct += correct
             total_element += labels.nelement()
 
-            post_fix = {
+            log_info = {
                 "epoch": epoch,
                 "iter": ii,
                 "avg_loss": avg_loss / (ii + 1),
@@ -608,7 +608,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
             total_correct += correct
             total_element += labels.nelement()
 
-            post_fix = {
+            log_info = {
                 "epoch": epoch,
                 "iter": ii,
                 "avg_loss": avg_loss / (ii + 1),
