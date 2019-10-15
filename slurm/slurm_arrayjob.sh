@@ -35,13 +35,13 @@ export SCRATCH_HOME=/disk/scratch/${STUDENT_ID}
 mkdir -p ${SCRATCH_HOME}
 export TMPDIR=${SCRATCH_HOME}
 export TMP=${SCRATCH_HOME}
-mkdir -p ${DATA_HOME}
 export CLUSTER_HOME=/mnt/cdtds_cluster_home/${STUDENT_ID}
 
 code_repo_home=${CLUSTER_HOME}/git/midi_degradation_toolkit
 output_dir=${code_repo_home}/output
 distfs_data_home="${code_repo_home}/acme"
 scratch_data_home="${SCRATCH_HOME}/data/acme"
+mkdir -p ${scratch_data_home}
 
 
 # Move data from distrbuted filesystem to scratch dir on cluster node
