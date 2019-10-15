@@ -70,7 +70,7 @@ def get_combined_fmeasure(df, gt_df, time_increment=40):
         framewise and notewise F-measures.
      """
     fw = get_framewise_f_measure(df, gt_df, time_increment=time_increment)
-    nw = get_notewise_f_measure(df, gt_df, time_increment=time_increment)
+    nw = get_notewise_f_measure(df, gt_df)
     return (fw + nw) / 2
 
 
@@ -95,9 +95,9 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
         The framewise f_measure of the given dataframe.
     """
     raise NotImplementedError()
- 
- 
- def get_notewise_f_measure(df, gt_df, time_increment=40):
+
+
+def get_notewise_f_measure(df, gt_df):
     """
     Get the notewise F-measure of a dtaframe, given a ground truth dataframe.
 
@@ -118,6 +118,14 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
     f_measure : float
         The notewise f_measure of the given dataframe, using mir_eval.
     """
-    raise NotImplementedError()
-    # Use this for note-based F-measure
-    #precision_recall_f1_overlap(ref_intervals, ref_pitches, est_intervals, est_pitches, onset_tolerance=0.05, pitch_tolerance=50.0, offset_ratio=0.2, offset_min_tolerance=0.05, strict=False, beta=1.0)
+    gt_pitches = np.array(gt_df['pitch'])
+    gt_times = np.vstack((gt_df['onset'], gt_df['onset'] + gt_df['dur'])).T
+
+    pitches = np.array(df['pitch'])
+    times = np.vstack((df['onset'], df['onset'] + df['dur'])).T
+
+    _, _, fm, _ = precision_recall_f1_overlap(gt_times, gt_pitches, times,
+                                              pitches, onset_tolerance=50,
+                                              pitch_tolerance=0,
+                                              offset_ratio=None)
+    return fm
