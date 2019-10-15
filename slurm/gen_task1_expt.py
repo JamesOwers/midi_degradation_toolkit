@@ -13,7 +13,7 @@ in_dir = '/disk/scratch/s0816700/data/acme'
 epochs = 10000
 early_stopping = 50
 base_call = (
-    f"python baselines/train_task.py "
+    f"python {code_dir}/baselines/train_task.py "
     f"--task {task_nr} "
     f"--input {in_dir} "
     f"--format {fmt} "
