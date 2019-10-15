@@ -50,16 +50,16 @@ mkdir -p ${scratch_data_home}
 for corpus in cmd pr; do
     for split in train valid test; do
         fn="${split}_${corpus}_corpus.csv"
-        source="${distfs_data_home}/${fn}"
+        src="${distfs_data_home}/${fn}"
         target="${scratch_data_home}/${fn}"
-        rsync -ua --progress ${source} ${target}
+        rsync -ua --progress ${src} ${target}
     done
 done
 
 for fn in degradation_ids.csv metadata.csv; do
-    source="${distfs_data_home}/${fn}"
+    src="${distfs_data_home}/${fn}"
     target="${scratch_data_home}/${fn}"
-    rsync -ua --progress ${source} ${target}
+    rsync -ua --progress ${src} ${target}
 done
 
 
