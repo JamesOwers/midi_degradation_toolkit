@@ -172,7 +172,7 @@ def get_notewise_f_measure(df, gt_df):
 def get_f1(tp, fp, fn):
     """
     Get the precision, recall, and f1 of a given count of TPs, FPs, and FNs.
-    
+
     Parameters
     ----------
     tp : int
