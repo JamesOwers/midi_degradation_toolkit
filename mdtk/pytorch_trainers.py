@@ -102,13 +102,14 @@ class BaseTrainer:
         self.log_file.flush()
         return log_info
         
-    def test(self, epoch):
+    def test(self, epoch, evaluate=False):
         with torch.no_grad():
-            log_info = self.iteration(epoch, self.test_data, train=False)
+            log_info = self.iteration(epoch, self.test_data, train=False,
+                                      evaluate=evaluate)
         self.log_file.flush()
         return log_info
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """This must be overwritten by classes inheriting this"""
         raise NotImplementedError()
 
@@ -162,7 +163,7 @@ class ErrorDetectionTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.
@@ -288,7 +289,7 @@ class ErrorClassificationTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.
@@ -414,7 +415,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.
@@ -541,7 +542,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.

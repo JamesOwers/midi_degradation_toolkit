@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# TODO: turn this into a script which can train any of the tasks given 
-# a command line argument
 import argparse
 import os
 
