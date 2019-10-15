@@ -4,6 +4,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 import numpy as np
 import tqdm
+from mdtk.eval import helpfulness, get_f1
 
 
 
@@ -101,13 +102,14 @@ class BaseTrainer:
         self.log_file.flush()
         return log_info
         
-    def test(self, epoch):
+    def test(self, epoch, evaluate=False):
         with torch.no_grad():
-            log_info = self.iteration(epoch, self.test_data, train=False)
+            log_info = self.iteration(epoch, self.test_data, train=False,
+                                      evaluate=evaluate)
         self.log_file.flush()
         return log_info
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """This must be overwritten by classes inheriting this"""
         raise NotImplementedError()
 
@@ -161,7 +163,7 @@ class ErrorDetectionTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.
@@ -201,6 +203,9 @@ class ErrorDetectionTrainer(BaseTrainer):
         avg_loss = 0.0
         total_correct = 0
         total_element = 0
+        total_positive = 0
+        total_positive_labels = 0
+        total_true_pos = 0
         
         for ii, data in data_iter:
             input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
@@ -220,6 +225,7 @@ class ErrorDetectionTrainer(BaseTrainer):
 
             # values for logging
             correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
             avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
@@ -228,6 +234,9 @@ class ErrorDetectionTrainer(BaseTrainer):
                                      # unbiased estimate...)
             total_correct += correct
             total_element += labels.nelement()
+            total_positive += model_output.argmax(dim=-1).sum().item()
+            total_positive_labels += labels.sum().item()
+            total_true_pos += true_pos
 
             log_info = {
                 "epoch": epoch,
@@ -250,6 +259,13 @@ class ErrorDetectionTrainer(BaseTrainer):
                                     'avg_loss', 'avg_acc']
                 print(','.join([str(log_info[kk]) for kk in ordered_log_keys]),
                       file=self.log_file)
+
+        if evaluate:
+            tp = total_true_pos
+            fn = total_positive_labels - tp
+            fp = total_positive - tp
+            p, r, f = get_f1(tp, fp, fn)
+            print(f"P, R, F-measure: {p}, {r}, {f}")
         
         return log_info
             
@@ -286,7 +302,7 @@ class ErrorClassificationTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.
@@ -356,10 +372,10 @@ class ErrorClassificationTrainer(BaseTrainer):
 
             log_info = {
                 "epoch": epoch,
-                "iter": ii,
+                "batch": ii,
+                "mode": str_code,
                 "avg_loss": avg_loss / (ii + 1),
-                "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "avg_acc": total_correct / total_element * 100
             }
             
             if self.batch_log_freq is not None:
@@ -376,6 +392,9 @@ class ErrorClassificationTrainer(BaseTrainer):
                 if self.epoch_log_freq % ii == 0:
                     print(','.join([log_info[kk] for kk in ordered_log_keys]),
                           file=self.log_file)
+
+        if evaluate:
+            print(f"Accuracy: {total_correct / total_element * 100}")
         
         return log_info
             
@@ -412,7 +431,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.
@@ -452,6 +471,9 @@ class ErrorIdentificationTrainer(BaseTrainer):
         avg_loss = 0.0
         total_correct = 0
         total_element = 0
+        total_positive = 0
+        total_positive_labels = 0
+        total_true_pos = 0
         
         for ii, data in data_iter:
             # N tensors of integers representing (potentially) degraded midi
@@ -472,6 +494,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
 
             # values for logging
             correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
             avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
@@ -480,13 +503,16 @@ class ErrorIdentificationTrainer(BaseTrainer):
                                      # unbiased estimate...)
             total_correct += correct
             total_element += labels.nelement()
+            total_positive += model_output.argmax(dim=-1).sum().item()
+            total_positive_labels += labels.sum().item()
+            total_true_pos += true_pos
 
             log_info = {
                 "epoch": epoch,
-                "iter": ii,
+                "batch": ii,
+                "mode": str_code,
                 "avg_loss": avg_loss / (ii + 1),
-                "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "avg_acc": total_correct / total_element * 100
             }
             
             if self.batch_log_freq is not None:
@@ -503,6 +529,12 @@ class ErrorIdentificationTrainer(BaseTrainer):
                 if self.epoch_log_freq % ii == 0:
                     print(','.join([log_info[kk] for kk in ordered_log_keys]),
                           file=self.log_file)
+
+        if evaluate:
+            tp = total_true_pos
+            fn = total_positive_labels - tp
+            fp = total_positive - tp
+            print(f"F-measure: {get_f1(tp, fp, fn)}")
         
         return log_info
             
@@ -539,7 +571,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
             log_file=log_file
         )
 
-    def iteration(self, epoch, data_loader, train=True):
+    def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
         The loop used for train and test methods. Loops over the provided
         data_loader for one epoch getting only the necessary data for the task.
@@ -579,6 +611,9 @@ class ErrorCorrectionTrainer(BaseTrainer):
         avg_loss = 0.0
         total_correct = 0
         total_element = 0
+        total_help = 0
+        total_fm = 0
+        total_data_points = 0
         
         for ii, data in data_iter:
             input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
@@ -609,11 +644,28 @@ class ErrorCorrectionTrainer(BaseTrainer):
 
             log_info = {
                 "epoch": epoch,
-                "iter": ii,
+                "batch": ii,
+                "mode": str_code,
                 "avg_loss": avg_loss / (ii + 1),
-                "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "avg_acc": total_correct / total_element * 100
             }
+            
+            if evaluate:
+                total_data_points += len(input_data)
+                for in_data, out_data, clean_data in zip(input_data, model_output,
+                                                         labels):
+                    deg_df = self.formatter['model_to_df'](
+                        in_data.cpu().data.numpy(), min_pitch=21,
+                        max_pitch=108, time_increment=40)
+                    model_out_df = self.formatter['model_to_df'](
+                        out_data.cpu().data.numpy(), min_pitch=21,
+                        max_pitch=108, time_increment=40)
+                    clean_df = self.formatter['model_to_df'](
+                        clean_data.cpu().data.numpy(), min_pitch=21,
+                        max_pitch=108, time_increment=40)
+                    h, f = helpfulness(model_out_df, deg_df, clean_df)
+                    total_help += h
+                    total_fm += f
             
             if self.batch_log_freq is not None:
                 ordered_log_keys = ['epoch', 'batch', 'mode', 
@@ -629,6 +681,10 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 if self.epoch_log_freq % ii == 0:
                     print(','.join([log_info[kk] for kk in ordered_log_keys]),
                           file=self.log_file)
+
+        if evaluate:
+            print(f"Helpfulness: {total_help / total_data_points}")
+            print(f"F-measure: {total_fm / total_data_points}")
         
         return log_info
             

@@ -4,6 +4,7 @@ import tqdm
 import pandas as pd
 import numpy as np
 import os
+import warnings
 
 from mdtk.data_structures import NOTE_DF_SORT_ORDER
 
@@ -214,6 +215,98 @@ def pianoroll_str_to_df(pr_str, time_increment=40):
     return df
 
 
+def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
+                           time_increment=40):
+    """
+    Convert a double pianoroll (sustain and onset, as output by a task 4 model),
+    into a DataFrame for use in evaluation.
+
+    Parameters
+    ----------
+    pianoroll : np.ndarray
+        A pianoroll of shape (n, 2 * max_pitch - min_pitch + 1), where n is the
+        number of frames, the left half of the matrix is the sustain_pr, and the
+        right half is the onset_pr.
+
+    min_pitch : int
+        The pitch at pianoroll indices [:, 0] and [:, max_pitch - min_pitch + 1].
+
+    max_pitch : int
+        The pitch at pianoroll indices [:, max_pitch - min_pitch] and [:, -1].
+
+    time_increment : int
+        The length of a single frame, in milliseconds.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        A dataframe equal to the given pianoroll.
+    """
+    if max_pitch != pianoroll.shape[1] / 2 + min_pitch - 1:
+        warnings.warn("max_pitch doesn't match pianoroll shape and min_pitch. "
+                      "Setting max_pitch to "
+                      f"{pianoroll.shape[1] / 2 + min_pitch - 1}.")
+        max_pitch = int(pianoroll.shape[1] / 2 + min_pitch - 1)
+
+    df_notes = []
+    active = [-1] * (max_pitch - min_pitch + 1) # Index of active note in notes
+    midpoint = int(pianoroll.shape[1] / 2)
+
+    for frame_num, (notes, onsets) in enumerate(zip(pianoroll[:, :midpoint],
+                                                    pianoroll[:, midpoint:])):
+        time = frame_num * time_increment
+        note_pitches = np.where(notes == 1)[0]
+        onset_pitches = np.where(onsets == 1)[0]
+
+        # Check that all pitches continue
+        for pitch, idx in enumerate(active):
+            if idx >= 0 and pitch not in note_pitches:
+                # Pitch doesn't continue
+                df_notes[idx]['dur'] = time - df_notes[idx]['onset']
+                active[pitch] = -1
+
+        # Check onsets for new notes/breaks in existing notes
+        for pitch in onset_pitches:
+            if active[pitch] >= 0:
+                # Pitch was active. Stop it here.
+                df_notes[active[pitch]]['dur'] = (
+                    time -df_notes[active[pitch]]['onset']
+                )
+
+            # Start new note
+            active[pitch] = len(df_notes)
+            df_notes.append({'onset': time,
+                             'pitch': pitch + min_pitch,
+                             'track': 0,
+                             'dur': None})
+
+        # Find pitch presences that should've been onsets but weren't
+        for pitch in note_pitches:
+            if active[pitch] < 0:
+                # Pitch is supposed to be inactive, but there is a sustain
+                # Treat this as an onset
+                active[pitch] = len(df_notes)
+                df_notes.append({'onset': time,
+                                 'pitch': pitch + min_pitch,
+                                 'track': 0,
+                                 'dur': None})
+
+    # Close any still open notes
+    for idx in active:
+        if idx >= 0:
+            df_notes[idx]['dur'] = (len(frames) * time_increment -
+                                    df_notes[idx]['onset'])
+
+    # Create df
+    if len(df_notes) > 0:
+        df = pd.DataFrame(df_notes)
+        df = (df.sort_values(by=NOTE_DF_SORT_ORDER)[NOTE_DF_SORT_ORDER]
+              .reset_index(drop=True))
+    else:
+        df = pd.DataFrame(columns=NOTE_DF_SORT_ORDER).reset_index(drop=True)
+    return df
+
+
 def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
                       max_time_shift=4000):
     """
@@ -329,6 +422,7 @@ FORMATTERS = {
         'prefix': 'cmd',
         'df_to_str': df_to_command_str,
         'str_to_df': command_str_to_df,
+        'model_to_df': None,
         'message': ('The {train,valid,test}_cmd_corpus.csv are command-based '
                     '(note_on, note_off, shift) versions of the acme data more '
                     'convenient for our provided pytorch Dataset classes.'),
@@ -346,6 +440,7 @@ FORMATTERS = {
         'prefix': 'pr',
         'df_to_str': df_to_pianoroll_str,
         'str_to_df': pianoroll_str_to_df,
+        'model_to_df': double_pianoroll_to_df,
         'message': ('The {train,valid,test}_pr_corpus.csv are piano-roll-based '
                     'versions of the acme data more convenient for our provided '
                     'pytorch Dataset classes.'),
