@@ -4,7 +4,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 import numpy as np
 import tqdm
-from mdtk.eval import helpfulness
+from mdtk.eval import helpfulness, get_f1
 
 
 
@@ -203,6 +203,9 @@ class ErrorDetectionTrainer(BaseTrainer):
         avg_loss = 0.0
         total_correct = 0
         total_element = 0
+        total_positive = 0
+        total_positive_labels = 0
+        total_true_pos = 0
         
         for ii, data in data_iter:
             input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
@@ -222,6 +225,7 @@ class ErrorDetectionTrainer(BaseTrainer):
 
             # values for logging
             correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
             avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
@@ -230,6 +234,9 @@ class ErrorDetectionTrainer(BaseTrainer):
                                      # unbiased estimate...)
             total_correct += correct
             total_element += labels.nelement()
+            total_positive += model_output.argmax(dim=-1).round().sum().item()
+            total_positive_labels += labels.sum().item()
+            total_true_pos += true_pos
 
             log_info = {
                 "epoch": epoch,
@@ -253,6 +260,13 @@ class ErrorDetectionTrainer(BaseTrainer):
                 if self.epoch_log_freq % ii == 0:
                     print(','.join([log_info[kk] for kk in ordered_log_keys]),
                           file=self.log_file)
+
+        if evaluate:
+            tp = total_true_pos
+            fn = total_positive_labels - tp
+            fp = total_positive - tp
+            print(f"F-measure: {get_f1(tp, fp, fn)}")
+        
         
         return log_info
             
@@ -379,6 +393,9 @@ class ErrorClassificationTrainer(BaseTrainer):
                 if self.epoch_log_freq % ii == 0:
                     print(','.join([log_info[kk] for kk in ordered_log_keys]),
                           file=self.log_file)
+
+        if evaluate:
+            print(f"Accuracy: {total_correct / total_element * 100}")
         
         return log_info
             
@@ -475,6 +492,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
 
             # values for logging
             correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
             avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
@@ -483,6 +501,9 @@ class ErrorIdentificationTrainer(BaseTrainer):
                                      # unbiased estimate...)
             total_correct += correct
             total_element += labels.nelement()
+            total_positive += model_output.argmax(dim=-1).round().sum().item()
+            total_positive_labels += labels.sum().item()
+            total_true_pos += true_pos
 
             log_info = {
                 "epoch": epoch,
@@ -506,6 +527,12 @@ class ErrorIdentificationTrainer(BaseTrainer):
                 if self.epoch_log_freq % ii == 0:
                     print(','.join([log_info[kk] for kk in ordered_log_keys]),
                           file=self.log_file)
+
+        if evaluate:
+            tp = total_true_pos
+            fn = total_positive_labels - tp
+            fp = total_positive - tp
+            print(f"F-measure: {get_f1(tp, fp, fn)}")
         
         return log_info
             

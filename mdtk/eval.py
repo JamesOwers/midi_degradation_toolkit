@@ -131,14 +131,7 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
     fp = np.sum(pr) - tp
     fn = np.sum(gt_pr) - tp
 
-    if tp + fp == 0 or tp + fn == 0:
-        return 0
-    p = tp / (tp + fp)
-    r = tp / (tp + fn)
-    if p + r == 0:
-        return 0
-    fm = 2 * p * r / (p + r)
-    return fm
+    return get_f1(tp, fp, fn)
 
 
 def get_notewise_f_measure(df, gt_df):
@@ -172,4 +165,15 @@ def get_notewise_f_measure(df, gt_df):
                                               pitches, onset_tolerance=50,
                                               pitch_tolerance=0,
                                               offset_ratio=None)
+    return fm
+
+
+def get_f1(tp, fp, fn):
+    if tp + fp == 0 or tp + fn == 0:
+        return 0
+    p = tp / (tp + fp)
+    r = tp / (tp + fn)
+    if p + r == 0:
+        return 0
+    fm = 2 * p * r / (p + r)
     return fm
