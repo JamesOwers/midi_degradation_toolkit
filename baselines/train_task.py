@@ -31,6 +31,8 @@ if not sys.warnoptions:
     
 
 
+# TODO: get formatter out of Trainer
+# TODO: remove eval arg from Trainer iteration method and do eval outside
 def parse_args():
     parser = argparse.ArgumentParser()
 
