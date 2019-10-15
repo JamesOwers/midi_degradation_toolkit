@@ -6,16 +6,11 @@
 ##     MAX_PARALLEL_JOBS=4 
 ##     sbatch --array=1-${NR_EXPTS}%${MAX_PARALLEL_JOBS} slurm_template.sh $EXPT_FILE
 
-#SBATCH -o /mnt/cdtds_cluster_home/s0816700/slurm_logs/slurm-%A_%a.out
-#SBATCH -e /mnt/cdtds_cluster_home/s0816700/slurm_logs/slurm-%A_%a.out
 #SBATCH -N 1	  # nodes requested
 #SBATCH -n 1	  # tasks requested
-#SBATCH --mem=14000  # memory in Mb
-#SBATCH -t 2:30:00  # time requested in hour:minute:seconds
-#SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
-#SBATCH --mail-user=james.owers@ed.ac.uk
-#SBATCH --mail-type=ALL
-# #SBATCH --exclude=charles15  # Had an outdated nvidia driver, fixed now
+#SBATCH --mem=4000  # memory in Mb
+#SBATCH -t 00:30:00  # time requested in hour:minute:seconds
+#SBATCH --cpus-per-task=1  # number of cpus to use - there are 32 on each node.
 
 
 set -e  # make script bail out after first error
