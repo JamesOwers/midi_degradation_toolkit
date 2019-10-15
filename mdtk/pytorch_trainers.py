@@ -252,7 +252,7 @@ class ErrorDetectionTrainer(BaseTrainer):
             }
             
             if self.batch_log_freq is not None:
-                if self.batch_log_freq % ii == 0:
+                if ii % self.batch_log_freq == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
 
@@ -386,7 +386,7 @@ class ErrorClassificationTrainer(BaseTrainer):
             }
             
             if self.batch_log_freq is not None:
-                if self.batch_log_freq % ii == 0:
+                if ii % self.batch_log_freq == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
 
@@ -524,7 +524,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
             }
             
             if self.batch_log_freq is not None:
-                if self.batch_log_freq % ii == 0:
+                if ii % self.batch_log_freq == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
 
@@ -677,7 +677,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
                     total_fm += f
             
             if self.batch_log_freq is not None:
-                if self.batch_log_freq % ii == 0:
+                if ii % self.batch_log_freq == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
 
