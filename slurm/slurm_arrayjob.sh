@@ -54,7 +54,7 @@ for corpus in cmd pr; do
     done
 done
 
-for fn in degradation_ids.csv labels.csv metadata.csv; do
+for fn in degradation_ids.csv metadata.csv; do
     source="${distfs_data_home}/${fn}"
     target="${scratch_data_home}/${fn}"
     rsync -ua --progress ${source} ${target}
