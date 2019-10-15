@@ -234,7 +234,7 @@ class ErrorDetectionTrainer(BaseTrainer):
                                      # unbiased estimate...)
             total_correct += correct
             total_element += labels.nelement()
-            total_positive += model_output.argmax(dim=-1).round().sum().item()
+            total_positive += model_output.argmax(dim=-1).sum().item()
             total_positive_labels += labels.sum().item()
             total_true_pos += true_pos
 
@@ -265,7 +265,8 @@ class ErrorDetectionTrainer(BaseTrainer):
             tp = total_true_pos
             fn = total_positive_labels - tp
             fp = total_positive - tp
-            print(f"F-measure: {get_f1(tp, fp, fn)}")
+            p, r, f = get_f1(tp, fp, fn)
+            print(f"P, R, F-measure: {p}, {r}, {f}")
         
         
         return log_info
@@ -472,6 +473,9 @@ class ErrorIdentificationTrainer(BaseTrainer):
         avg_loss = 0.0
         total_correct = 0
         total_element = 0
+        total_positive = 0
+        total_positive_labels = 0
+        total_true_pos = 0
         
         for ii, data in data_iter:
             # N tensors of integers representing (potentially) degraded midi
@@ -501,7 +505,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
                                      # unbiased estimate...)
             total_correct += correct
             total_element += labels.nelement()
-            total_positive += model_output.argmax(dim=-1).round().sum().item()
+            total_positive += model_output.argmax(dim=-1).sum().item()
             total_positive_labels += labels.sum().item()
             total_true_pos += true_pos
 

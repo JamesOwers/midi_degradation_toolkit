@@ -131,7 +131,8 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
     fp = np.sum(pr) - tp
     fn = np.sum(gt_pr) - tp
 
-    return get_f1(tp, fp, fn)
+    _, _, f = get_f1(tp, fp, fn)
+    return f
 
 
 def get_notewise_f_measure(df, gt_df):
@@ -169,11 +170,9 @@ def get_notewise_f_measure(df, gt_df):
 
 
 def get_f1(tp, fp, fn):
-    if tp + fp == 0 or tp + fn == 0:
-        return 0
+    if tp == 0:
+        return 0, 0, 0
     p = tp / (tp + fp)
     r = tp / (tp + fn)
-    if p + r == 0:
-        return 0
     fm = 2 * p * r / (p + r)
-    return fm
+    return p, r, fm
