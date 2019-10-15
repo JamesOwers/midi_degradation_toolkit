@@ -31,6 +31,10 @@ def helpfulness(corrected_df, degraded_df, clean_df, time_increment=40):
            F-measures of corrected vs clean is the output.
         -- Else, using 0.0 == 0.0, degraded == 0.5 and clean == 1.0 as anchor
            points, place corrected's score on that scale.
+
+    f_measure : float
+        The average of the degraded_df's framewise F-measure and its notewise
+        F-measure, when compared to the clean_df.
     """
     corrected_fm = get_combined_fmeasure(corrected_df, clean_df,
                                          time_increment=time_increment)
@@ -43,9 +47,11 @@ def helpfulness(corrected_df, degraded_df, clean_df, time_increment=40):
                                         time_increment=time_increment)
 
     if corrected_fm < degraded_fm:
-        return 0.5 * corrected_fm / degraded_fm
+        h = 0.5 * corrected_fm / degraded_fm
     else:
-        return 1 - 0.5 * (1 - corrected_fm) / (1 - degraded_fm)
+        h = 1 - 0.5 * (1 - corrected_fm) / (1 - degraded_fm)
+
+    return h, corrected_fm
 
 
 def get_combined_fmeasure(df, gt_df, time_increment=40):
