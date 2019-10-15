@@ -89,6 +89,9 @@ class BaseTrainer:
         self.criterion = criterion
 
         self.log_file = log_file if log_file is not None else sys.stdout
+        # Defines the columns of self.log_file written in iteration
+        # best as an attribute of class as then can be used to head the file
+        self.log_cols = []
         self.batch_log_freq = batch_log_freq
         self.epoch_log_freq = epoch_log_freq
         
@@ -162,6 +165,7 @@ class ErrorDetectionTrainer(BaseTrainer):
             formatter=formatter,
             log_file=log_file
         )
+        self.log_cols = ['epoch', 'batch', 'mode', 'avg_loss', 'avg_acc']
 
     def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
@@ -247,17 +251,13 @@ class ErrorDetectionTrainer(BaseTrainer):
             }
             
             if self.batch_log_freq is not None:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
                 if self.batch_log_freq % ii == 0:
-                    print(','.join([str(log_info[kk]) for kk in ordered_log_keys]),
+                    print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
-                print(','.join([str(log_info[kk]) for kk in ordered_log_keys]),
+                print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                       file=self.log_file)
 
         if evaluate:
@@ -301,6 +301,7 @@ class ErrorClassificationTrainer(BaseTrainer):
             formatter=formatter,
             log_file=log_file
         )
+        self.log_cols = ['epoch', 'batch', 'mode', 'avg_loss', 'avg_acc']
 
     def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
@@ -379,19 +380,14 @@ class ErrorClassificationTrainer(BaseTrainer):
             }
             
             if self.batch_log_freq is not None:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
                 if self.batch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                    print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
-                if self.epoch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
-                          file=self.log_file)
+                print(','.join([str(log_info[kk]) for kk in self.log_cols]),
+                      file=self.log_file)
 
         if evaluate:
             print(f"Accuracy: {total_correct / total_element * 100}")
@@ -430,6 +426,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
             formatter=formatter,
             log_file=log_file
         )
+        self.log_cols = ['epoch', 'batch', 'mode', 'avg_loss', 'avg_acc']
 
     def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
@@ -516,19 +513,14 @@ class ErrorIdentificationTrainer(BaseTrainer):
             }
             
             if self.batch_log_freq is not None:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
                 if self.batch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                    print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
-                if self.epoch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
-                          file=self.log_file)
+                print(','.join([str(log_info[kk]) for kk in self.log_cols]),
+                      file=self.log_file)
 
         if evaluate:
             tp = total_true_pos
@@ -570,6 +562,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
             formatter=formatter,
             log_file=log_file
         )
+        self.log_cols = ['epoch', 'batch', 'mode', 'avg_loss', 'avg_acc']
 
     def iteration(self, epoch, data_loader, train=True, evaluate=False):
         """
@@ -652,8 +645,8 @@ class ErrorCorrectionTrainer(BaseTrainer):
             
             if evaluate:
                 total_data_points += len(input_data)
-                for in_data, out_data, clean_data in zip(input_data, model_output,
-                                                         labels):
+                for in_data, out_data, clean_data in \
+                        zip(input_data, model_output, labels):
                     deg_df = self.formatter['model_to_df'](
                         in_data.cpu().data.numpy(), min_pitch=21,
                         max_pitch=108, time_increment=40)
@@ -668,19 +661,14 @@ class ErrorCorrectionTrainer(BaseTrainer):
                     total_fm += f
             
             if self.batch_log_freq is not None:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
                 if self.batch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                    print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
-                ordered_log_keys = ['epoch', 'batch', 'mode', 
-                                    'avg_loss', 'avg_acc']
-                if self.epoch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
-                          file=self.log_file)
+                print(','.join([str(log_info[kk]) for kk in self.log_cols]),
+                      file=self.log_file)
 
         if evaluate:
             print(f"Helpfulness: {total_help / total_data_points}")
