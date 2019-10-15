@@ -111,7 +111,7 @@ class CommandDataset(Dataset):
         clean_len = len(clean_cmd)
         if clean_len > self.seq_len:
             warnings.warn(f"Clean command data point {item_nr_str} exceeds "
-                          f"given seq_len: {deg_len} > {self.seq_len}. "
+                          f"given seq_len: {clean_len} > {self.seq_len}. "
                           "Clipping.")
             clean_len = self.seq_len
             clean_cmd = clean_cmd[:self.seq_len]
