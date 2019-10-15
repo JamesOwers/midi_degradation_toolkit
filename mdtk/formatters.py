@@ -247,12 +247,12 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
                       f"{pianoroll.shape[1] / 2 + min_pitch - 1}.")
         max_pitch = pianoroll.shape[1] / 2 + min_pitch - 1
 
-    notes = []
+    df_notes = []
     active = [-1] * (max_pitch - min_pitch + 1) # Index of active note in notes
-    midpoint = pianoroll.shape[1] / 2
+    midpoint = int(pianoroll.shape[1] / 2)
 
-    for frame_num, (notes, onsets) in enumerate(zip(pianoroll[:midpoint],
-                                                    pianoroll[midpoint:])):
+    for frame_num, (notes, onsets) in enumerate(zip(pianoroll[:, :midpoint],
+                                                    pianoroll[:, midpoint:])):
         time = frame_num * time_increment
         note_pitches = np.where(notes == 1)[0]
         onset_pitches = np.where(onsets == 1)[0]
@@ -261,41 +261,48 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
         for pitch, idx in enumerate(active):
             if idx >= 0 and pitch not in note_pitches:
                 # Pitch doesn't continue
-                notes[idx]['dur'] = time - notes[idx]['onset']
+                df_notes[idx]['dur'] = time - df_notes[idx]['onset']
                 active[pitch] = -1
 
         # Check onsets for new notes/breaks in existing notes
         for pitch in onset_pitches:
             if active[pitch] >= 0:
                 # Pitch was active. Stop it here.
-                notes[active[pitch]]['dur'] = time - notes[active[pitch]]['onset']
+                df_notes[active[pitch]]['dur'] = (
+                    time -df_notes[active[pitch]]['onset']
+                )
 
             # Start new note
-            active[pitch] = len(notes)
-            notes.append({'onset': time,
-                          'pitch': pitch + min_pitch,
-                          'track': 0,
-                          'dur': None})
+            active[pitch] = len(df_notes)
+            df_notes.append({'onset': time,
+                             'pitch': pitch + min_pitch,
+                             'track': 0,
+                             'dur': None})
 
         # Find pitch presences that should've been onsets but weren't
         for pitch in note_pitches:
             if active[pitch] < 0:
                 # Pitch is supposed to be inactive, but there is a sustain
                 # Treat this as an onset
-                active[pitch] = len(notes)
-                notes.append({'onset': time,
-                              'pitch': pitch + min_pitch,
-                              'track': 0,
-                              'dur': None})
+                active[pitch] = len(df_notes)
+                df_notes.append({'onset': time,
+                                 'pitch': pitch + min_pitch,
+                                 'track': 0,
+                                 'dur': None})
 
     # Close any still open notes
     for idx in active:
         if idx >= 0:
-            notes[idx]['dur'] = len(frames) * time_increment - notes[idx]['onset']
+            df_notes[idx]['dur'] = (len(frames) * time_increment -
+                                    df_notes[idx]['onset'])
 
     # Create df
-    df = pd.DataFrame(notes)
-    df = df.sort_values(by=NOTE_DF_SORT_ORDER)[NOTE_DF_SORT_ORDER].reset_index(drop=True)
+    if len(df_notes) > 0:
+        df = pd.DataFrame(df_notes)
+        df = (df.sort_values(by=NOTE_DF_SORT_ORDER)[NOTE_DF_SORT_ORDER]
+              .reset_index(drop=True))
+    else:
+        df = pd.DataFrame(columns=NOTE_DF_SORT_ORDER).reset_index(drop=True)
     return df
 
 

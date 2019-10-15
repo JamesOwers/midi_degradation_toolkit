@@ -41,7 +41,7 @@ def helpfulness(corrected_df, degraded_df, clean_df, time_increment=40):
 
     # Quick exit on border cases
     if corrected_fm == 0 or corrected_fm == 1 or degraded_df.equals(clean_df):
-        return corrected_fm
+        return corrected_fm, corrected_fm
 
     degraded_fm = get_combined_fmeasure(degraded_df, clean_df,
                                         time_increment=time_increment)
@@ -113,8 +113,12 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
                           .round().astype(int).clip(lower=quant_df['onset'] + 1))
 
     # Create piano rolls
-    length = max(quant_df['offset'].max(), gt_quant_df['offset'].max())
-    max_pitch = max(quant_df['pitch'].max(), gt_quant_df['pitch'].max()) + 1
+    length = int(max(1,
+                     quant_df['offset'].max(),
+                     gt_quant_df['offset'].max()))
+    max_pitch = int(max(1,
+                        quant_df['pitch'].max(),
+                        gt_quant_df['pitch'].max()) + 1)
     pr = np.zeros((length, max_pitch))
     for _, note in quant_df.iterrows():
         pr[note.onset:note.offset, note.pitch] = 1
@@ -127,15 +131,19 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
     fp = np.sum(pr) - tp
     fn = np.sum(gt_pr) - tp
 
+    if tp + fp == 0 or tp + fn == 0:
+        return 0
     p = tp / (tp + fp)
     r = tp / (tp + fn)
+    if p + r == 0:
+        return 0
     fm = 2 * p * r / (p + r)
     return fm
 
 
 def get_notewise_f_measure(df, gt_df):
     """
-    Get the notewise F-measure of a dtaframe, given a ground truth dataframe.
+    Get the notewise F-measure of a dataframe, given a ground truth dataframe.
 
     Parameters
     ----------
