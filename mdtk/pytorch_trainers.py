@@ -59,8 +59,8 @@ class BaseTrainer:
         log_file : filehandle
             A file handle with a write method to write logs to
         """
-
-        # Setup cuda device for BERT training, argument -c, --cuda should be true
+        
+        # Set up cuda device
         self.device = torch.device("cpu")
         cuda_condition = torch.cuda.is_available()
         if with_cuda:
@@ -256,7 +256,9 @@ class ErrorDetectionTrainer(BaseTrainer):
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
 
-            data_iter.set_postfix(avg_loss=round(log_info['avg_loss'], ndigits=3)) 
+            data_iter.set_postfix(
+                avg_loss=round(log_info['avg_loss'], ndigits=3)
+            ) 
 
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
@@ -336,16 +338,17 @@ class ErrorClassificationTrainer(BaseTrainer):
         
         str_code = "train" if train else "test"
 
-        # Setting the tqdm progress bar
-        data_iter = tqdm.tqdm(enumerate(data_loader),
-                              desc=f"EP_{str_code}: {epoch}",
-                              total=len(data_loader),
-                              bar_format="{l_bar}{r_bar}")
-
         # Values to accumulate over the batch
         avg_loss = 0.0
         total_correct = 0
         total_element = 0
+        
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"{str_code} epoch {epoch}",
+                              postfix={'avg_loss': avg_loss},
+                              bar_format='{l_bar}{bar} batch {r_bar}',
+                              total=len(data_loader))
         
         for ii, data in data_iter:
             input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
@@ -386,6 +389,10 @@ class ErrorClassificationTrainer(BaseTrainer):
                 if self.batch_log_freq % ii == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
+
+            data_iter.set_postfix(
+                avg_loss=round(log_info['avg_loss'], ndigits=3)
+            )
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
@@ -461,12 +468,6 @@ class ErrorIdentificationTrainer(BaseTrainer):
         
         str_code = "train" if train else "test"
 
-        # Setting the tqdm progress bar
-        data_iter = tqdm.tqdm(enumerate(data_loader),
-                              desc=f"EP_{str_code}: {epoch}",
-                              total=len(data_loader),
-                              bar_format="{l_bar}{r_bar}")
-
         # Values to accumulate over the batch
         avg_loss = 0.0
         total_correct = 0
@@ -474,6 +475,13 @@ class ErrorIdentificationTrainer(BaseTrainer):
         total_positive = 0
         total_positive_labels = 0
         total_true_pos = 0
+
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"{str_code} epoch {epoch}",
+                              postfix={'avg_loss': avg_loss},
+                              bar_format='{l_bar}{bar} batch {r_bar}',
+                              total=len(data_loader))
         
         for ii, data in data_iter:
             # N tensors of integers representing (potentially) degraded midi
@@ -519,6 +527,10 @@ class ErrorIdentificationTrainer(BaseTrainer):
                 if self.batch_log_freq % ii == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
+
+            data_iter.set_postfix(
+                avg_loss=round(log_info['avg_loss'], ndigits=3)
+            )
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
@@ -597,12 +609,6 @@ class ErrorCorrectionTrainer(BaseTrainer):
         
         str_code = "train" if train else "test"
 
-        # Setting the tqdm progress bar
-        data_iter = tqdm.tqdm(enumerate(data_loader),
-                              desc=f"EP_{str_code}: {epoch}",
-                              total=len(data_loader),
-                              bar_format="{l_bar}{r_bar}")
-
         # Values to accumulate over the batch
         avg_loss = 0.0
         total_correct = 0
@@ -610,6 +616,13 @@ class ErrorCorrectionTrainer(BaseTrainer):
         total_help = 0
         total_fm = 0
         total_data_points = 0
+
+        # Setting the tqdm progress bar
+        data_iter = tqdm.tqdm(enumerate(data_loader),
+                              desc=f"{str_code} epoch {epoch}",
+                              postfix={'avg_loss': avg_loss},
+                              bar_format='{l_bar}{bar} batch {r_bar}',
+                              total=len(data_loader))
         
         for ii, data in data_iter:
             input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
@@ -667,6 +680,10 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 if self.batch_log_freq % ii == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
                           file=self.log_file)
+
+            data_iter.set_postfix(
+                avg_loss=round(log_info['avg_loss'], ndigits=3)
+            )
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
