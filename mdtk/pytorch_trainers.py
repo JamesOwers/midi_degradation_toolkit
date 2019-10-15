@@ -250,16 +250,15 @@ class ErrorDetectionTrainer(BaseTrainer):
                 ordered_log_keys = ['epoch', 'batch', 'mode', 
                                     'avg_loss', 'avg_acc']
                 if self.batch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                    print(','.join([str(log_info[kk]) for kk in ordered_log_keys]),
                           file=self.log_file)
         
         if self.epoch_log_freq is not None:
             if epoch % self.epoch_log_freq == 0:
                 ordered_log_keys = ['epoch', 'batch', 'mode', 
                                     'avg_loss', 'avg_acc']
-                if self.epoch_log_freq % ii == 0:
-                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
-                          file=self.log_file)
+                print(','.join([str(log_info[kk]) for kk in ordered_log_keys]),
+                      file=self.log_file)
 
         if evaluate:
             tp = total_true_pos
@@ -267,7 +266,6 @@ class ErrorDetectionTrainer(BaseTrainer):
             fp = total_positive - tp
             p, r, f = get_f1(tp, fp, fn)
             print(f"P, R, F-measure: {p}, {r}, {f}")
-        
         
         return log_info
             

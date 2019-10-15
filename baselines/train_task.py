@@ -13,6 +13,24 @@ from mdtk.pytorch_datasets import transform_to_torchtensor
 from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
 
 
+
+## For dev mode warnings...
+#import sys
+#if not sys.warnoptions:
+#    import warnings
+#    warnings.simplefilter("always") # Change the filter in this process
+#    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
+
+
+# For user mode warnings...
+import sys
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore") # Change the filter in this process
+    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
+    
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -239,8 +257,12 @@ if __name__ == '__main__':
         print("Attempting to train on CPU")
     
     if args.log_file is not None:
-        log_fh = open(args.log_file, 'a')
+        print(f'Writing logs to {args.log_file}')
+        if os.path.exists(args.log_file):
+            print(f'Warning: {args.log_file} already exists, overwriting.')
+        log_fh = open(args.log_file, 'w')
     else:
+        print('Logging to stdout')
         log_fh = None
     
     trainer = Trainer(
