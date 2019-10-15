@@ -94,7 +94,36 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
     f_measure : float
         The framewise f_measure of the given dataframe.
     """
-    raise NotImplementedError()
+    gt_quant_df = df.loc[:, ['pitch']]
+    gt_quant_df['onset'] = (gt_df['onset'] / time_increment).round().astype(int)
+    gt_quant_df['offset'] = (((gt_df['onset'] + gt_df['dur']) / time_increment)
+                             .round().astype(int)
+                             .clip(lower=gt_quant_df['onset'] + 1))
+
+    quant_df = df.loc[:, ['pitch']]
+    quant_df['onset'] = (df['onset'] / time_increment).round().astype(int)
+    quant_df['offset'] = (((df['onset'] + df['dur']) / time_increment)
+                          .round().astype(int).clip(lower=quant_df['onset'] + 1))
+
+    # Create piano rolls
+    length = max(quant_df['offset'].max(), gt_quant_df['offset'].max())
+    max_pitch = max(quant_df['pitch'].max(), gt_quant_df['pitch'].max()) + 1
+    pr = np.zeros((length, max_pitch))
+    for _, note in quant_df.iterrows():
+        pr[note.onset:note.offset, note.pitch] = 1
+
+    gt_pr = np.zeros((length, max_pitch))
+    for _, note in gt_quant_df.iterrows():
+        gt_pr[note.onset:note.offset, note.pitch] = 1
+
+    tp = np.sum(np.logical_and(gt_pr, pr))
+    fp = np.sum(pr) - tp
+    fn = np.sum(gt_pr) - tp
+
+    p = tp / (tp + fp)
+    r = tp / (tp + fn)
+    fm = 2 * p * r / (p + r)
+    return fm
 
 
 def get_notewise_f_measure(df, gt_df):
