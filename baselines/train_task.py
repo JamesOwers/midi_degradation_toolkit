@@ -260,7 +260,9 @@ if __name__ == '__main__':
     
     if args.log_file is not None:
         print(f'Writing logs to {args.log_file}')
-        log_fh = open(args.log_file, 'a')
+        if os.path.exists(args.log_file):
+            print(f'Warning: {args.log_file} already exists, overwriting.')
+        log_fh = open(args.log_file, 'w')
     else:
         print('Logging to stdout')
         log_fh = None
