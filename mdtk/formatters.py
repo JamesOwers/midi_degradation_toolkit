@@ -4,6 +4,7 @@ import tqdm
 import pandas as pd
 import numpy as np
 import os
+import warnings
 
 from mdtk.data_structures import NOTE_DF_SORT_ORDER
 
@@ -245,7 +246,7 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
         warnings.warn("max_pitch doesn't match pianoroll shape and min_pitch. "
                       "Setting max_pitch to "
                       f"{pianoroll.shape[1] / 2 + min_pitch - 1}.")
-        max_pitch = pianoroll.shape[1] / 2 + min_pitch - 1
+        max_pitch = int(pianoroll.shape[1] / 2 + min_pitch - 1)
 
     df_notes = []
     active = [-1] * (max_pitch - min_pitch + 1) # Index of active note in notes

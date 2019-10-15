@@ -4,6 +4,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 import numpy as np
 import tqdm
+from mdtk.eval import helpfulness
 
 
 
@@ -357,10 +358,10 @@ class ErrorClassificationTrainer(BaseTrainer):
 
             log_info = {
                 "epoch": epoch,
-                "iter": ii,
+                "batch": ii,
+                "mode": str_code,
                 "avg_loss": avg_loss / (ii + 1),
-                "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "avg_acc": total_correct / total_element * 100
             }
             
             if self.batch_log_freq is not None:
@@ -484,10 +485,10 @@ class ErrorIdentificationTrainer(BaseTrainer):
 
             log_info = {
                 "epoch": epoch,
-                "iter": ii,
+                "batch": ii,
+                "mode": str_code,
                 "avg_loss": avg_loss / (ii + 1),
-                "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "avg_acc": total_correct / total_element * 100
             }
             
             if self.batch_log_freq is not None:
@@ -610,11 +611,31 @@ class ErrorCorrectionTrainer(BaseTrainer):
 
             log_info = {
                 "epoch": epoch,
-                "iter": ii,
+                "batch": ii,
+                "mode": str_code,
                 "avg_loss": avg_loss / (ii + 1),
-                "avg_acc": total_correct / total_element * 100,
-                "loss": loss.item()
+                "avg_acc": total_correct / total_element * 100
             }
+            
+            # Example for eval
+            if not train:
+                h_list = []
+                f_list = []
+                for i in range(len(input_data)):
+                    deg_df = self.formatter['model_to_df'](
+                        input_data[1].cpu().data.numpy(), min_pitch=21,
+                        max_pitch=108, time_increment=40)
+                    model_out_df = self.formatter['model_to_df'](
+                        model_output[1].cpu().data.numpy(), min_pitch=21,
+                        max_pitch=108, time_increment=40)
+                    clean_df = self.formatter['model_to_df'](
+                        labels[1].cpu().data.numpy(), min_pitch=21,
+                        max_pitch=108, time_increment=40)
+                    h, f = helpfulness(model_out_df, deg_df, clean_df)
+                    h_list.append(h)
+                    f_list.append(f)
+                    if h + f > 0:
+                        print(h, f)
             
             if self.batch_log_freq is not None:
                 ordered_log_keys = ['epoch', 'batch', 'mode', 
