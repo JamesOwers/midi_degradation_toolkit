@@ -1,5 +1,6 @@
 """Module containing methods to evaluate performance on Error Correction"""
 from mir_eval.transcription import precision_recall_f1_overlap
+import numpy as np
 
 
 def helpfulness(corrected_df, degraded_df, clean_df, time_increment=40):
@@ -94,7 +95,7 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
     f_measure : float
         The framewise f_measure of the given dataframe.
     """
-    gt_quant_df = df.loc[:, ['pitch']]
+    gt_quant_df = gt_df.loc[:, ['pitch']]
     gt_quant_df['onset'] = (gt_df['onset'] / time_increment).round().astype(int)
     gt_quant_df['offset'] = (((gt_df['onset'] + gt_df['dur']) / time_increment)
                              .round().astype(int)
