@@ -363,11 +363,23 @@ class ErrorClassificationTrainer(BaseTrainer):
                 "loss": loss.item()
             }
             
-            if ii % self.batch_log_freq == 0:
-                data_iter.write(str(post_fix))
+            if self.batch_log_freq is not None:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.batch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
         
-        if epoch % self.epoch_log_freq == 0:
-            data_iter.write(str(post_fix))
+        if self.epoch_log_freq is not None:
+            if epoch % self.epoch_log_freq == 0:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.epoch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
+        
+        return log_info
+            
 #        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
 #              total_correct * 100.0 / total_element)
 
@@ -478,11 +490,23 @@ class ErrorIdentificationTrainer(BaseTrainer):
                 "loss": loss.item()
             }
             
-            if ii % self.batch_log_freq == 0:
-                data_iter.write(str(post_fix))
+            if self.batch_log_freq is not None:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.batch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
         
-        if epoch % self.epoch_log_freq == 0:
-            data_iter.write(str(post_fix))
+        if self.epoch_log_freq is not None:
+            if epoch % self.epoch_log_freq == 0:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.epoch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
+        
+        return log_info
+            
 #        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
 #              total_correct * 100.0 / total_element)
 
@@ -592,10 +616,22 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 "loss": loss.item()
             }
             
-            if ii % self.batch_log_freq == 0:
-                data_iter.write(str(post_fix))
+            if self.batch_log_freq is not None:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.batch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
         
-        if epoch % self.epoch_log_freq == 0:
-            data_iter.write(str(post_fix))
+        if self.epoch_log_freq is not None:
+            if epoch % self.epoch_log_freq == 0:
+                ordered_log_keys = ['epoch', 'batch', 'mode', 
+                                    'avg_loss', 'avg_acc']
+                if self.epoch_log_freq % ii == 0:
+                    print(','.join([log_info[kk] for kk in ordered_log_keys]),
+                          file=self.log_file)
+        
+        return log_info
+            
 #        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
 #              total_correct * 100.0 / total_element)
