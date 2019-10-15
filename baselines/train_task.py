@@ -4,6 +4,8 @@
 import argparse
 import os
 
+import numpy as np
+
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
@@ -59,8 +61,10 @@ def parse_args():
                         help="number of epochs")
     parser.add_argument("-w", "--num_workers", type=int, default=4,
                         help="dataloader worker size")
-
-    parser.add_argument("--with_cuda", action='store_true', help="Train with CUDA.")
+    parser.add_argument("--with_cpu", action='store_true', default=False,
+                        help="Train with CPU, default is to try and use CUDA. "
+                        "A warning will be thrown if CUDA is not available, "
+                        "and CPU used in that case.")
     parser.add_argument("--cuda_devices", type=int, nargs='+',
                         default=None, help="CUDA device ids")
     parser.add_argument("--batch_log_freq", default='10',
@@ -71,7 +75,12 @@ def parse_args():
                         "means no logging.")
     parser.add_argument("--in_memory", type=bool, default=True,
                         help="Loading on memory: true or false")
-
+    parser.add_argument("--early_stopping", type=int, default=50,
+                        help="Will stop training after this number of epochs "
+                        "with no improvement to the validation loss")
+    parser.add_argument("--log_file", type=str, default=None,
+                        help="Path to file for logging losses.")
+    
     # Optimizer args
     parser.add_argument("--lr", type=float, default=1e-4,
                         help="learning rate of adam")
@@ -225,6 +234,17 @@ if __name__ == '__main__':
     #       train. Low prio and argument this shouldn't be done (test set
     #       should rarely be viewed, so should be accessed once in blue
     #       moon...not at the end of each training session!)
+    with_cuda = not args.with_cpu
+    if with_cuda:
+        print("Attempting to train on GPU")
+    else:
+        print("Attempting to train on CPU")
+    
+    if args.log_file is not None:
+        log_fh = open(args.log_file, 'a')
+    else:
+        log_fh = None
+    
     trainer = Trainer(
         model=model,
         criterion=Criterion,
@@ -233,21 +253,34 @@ if __name__ == '__main__':
         lr=args.lr,
         betas=(args.b1, args.b2),
         weight_decay=args.weight_decay,
-        with_cuda=args.with_cuda,
+        with_cuda=with_cuda,
         batch_log_freq=batch_log_freq,
         epoch_log_freq=epoch_log_freq,
-        formatter=FORMATTERS[args.format]
+        formatter=FORMATTERS[args.format],
+        log_file=log_fh
     )
     
     print("Training Start")
     print(f"Running {args.epochs} epochs")
-    # TODO: implement early stopping in Trainers
+    print(f"Will stop training if no improvement in validation loss for "
+          f"{args.early_stopping} epochs.")
     # TODO: implement a catch for ctrl+c in Trainers which saves current mdl
+    best_vld_loss = np.inf
+    best_vld_epoch = 0
     for epoch in range(args.epochs):
-        # I test before train as then both train and test values are using
-        # the same set of parameters for the same epoch number
-        if test_dataloader is not None:
-            trainer.test(epoch)
-        
-        trainer.train(epoch)
-        trainer.save(epoch, args.output)
+        trn_log_info = trainer.train(epoch)
+        vld_log_info = trainer.test(epoch)
+        if vld_log_info['avg_loss'] < best_vld_loss:
+            best_vld_loss = vld_log_info['avg_loss']
+            best_vld_epoch = epoch
+            trainer.save(f'{args.output}.best')
+        if epoch - best_vld_epoch >= args.early_stopping:
+            print("EARLY STOPPING")
+            print(f"No improvement in validation loss for "
+                  f"{args.early_stopping} epochs.")
+            break
+    print(f"Best epoch was {best_vld_epoch} with a loss of {best_vld_loss}.")
+    print(f"Best model saved at '{args.output}.best'.")
+
+    if log_fh is not None:
+        log_fh.close()
