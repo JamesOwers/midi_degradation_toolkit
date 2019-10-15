@@ -609,6 +609,9 @@ class ErrorCorrectionTrainer(BaseTrainer):
         avg_loss = 0.0
         total_correct = 0
         total_element = 0
+        total_help = 0
+        total_fm = 0
+        total_data_points = 0
         
         for ii, data in data_iter:
             input_lengths = np.array(data['deg_len']) if 'deg_len' in data else None
@@ -645,25 +648,22 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 "avg_acc": total_correct / total_element * 100
             }
             
-            # Example for eval
-            if not train:
-                h_list = []
-                f_list = []
-                for i in range(len(input_data)):
+            if evaluate:
+                total_data_points += len(input_data)
+                for in_data, out_data, clean_data in zip(input_data, model_output,
+                                                         labels):
                     deg_df = self.formatter['model_to_df'](
-                        input_data[1].cpu().data.numpy(), min_pitch=21,
+                        in_data.cpu().data.numpy(), min_pitch=21,
                         max_pitch=108, time_increment=40)
                     model_out_df = self.formatter['model_to_df'](
-                        model_output[1].cpu().data.numpy(), min_pitch=21,
+                        out_data.cpu().data.numpy(), min_pitch=21,
                         max_pitch=108, time_increment=40)
                     clean_df = self.formatter['model_to_df'](
-                        labels[1].cpu().data.numpy(), min_pitch=21,
+                        clean_data.cpu().data.numpy(), min_pitch=21,
                         max_pitch=108, time_increment=40)
                     h, f = helpfulness(model_out_df, deg_df, clean_df)
-                    h_list.append(h)
-                    f_list.append(f)
-                    if h + f > 0:
-                        print(h, f)
+                    total_help += h
+                    total_fm += f
             
             if self.batch_log_freq is not None:
                 ordered_log_keys = ['epoch', 'batch', 'mode', 
@@ -679,6 +679,10 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 if self.epoch_log_freq % ii == 0:
                     print(','.join([log_info[kk] for kk in ordered_log_keys]),
                           file=self.log_file)
+
+        if evaluate:
+            print(f"Helpfulness: {total_help / total_data_points}")
+            print(f"F-measure: {total_fm / total_data_points}")
         
         return log_info
             
