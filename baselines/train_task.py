@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 
+import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
@@ -28,6 +29,53 @@ if not sys.warnoptions:
     import warnings
     warnings.simplefilter("ignore") # Change the filter in this process
     os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
+
+
+def get_inverse_weights(dataset, task, formatter, transform=torch.tensor):
+    """
+    Get class weights based on the inverse count of each class in the
+    given dataset.
+
+    Parameters
+    ----------
+    dataset : torch.Dataset
+        The dataset from which we want to set weights.
+        
+    task : int
+        The task number whose weights to return.
+        
+    formatter : dict
+        A formatter dict, from formatters.py.
+        
+    transform : func
+        A function to call on the returned object. If None, the returned
+        weights list is a numpy array.
+
+    Returns
+    -------
+    weights : torch.tensor or other
+        A list-like object of the relative weight we want to give to each
+        class label in the training set, based on its proportion. By default,
+        this is a torch.tensor, but depending on the given transofrm, it
+        can change.
+    """
+    key = formatter['task_labels'][task]
+    if key is None:
+        # This error will be caught later. Return None silently.
+        return None
+
+    labels = []
+    for data_point in dataset:
+        labels.extend([data_point[key]])
+    labels = np.array(labels)
+    if task == 1:
+        labels[labels > 1] = 1
+
+    counts = np.zeros(np.max(labels) + 1)
+    for num in range(len(counts)):
+        counts[num] = np.sum(labels == num)
+    weights = np.sum(counts) / counts
+    return weights if transform is None else transform(weights)
     
 
 
@@ -98,7 +146,10 @@ def parse_args():
                         "with no improvement to the validation loss")
     parser.add_argument("--log_file", type=str, default=None,
                         help="Path to file for logging losses.")
-    
+    parser.add_argument("--weight", action="store_true", help="Weight the "
+                        "target classes inverse to their frequency, to help with"
+                        " the skewed distribution.")
+
     # Optimizer args
     parser.add_argument("--lr", type=float, default=1e-4,
                         help="learning rate of adam")
@@ -266,6 +317,17 @@ if __name__ == '__main__':
     else:
         print('Logging to stdout')
         log_fh = sys.stdout
+        
+    if args.weight and args.task in [1, 2, 3]:
+        weights = get_inverse_weights(train_dataset, args.task,
+                                      FORMATTERS[args.format])
+        if with_cuda:
+            try:
+                weights = weights.to('cuda')
+            except: # Cuda not available. Leave on cpu.
+                pass
+        weights = weights.float()
+        Criterion = nn.CrossEntropyLoss(weight=weights)
     
     trainer = Trainer(
         model=model,
