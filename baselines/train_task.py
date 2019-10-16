@@ -59,14 +59,16 @@ def get_inverse_weights(dataset, task, formatter, transform=torch.tensor):
         this is a torch.tensor, but depending on the given transofrm, it
         can change.
     """
-    key = formatter['task_labels'][task]
+    print("Calculating label weights")
+    key = formatter['task_labels'][task-1]
     if key is None:
-        # This error will be caught later. Return None silently.
-        return None
+        # This error will be caught later
+        return np.zeros(0) if transform is None else transform(np.zeros(0))
 
     labels = []
     for data_point in dataset:
-        labels.extend([data_point[key]])
+        label = data_point[key].numpy()
+        labels.extend([label])
     labels = np.array(labels)
     if task == 1:
         labels[labels > 1] = 1
@@ -75,6 +77,7 @@ def get_inverse_weights(dataset, task, formatter, transform=torch.tensor):
     for num in range(len(counts)):
         counts[num] = np.sum(labels == num)
     weights = np.sum(counts) / counts
+    print(weights)
     return weights if transform is None else transform(weights)
     
 
