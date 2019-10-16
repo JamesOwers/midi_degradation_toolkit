@@ -159,7 +159,7 @@ if __name__ == '__main__':
                                  num_workers=args.num_workers)
     
     print(f"Loading model {args.model}")
-    model = torch.load(args.model)
+    model = torch.load(args.model, map_location='cpu')
         
     print("Creating Tester")
     with_cuda = not args.with_cpu
