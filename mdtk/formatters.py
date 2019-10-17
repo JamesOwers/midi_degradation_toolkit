@@ -242,6 +242,7 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
     df : pd.DataFrame
         A dataframe equal to the given pianoroll.
     """
+    
     if max_pitch != pianoroll.shape[1] / 2 + min_pitch - 1:
         warnings.warn("max_pitch doesn't match pianoroll shape and min_pitch. "
                       "Setting max_pitch to "
@@ -292,9 +293,10 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
                                  'dur': None})
 
     # Close any still open notes
+    frames = pianoroll.shape[0]
     for idx in active:
         if idx >= 0:
-            df_notes[idx]['dur'] = (len(frames) * time_increment -
+            df_notes[idx]['dur'] = (frames * time_increment -
                                     df_notes[idx]['onset'])
 
     # Create df
