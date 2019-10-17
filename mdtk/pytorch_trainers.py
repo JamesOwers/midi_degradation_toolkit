@@ -687,7 +687,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
                         in_data.cpu().data.numpy(), min_pitch=21,
                         max_pitch=108, time_increment=40)
                     model_out_df = self.formatter['model_to_df'](
-                        out_data.cpu().data.numpy(), min_pitch=21,
+                        out_data.round().cpu().data.numpy(), min_pitch=21,
                         max_pitch=108, time_increment=40)
                     clean_df = self.formatter['model_to_df'](
                         clean_data.cpu().data.numpy(), min_pitch=21,
