@@ -198,7 +198,7 @@ class ErrorDetectionTrainer(BaseTrainer):
         str_code = "train" if train else "test"
 
         # Values to accumulate over the batch
-        avg_loss = 0.0
+        total_loss = 0.0
         total_correct = 0
         total_element = 0
         total_positive = 0
@@ -208,7 +208,7 @@ class ErrorDetectionTrainer(BaseTrainer):
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
                               desc=f"{str_code} epoch {epoch}",
-                              postfix={'avg_loss': avg_loss},
+                              postfix={'avg_loss': 0},
                               bar_format='{l_bar}{bar} batch {r_bar}',
                               total=len(data_loader))
 
@@ -231,12 +231,15 @@ class ErrorDetectionTrainer(BaseTrainer):
             # values for logging
             correct = model_output.argmax(dim=-1).eq(labels).sum().item()
             true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
-            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+            total_loss += loss.item() * labels.nelement() 
+                                     # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
                                      # of batches does not give you the true
                                      # mean loss (though it is at least an
                                      # unbiased estimate...)
+                                     # Using total rather than sum to account
+                                     # For the last batch being a different size
             total_correct += correct
             total_element += labels.nelement()
             total_positive += model_output.argmax(dim=-1).sum().item()
@@ -247,7 +250,7 @@ class ErrorDetectionTrainer(BaseTrainer):
                 "epoch": epoch,
                 "batch": ii,
                 "mode": str_code,
-                "avg_loss": avg_loss / (ii + 1),
+                "avg_loss": total_loss / total_element,
                 "avg_acc": total_correct / total_element * 100
             }
             
@@ -271,6 +274,8 @@ class ErrorDetectionTrainer(BaseTrainer):
             fp = total_positive - tp
             p, r, f = get_f1(tp, fp, fn)
             print(f"P, R, F-measure: {p}, {r}, {f}")
+            print(f"Avg loss: {total_loss / total_element}")
+            
         
         return log_info
             
@@ -339,14 +344,14 @@ class ErrorClassificationTrainer(BaseTrainer):
         str_code = "train" if train else "test"
 
         # Values to accumulate over the batch
-        avg_loss = 0.0
+        total_loss = 0
         total_correct = 0
         total_element = 0
         
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
                               desc=f"{str_code} epoch {epoch}",
-                              postfix={'avg_loss': avg_loss},
+                              postfix={'avg_loss': 0},
                               bar_format='{l_bar}{bar} batch {r_bar}',
                               total=len(data_loader))
         
@@ -368,12 +373,15 @@ class ErrorClassificationTrainer(BaseTrainer):
 
             # values for logging
             correct = model_output.argmax(dim=-1).eq(labels).sum().item()
-            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+            total_loss += loss.item() * labels.nelement() 
+                                     # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
                                      # of batches does not give you the true
                                      # mean loss (though it is at least an
                                      # unbiased estimate...)
+                                     # Using total rather than sum to account
+                                     # For the last batch being a different size
             total_correct += correct
             total_element += labels.nelement()
 
@@ -381,7 +389,7 @@ class ErrorClassificationTrainer(BaseTrainer):
                 "epoch": epoch,
                 "batch": ii,
                 "mode": str_code,
-                "avg_loss": avg_loss / (ii + 1),
+                "avg_loss": total_loss / total_element,
                 "avg_acc": total_correct / total_element * 100
             }
             
@@ -401,6 +409,7 @@ class ErrorClassificationTrainer(BaseTrainer):
 
         if evaluate:
             print(f"Accuracy: {total_correct / total_element * 100}")
+            print(f"Avg loss: {total_loss / total_element}")
         
         return log_info
             
@@ -469,7 +478,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
         str_code = "train" if train else "test"
 
         # Values to accumulate over the batch
-        avg_loss = 0.0
+        total_loss = 0
         total_correct = 0
         total_element = 0
         total_positive = 0
@@ -479,7 +488,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
                               desc=f"{str_code} epoch {epoch}",
-                              postfix={'avg_loss': avg_loss},
+                              postfix={'avg_loss': 0},
                               bar_format='{l_bar}{bar} batch {r_bar}',
                               total=len(data_loader))
         
@@ -503,12 +512,15 @@ class ErrorIdentificationTrainer(BaseTrainer):
             # values for logging
             correct = model_output.argmax(dim=-1).eq(labels).sum().item()
             true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
-            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+            total_loss += loss.item() * labels.nelement() 
+                                     # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
                                      # of batches does not give you the true
                                      # mean loss (though it is at least an
                                      # unbiased estimate...)
+                                     # Using total rather than sum to account
+                                     # For the last batch being a different size
             total_correct += correct
             total_element += labels.nelement()
             total_positive += model_output.argmax(dim=-1).sum().item()
@@ -519,7 +531,7 @@ class ErrorIdentificationTrainer(BaseTrainer):
                 "epoch": epoch,
                 "batch": ii,
                 "mode": str_code,
-                "avg_loss": avg_loss / (ii + 1),
+                "avg_loss": total_loss / total_element,
                 "avg_acc": total_correct / total_element * 100
             }
             
@@ -541,7 +553,9 @@ class ErrorIdentificationTrainer(BaseTrainer):
             tp = total_true_pos
             fn = total_positive_labels - tp
             fp = total_positive - tp
-            print(f"F-measure: {get_f1(tp, fp, fn)}")
+            p, r, f = get_f1(tp, fp, fn)
+            print(f"P, R, F-measure: {p}, {r}, {f}")
+            print(f"Avg loss: {total_loss / total_element}")
         
         return log_info
             
@@ -610,7 +624,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
         str_code = "train" if train else "test"
 
         # Values to accumulate over the batch
-        avg_loss = 0.0
+        total_loss = 0
         total_correct = 0
         total_element = 0
         total_help = 0
@@ -620,7 +634,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
                               desc=f"{str_code} epoch {epoch}",
-                              postfix={'avg_loss': avg_loss},
+                              postfix={'avg_loss': 0},
                               bar_format='{l_bar}{bar} batch {r_bar}',
                               total=len(data_loader))
         
@@ -642,12 +656,15 @@ class ErrorCorrectionTrainer(BaseTrainer):
 
             # values for logging
             correct = model_output.round().eq(labels).sum().item()
-            avg_loss += loss.item()  # N.B. if loss is using reduction='mean'
+            total_loss += loss.item() * labels.nelement() 
+                                     # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
                                      # of batches does not give you the true
                                      # mean loss (though it is at least an
                                      # unbiased estimate...)
+                                     # Using total rather than sum to account
+                                     # For the last batch being a different size
             total_correct += correct
             total_element += labels.nelement()
 
@@ -655,7 +672,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 "epoch": epoch,
                 "batch": ii,
                 "mode": str_code,
-                "avg_loss": avg_loss / (ii + 1),
+                "avg_loss": total_loss / total_element,
                 "avg_acc": total_correct / total_element * 100
             }
             
@@ -693,6 +710,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
         if evaluate:
             print(f"Helpfulness: {total_help / total_data_points}")
             print(f"F-measure: {total_fm / total_data_points}")
+            print(f"Avg loss: {total_loss / total_element}")
         
         return log_info
             
