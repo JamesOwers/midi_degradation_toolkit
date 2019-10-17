@@ -36,7 +36,7 @@ if not sys.warnoptions:
 
 # TODO: get formatter out of Trainer
 # TODO: remove eval arg from Trainer iteration method and do eval outside
-def parse_args():
+def construct_parser():
     parser = argparse.ArgumentParser()
 
     # Filepath stuff
@@ -53,7 +53,7 @@ def parse_args():
                         f'{list(FORMATTERS.keys())}. Required if --baseline '
                         'is not given.')
 
-    parser.add_argument("--task", required=True, choices=range(1, 5), help='The '
+    parser.add_argument("-t", "--task", required=True, choices=range(1, 5), help='The '
                         'task number to train a model for.', type=int)
 
     parser.add_argument("--baseline", action='store_true', help='Ignore all '
@@ -65,6 +65,8 @@ def parse_args():
                         help="maximum sequence length.")
 
     # Training/DataLoading args
+    parser.add_argument("--splits", nargs='+', default=['test'],
+                        help="which splits to evaluate: train, valid, test.")
     parser.add_argument("-b", "--batch_size", type=int, default=64,
                         help="number of batch_size")
     parser.add_argument("-w", "--num_workers", type=int, default=4,
@@ -83,35 +85,10 @@ def parse_args():
                         help="Minimum pianoroll pitch")
     parser.add_argument("--pr-max-pitch", type=int, default=108,
                         help="Maximum pianoroll pitch")
-
-    args = parser.parse_args()
-    return args
+    return parser
 
 
-
-task_names = [
-    'ErrorDetection',
-    'ErrorClassification',
-    'ErrorIdentification',
-    'ErrorCorrection'
-]
-
-task_trainers = [
-    getattr(mdtk.pytorch_trainers, f'{task_name}Trainer')
-    for task_name in task_names
-]
-
-task_criteria = [
-    nn.CrossEntropyLoss(),
-    nn.CrossEntropyLoss(),
-    nn.CrossEntropyLoss(),
-    nn.BCEWithLogitsLoss(reduction='mean')
-]
-
-
-if __name__ == '__main__':
-    args = parse_args()
-    
+def main(args):
     if args.baseline:
         # Setup args for the baseline for args.task
         raise NotImplementedError(f"Baseline not created for task {args.task} yet.")
@@ -125,7 +102,11 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.join(args.input,
                                        f'test_{prefix}_corpus.csv')):
         create_corpus_csvs(args.input, FORMATTERS[args.format])
-    test_dataset = os.path.join(args.input, f'test_{prefix}_corpus.csv')
+    dataset_path = {
+        'train': os.path.join(args.input, f'train_{prefix}_corpus.csv'),
+        'valid': os.path.join(args.input, f'valid_{prefix}_corpus.csv'),
+        'test': os.path.join(args.input, f'test_{prefix}_corpus.csv')
+    }
     
     task_idx = args.task - 1
     task_name = task_names[task_idx]
@@ -148,15 +129,20 @@ if __name__ == '__main__':
             'min_pitch': args.pr_min_pitch,
             'max_pitch': args.pr_max_pitch
         }
+    
+    dataset = {}
+    dataloader = {}
+    for split in args.splits:
+        path = dataset_path[split]
+        print(f"Loading {split} {Dataset.__name__} from {path}")
+        
+        dataset[split] = Dataset(path, *dataset_args, **dataset_kwargs,
+                                 in_memory=args.in_memory,
+                                 transform=transform_to_torchtensor)
 
-    print(f"Loading test {Dataset.__name__} from {test_dataset}")
-    test_dataset = Dataset(test_dataset, *dataset_args, **dataset_kwargs,
-                           in_memory=args.in_memory,
-                           transform=transform_to_torchtensor)
-
-    print(f"Creating test DataLoaders")
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size,
-                                 num_workers=args.num_workers)
+        print(f"Creating {split} DataLoader")
+        dataloader[split] = DataLoader(dataset[split], batch_size=args.batch_size,
+                                       num_workers=args.num_workers)
     
     print(f"Loading model {args.model}")
     model = torch.load(args.model, map_location='cpu')
@@ -168,17 +154,47 @@ if __name__ == '__main__':
     else:
         print("Attempting to test on CPU")
     
-    trainer = Trainer(
-        model=model,
-        criterion=Criterion,
-        train_dataloader=None,
-        test_dataloader=test_dataloader,
-        with_cuda=with_cuda,
-        batch_log_freq=None,
-        epoch_log_freq=None,
-        formatter=FORMATTERS[args.format],
-        log_file=None
-    )
-    
-    print("Testing Start")
-    trainer.test(0, evaluate=True)
+    split_log_info = {}
+    for split in args.splits:
+        trainer = Trainer(
+            model=model,
+            criterion=Criterion,
+            train_dataloader=None,
+            test_dataloader=dataloader[split],
+            with_cuda=with_cuda,
+            batch_log_freq=None,
+            epoch_log_freq=None,
+            formatter=FORMATTERS[args.format],
+            log_file=None
+        )
+        print(f"Evaluating {split} split")
+        log_info = trainer.test(0, evaluate=True)
+        split_log_info[split] = log_info
+    return split_log_info
+
+
+task_names = [
+    'ErrorDetection',
+    'ErrorClassification',
+    'ErrorIdentification',
+    'ErrorCorrection'
+]
+
+task_trainers = [
+    getattr(mdtk.pytorch_trainers, f'{task_name}Trainer')
+    for task_name in task_names
+]
+
+task_criteria = [
+    nn.CrossEntropyLoss(),
+    nn.CrossEntropyLoss(),
+    nn.CrossEntropyLoss(),
+    nn.BCEWithLogitsLoss(reduction='mean')
+]
+
+
+
+if __name__ == '__main__':
+    parser = construct_parser()
+    args = parser.parse_args()
+    main(args)
