@@ -272,8 +272,11 @@ class ErrorDetectionTrainer(BaseTrainer):
             tp = total_true_pos
             fn = total_positive_labels - tp
             fp = total_positive - tp
+            tn = total_element - tp - fn - fp
             p, r, f = get_f1(tp, fp, fn)
+            rev_p, rev_r, rev_f = get_f1(tn, fn, fp)
             print(f"P, R, F-measure: {p}, {r}, {f}")
+            print(f"Reverse P, R, F-measure: {rev_p}, {rev_r}, {rev_f}")
             print(f"Avg loss: {total_loss / total_element}")
             
         
