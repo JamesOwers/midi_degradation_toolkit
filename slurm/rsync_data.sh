@@ -29,7 +29,7 @@ export SCRATCH_HOME=/disk/scratch/${STUDENT_ID}
 mkdir -p ${SCRATCH_HOME}
 export TMPDIR=${SCRATCH_HOME}
 export TMP=${SCRATCH_HOME}
-export CLUSTER_HOME=/mnt/cdtds_cluster_home/${STUDENT_ID}
+export CLUSTER_HOME=$HOME
 
 code_repo_home=${CLUSTER_HOME}/git/midi_degradation_toolkit
 output_dir=${code_repo_home}/output
