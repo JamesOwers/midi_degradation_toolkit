@@ -275,11 +275,16 @@ class ErrorDetectionTrainer(BaseTrainer):
             tn = total_element - tp - fn - fp
             p, r, f = get_f1(tp, fp, fn)
             rev_p, rev_r, rev_f = get_f1(tn, fn, fp)
+            log_info['p'] = p
+            log_info['r'] = r
+            log_info['f'] = f
+            log_info['rev_p'] = rev_p
+            log_info['rev_r'] = rev_r
+            log_info['rev_f'] = rev_f
             print(f"P, R, F-measure: {p}, {r}, {f}")
             print(f"Reverse P, R, F-measure: {rev_p}, {rev_r}, {rev_f}")
             print(f"Avg loss: {total_loss / total_element}")
             
-        
         return log_info
             
 #        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
@@ -557,6 +562,9 @@ class ErrorIdentificationTrainer(BaseTrainer):
             fn = total_positive_labels - tp
             fp = total_positive - tp
             p, r, f = get_f1(tp, fp, fn)
+            log_info['p'] = p
+            log_info['r'] = r
+            log_info['f'] = f
             print(f"P, R, F-measure: {p}, {r}, {f}")
             print(f"Avg loss: {total_loss / total_element}")
         
@@ -711,8 +719,12 @@ class ErrorCorrectionTrainer(BaseTrainer):
                       file=self.log_file)
 
         if evaluate:
-            print(f"Helpfulness: {total_help / total_data_points}")
-            print(f"F-measure: {total_fm / total_data_points}")
+            helpfulness_val = total_help / total_data_points
+            fmeasure = total_fm / total_data_points
+            log_info['helpfulness'] = helpfulness_val
+            log_info['fmeasure'] = fmeasure
+            print(f"Helpfulness: {helpfulness_val}")
+            print(f"F-measure: {fmeasure}")
             print(f"Avg loss: {total_loss / total_element}")
         
         return log_info
