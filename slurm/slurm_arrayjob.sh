@@ -12,8 +12,8 @@
 #SBATCH -n 1	  # tasks requested
 #SBATCH --gres=gpu:1  # use 1 GPU
 #SBATCH --mem=14000  # memory in Mb
-#SBATCH -t 06:00:00  # time requested in hour:minute:seconds
-#SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
+#SBATCH -t 04:00:00  # time requested in hour:minute:seconds
+#SBATCH --cpus-per-task=8  # number of cpus to use - there are 32 on each node.
 # #SBATCH --exclude=charles15  # Had an outdated nvidia driver, fixed now
 
 
