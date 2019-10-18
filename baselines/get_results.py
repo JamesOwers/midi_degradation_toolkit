@@ -308,18 +308,18 @@ def main(args):
     
     # Hard coded dumb-baseline results
     rule_based = {
-        'task1': ['Error Detection', 'Rule-based', 0.466, 0.00],
-        'task2': ['Error Classification', 'Rule-based', 2.197, 0.113],
-        'task3': ['Error Identification', 'Rule-based', 0.404, 0.00],
-        'task4': ['Error Correction', 'Rule-based', 0.690, 0.590],
+        'task1': ['ErrorDetection', 'Rule-based', 0.466, 0.00],
+        'task2': ['ErrorClassification', 'Rule-based', 2.197, 0.113],
+        'task3': ['ErrorIdentification', 'Rule-based', 0.404, 0.00],
+        'task4': ['ErrorCorrection', 'Rule-based', 0.690, 0.590],
     }
     rule_based_df = pd.DataFrame.from_dict(
         rule_based, orient='index', 
         columns=['Task', 'Model', 'Loss', 'Metric']
     )
     
-    task_cat = ['Error Detection', 'Error Classification',
-                'Error Identification', 'Error Correction']
+    task_cat = ['ErrorDetection', 'ErrorClassification',
+                'ErrorIdentification', 'ErrorCorrection']
     summary_tab_ = pd.concat((summary_tab, rule_based_df))
     summary_tab_['Task'] = pd.Categorical(summary_tab_['Task'], categories=task_cat,
                                           ordered=True)
