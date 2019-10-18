@@ -158,6 +158,8 @@ def construct_parser():
     parser.add_argument("--task_desc", nargs='+',
                         help='description for each task to use in result '
                         'table')
+    parser.add_argument("--splits", nargs='+', default=['train', 'valid', 'test'],
+                        help="which splits to evaluate: train, valid, test.")
     return parser
     
     
@@ -177,7 +179,7 @@ def main(args):
     seq_len = dict(zip(task_names, args.seq_len))
     metrics = dict(zip(task_names, args.metrics))
     task_desc = dict(zip(task_names, args.task_desc))
-    
+    splits = args.splits
     
     results = {}
     mean_res = {}
@@ -266,7 +268,7 @@ def main(args):
             f"--format {formats[task_name]} "
             f"--task {task_name[4]} "
             f"--seq_len {seq_len[task_name]} "
-            f"--splits train valid test"
+            f"--splits {' '.join(splits)}"
     #         f"--splits test"
         )
         eval_args = eval_parser.parse_args(eval_args_str.split())
