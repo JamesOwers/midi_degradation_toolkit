@@ -13,6 +13,31 @@ from .eval_task import construct_parser as eval_construct_parser
 
 
 
+def plot_log_file(log_file, trn_kwargs=None, vld_kwargs=None):
+    df = pd.read_csv(log_file)
+    trn_df = df.loc[df['mode'] == 'train']
+    min_trn_loss = trn_df['avg_loss'].min()
+    min_trn_acc = trn_df['avg_acc'].max()
+    vld_df = df.loc[df['mode'] == 'test']
+    min_vld_loss = vld_df['avg_loss'].min()
+    min_vld_acc = vld_df['avg_acc'].max()
+    if trn_kwargs is None:
+        trn_kwargs = dict(
+            label=f'({min_trn_loss:.4f}, {min_trn_acc:.1f})')
+    elif 'label' in trn_kwargs:
+        trn_kwargs['label'] += f' ({min_trn_loss:.4f}, {min_trn_acc:.1f})'
+    if vld_kwargs is None:
+        vld_kwargs = dict(label=f'({min_vld_loss:.4f}, {min_vld_acc:.1f})')
+    elif 'label' in vld_kwargs:
+        vld_kwargs['label'] += f' ({min_vld_loss:.4f}, {min_vld_acc:.1f})'
+    plt.plot(trn_df['epoch'], trn_df['avg_loss'], **trn_kwargs)
+    plt.plot(vld_df['epoch'], vld_df['avg_loss'], **vld_kwargs)
+    plt.legend()
+    plt.xlabel('epoch')
+    plt.ylabel('average loss')
+    return trn_df, vld_df, (min_trn_loss, min_trn_acc, min_vld_loss, min_vld_acc)
+
+
 def plot_task_losses(output_dir, task_name, settings,
                      setting_names, save_plots=False):
     idx_cols = ['task_name', 'expt_name'] + setting_names + ['repeat']
@@ -30,20 +55,24 @@ def plot_task_losses(output_dir, task_name, settings,
         for repeat in range(3):
             expt_name = f'{task_name}__{"_".join(setting)}_{repeat}'
             log_file = f'{output_dir}/{task_name}/{expt_name}.log'
+            
+            plt.figure(setting_fig.number)
             try:
-                df = pd.read_csv(log_file)
+                trn_df, vld_df, losses = plot_log_file(
+                    log_file,
+                    trn_kwargs=dict(label=f'train {repeat}',
+                                    color='C0', alpha=alphas[repeat]),
+                    vld_kwargs=dict(label=f'valid {repeat}',
+                                    color='C1', alpha=alphas[repeat])
+                )
+                    
             except pd.errors.EmptyDataError:
                 print(f'{expt_name}.log found but empty')
                 continue
             except FileNotFoundError:
                 print(f'{expt_name}.log not found')
                 continue
-            trn_df = df.loc[df['mode'] == 'train']
-            min_trn_loss = trn_df['avg_loss'].min()
-            min_trn_acc = trn_df['avg_acc'].max()
-            vld_df = df.loc[df['mode'] == 'test']
-            min_vld_loss = vld_df['avg_loss'].min()
-            min_vld_acc = vld_df['avg_acc'].max()
+            min_trn_loss, min_trn_acc, min_vld_loss, min_vld_acc = losses
             idx = (task_name, expt_name) + setting + (str(repeat),)
             res.loc[idx, :] = [min_trn_loss, min_vld_loss, 
                                min_trn_acc, min_vld_acc]
@@ -51,17 +80,8 @@ def plot_task_losses(output_dir, task_name, settings,
             plt.figure(summary_fig.number)
             plt.plot(vld_df['epoch'], vld_df['avg_loss'],
                      color='C1', alpha=.2)
-            
-            plt.figure(setting_fig.number)
-            plt.plot(trn_df['epoch'], trn_df['avg_loss'],
-                     label=f'train {repeat} ({min_trn_loss:.4f}, {min_trn_acc:.1f})',
-                     color='C0', alpha=alphas[repeat])
-            plt.plot(vld_df['epoch'], vld_df['avg_loss'],
-                     label=f'valid {repeat} ({min_vld_loss:.4f}, {min_vld_acc:.1f})',
-                     color='C1', alpha=alphas[repeat])
-            plt.legend()
-            plt.xlabel('epoch')
-            plt.ylabel('average loss')
+        
+        plt.figure(setting_fig.number) 
         if save_plots:
             plt.savefig(f'{save_plots}/{task_name}__{lr}_{wd}_{hid}.png',
                         dpi=300)
@@ -233,23 +253,7 @@ def main(args):
                  for task, val in min_idx.items()}
     print(f"best models: {best_models}")
     for task_name, log_file in best_logs.items():
-        df = pd.read_csv(log_file)
-        trn_df = df.loc[df['mode'] == 'train']
-        min_trn_loss = trn_df['avg_loss'].min()
-        min_trn_acc = trn_df['avg_acc'].max()
-        vld_df = df.loc[df['mode'] == 'test']
-        min_vld_loss = vld_df['avg_loss'].min()
-        min_vld_acc = vld_df['avg_acc'].max()
-        plt.figure()
-        plt.plot(trn_df['epoch'], trn_df['avg_loss'],
-                 label=f'train ({min_trn_loss:.4f}, {min_trn_acc:.1f})',
-                 color='C0')
-        plt.plot(vld_df['epoch'], vld_df['avg_loss'],
-                 label=f'valid ({min_vld_loss:.4f}, {min_vld_acc:.1f})',
-                 color='C1')
-        plt.legend()
-        plt.xlabel('epoch')
-        plt.ylabel('average loss')
+        plot_log_file(log_file)
         plt.title(f'{task_name} best model training curve')
         if save_plots:
             plt.savefig(f'{save_plots}/{task_name}__best_model_loss.png',
