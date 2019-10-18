@@ -355,6 +355,8 @@ class ErrorClassificationTrainer(BaseTrainer):
         total_loss = 0
         total_correct = 0
         total_element = 0
+        if evaluate:
+            confusion_mat = np.zeros((9, 9))
         
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
@@ -393,6 +395,12 @@ class ErrorClassificationTrainer(BaseTrainer):
             total_correct += correct
             total_element += labels.nelement()
 
+            # Confusion matrix
+            if evaluate:
+                for label, output in zip(labels.cpu(),
+                                         model_output.cpu().data.numpy()):
+                    confusion_mat[label, np.argmax(output)] += 1
+
             log_info = {
                 "epoch": epoch,
                 "batch": ii,
@@ -416,8 +424,11 @@ class ErrorClassificationTrainer(BaseTrainer):
                       file=self.log_file)
 
         if evaluate:
+            confusion_mat /= np.sum(confusion_mat, axis=1, keepdims=True)
+            log_info['confusion_mat'] = confusion_mat
             print(f"Accuracy: {total_correct / total_element * 100}")
             print(f"Avg loss: {total_loss / total_element}")
+            print(f"Confusion matrix (as [label, output]):\n{confusion_mat}")
         
         return log_info
             
