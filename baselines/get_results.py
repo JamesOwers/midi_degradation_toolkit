@@ -310,7 +310,7 @@ def main(args):
     rule_based = {
         'task1': ['ErrorDetection', 'Rule-based', 0.466, 0.00],
         'task2': ['ErrorClassification', 'Rule-based', 2.197, 0.113],
-        'task3': ['ErrorIdentification', 'Rule-based', 0.404, 0.00],
+        'task3': ['ErrorLocation', 'Rule-based', 0.404, 0.00],
         'task4': ['ErrorCorrection', 'Rule-based', 0.690, 0.590],
     }
     rule_based_df = pd.DataFrame.from_dict(
@@ -319,7 +319,7 @@ def main(args):
     )
     
     task_cat = ['ErrorDetection', 'ErrorClassification',
-                'ErrorIdentification', 'ErrorCorrection']
+                'ErrorLocation', 'ErrorCorrection']
     summary_tab_ = pd.concat((summary_tab, rule_based_df))
     summary_tab_['Task'] = pd.Categorical(summary_tab_['Task'], categories=task_cat,
                                           ordered=True)
