@@ -8,8 +8,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .eval_task import main as eval_main
-from .eval_task import construct_parser as eval_construct_parser
+from baselines.eval_task import main as eval_main
+from baselines.eval_task import construct_parser as eval_construct_parser
 
 
 
