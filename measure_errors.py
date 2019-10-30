@@ -81,7 +81,39 @@ def load_file(filename, pr_min_pitch=MIN_PITCH, pr_max_pitch=MAX_PITCH,
 
 
 
-def get_proportions(gt, trans):
+def get_excerpt_degs(gt_excerpt, trans_excerpt):
+    """
+    Get the count of each degradation given a ground truth excerpt and a
+    transcribed excerpt.
+
+    Parameters
+    ----------
+    gt_excerpt : pd.DataFrame
+        The ground truth data frame.
+
+    trans_excerpt : pd.DataFrame
+        The corresponding transcribed dataframe.
+
+    Returns
+    -------
+    degs : list(int)
+        The count of each degradation in this transcription, in the order
+        given by mdtk.degradations.DEGRADATIONS.
+
+    clean : int
+        1 if the sum of degs is 0. 0 Otherwise.
+    """
+    deg_counts = np.zeros(len(DEGRADATIONS))
+
+    # TODO: Everything
+    
+
+    clean = 1 if np.sum(deg_counts) == 0 else 0
+    return deg_counts, clean
+
+
+
+def get_proportions(gt, trans, length=5000, min_notes=10):
     """
     Get the proportions of each degradation given a ground truth file and its
     transcription.
@@ -93,6 +125,12 @@ def get_proportions(gt, trans):
         
     trans : string
         The filename of a transciption of the given ground truth.
+        
+    length : int
+        The length of the excerpts to grab in ms (plus sustains).
+        
+    min_notes : int
+        The minimum number of notes required for an excerpt to be valid.
         
     Returns
     -------
@@ -106,21 +144,39 @@ def get_proportions(gt, trans):
         transcription is correct.
     """
     num_excerpts = 0
-    proportions = np.zeros(len(DEGRADATIONS))
-    clean = 0
-    
+    deg_counts = np.zeros(len(DEGRADATIONS))
+    clean_count = 0
+
     gt_df = load_file(gt)
     trans_df = load_file(trans)
-    
-    # Take an excerpt
-    
-    
-    # Find degradations in the excerpt
-    
-    
+
+    # Take each excerpt
+    for idx, note in gt_df.iterrows():
+        note_onset = note['onset']
+        gt_excerpt = pd.DataFrame(
+            gt_df.loc[gt_df['onset'].between(note_onset, note_onset + length)]
+        )
+        gt_excerpt['onset'] = gt_excerpt['onset'] - note_onset
+
+        # Check for validity
+        if len(gt_excerpt) < min_notes:
+            continue
+
+        # Here, we have a valid excerpt. Find its transcription.
+        num_excerpts += 1
+        trans_excerpt = pd.DataFrame(
+            trans_df.loc[trans_df['onset'].between(note_onset,
+                                                   note_onset + length)]
+        )
+        trans_excerpt['onset'] = trans_excerpt['onset'] - note_onset
+
+        degs, clean = get_excerpt_degs(gt_excerpt, trans_excerpt)
+        deg_counts += degs
+        clean_count += clean
+
     # Divide number of errors by the number of possible excerpts
-    proportions /= num_excerpts
-    clean /= num_excerpts
+    proportions = deg_counts / num_excerpts
+    clean = clean_count / num_excerpts
     return proportions, clean
 
 
@@ -182,7 +238,8 @@ if __name__ == '__main__':
         gt = os.path.join(args.gt, basename + '.' + args.gt_ext)
         
         # TODO: Also get some parameters?
-        prop, clean = get_proportions(gt, trans)
+        prop, clean = get_proportions(gt, trans, length=args.excerpt_length,
+                                      min_notes=args.min_notes)
         proportion = np.vstack((proportions, prop))
         clean_prop.append(clean)
         
