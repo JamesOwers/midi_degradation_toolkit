@@ -3,6 +3,8 @@ to csvs."""
 
 import os
 import glob
+import warnings
+
 import pandas as pd
 import numpy as np
 
@@ -16,7 +18,7 @@ COLNAMES = NOTE_DF_SORT_ORDER
 
 
 
-def midi_dir_to_csv(midi_dir_path, csv_dir_path):
+def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
     """
     Convert an entire directory of MIDI files into csvs in another directory.
     This searches the given MIDI path for any files with the extension 'mid'.
@@ -34,10 +36,25 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path):
     csv_dir_path : string
         The path of the directory to write out each csv to. If it does not
         exist, it will be created.
+
+    recursive : boolean
+        If True, search the given midi dir recursively.
     """
-    for midi_path in glob.glob(midi_dir_path + os.path.sep + '*.mid'):
-        csv_path = (csv_dir_path + os.path.sep +
-                    os.path.basename(midi_path[:-3] + 'csv'))
+    if recursive:
+        dir_prefix_len = len(midi_dir_path) + 1
+        midi_dir_path = os.path.join(midi_dir_path, '**')
+    for midi_path in glob.glob(os.path.join(midi_dir_path, '*.mid')):
+        if recursive:
+            csv_path = os.path.join(
+                csv_dir_path,
+                os.path.dirname(midi_path[dir_prefix_len:]),
+                os.path.basename(midi_path[:-3] + 'csv')
+            )
+        else:
+            csv_path = os.path.join(
+                csv_dir_path,
+                os.path.basename(midi_path[:-3] + 'csv')
+            )
         midi_to_csv(midi_path, csv_path)
 
 
@@ -57,7 +74,7 @@ def midi_to_csv(midi_path, csv_path):
     df_to_csv(midi_to_df(midi_path), csv_path)
 
 
-def midi_to_df(midi_path):
+def midi_to_df(midi_path, warn=False):
     """
     Get the data from a MIDI file and load it into a pandas DataFrame.
 
@@ -87,11 +104,15 @@ def midi_to_df(midi_path):
                           'pitch': note.pitch,
                           'dur': int(round(note.end * 1000) -
                                      round(note.start * 1000))})
-
+    if len(notes) == 0:
+        warnings.warn(f'WARNING: the midi file located at {midi_path} is '
+                       'empty. Returning None.', category=UserWarning)
+        return None
     df = pd.DataFrame(notes)[COLNAMES]
     df = df.sort_values(COLNAMES)
     df = df.reset_index(drop=True)
-    check_note_df(df)
+    if warn:
+        check_note_df(df)
     return df
 
 
@@ -115,6 +136,8 @@ def df_to_csv(df, csv_path):
         will be printed, and the rows will be printed in the current order of the
         DataFrame. Any nested directories will be created.
     """
+    if df is None or len(df) == 0:
+        return None
     if os.path.split(csv_path)[0]:
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Enforce column order
