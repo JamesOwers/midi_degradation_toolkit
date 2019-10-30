@@ -6,11 +6,12 @@ import glob
 import os
 import pandas as pd
 import pickle
+import numpy as np
 
 import pretty_midi
 
 from mdtk import degradations, midi, data_structures, formatters
-from mdtk.degradations import MIN_PITCH, MAX_PITCH
+from mdtk.degradations import MIN_PITCH, MAX_PITCH, DEGRADATIONS
 
 FILE_TYPES = ['mid', 'pkl', 'csv']
 
@@ -96,23 +97,31 @@ def get_proportions(gt, trans):
     Returns
     -------
     proportions : list(float)
-        The rough proportion of each degradation present in the transcription,
-        in the order given by mdtk.degradations.get_degradations().
+        The rough proportion of excerpts from the ground truth with each
+        degradation present in the transcription, in the order given by
+        mdtk.degradations.DEGRADATIONS.
+        
+    clean : float
+        The rough proportion of excerpts from the ground truth whose
+        transcription is correct.
     """
-    proportions = np.zeros(len(degradations.get_degradations()))
+    num_excerpts = 0
+    proportions = np.zeros(len(DEGRADATIONS))
+    clean = 0
     
     gt_df = load_file(gt)
     trans_df = load_file(trans)
     
-    # Match notes
+    # Take an excerpt
     
     
-    # Measure error for each matched note
+    # Find degradations in the excerpt
     
     
-    # Divide number of errors by length of piece
-    
-    pass
+    # Divide number of errors by the number of possible excerpts
+    proportions /= num_excerpts
+    clean /= num_excerpts
+    return proportions, clean
 
 
 
@@ -122,13 +131,17 @@ def parse_args(args_input=None):
                                      "a degraded MIDI dataset with the measure"
                                      " proportion of each degration.")
     
+    parser.add_argument("--ext", choices=FILE_TYPES, default=None,
+                        help="File extension to use for both ground truth and "
+                        "transcriptions.")
+    
     parser.add_argument("--gt", help="The directory which contains the ground "
-                        "truth musical scores or piano rolls.")
+                        "truth musical scores or piano rolls.", required=True)
     parser.add_argument("--gt_ext", choices=FILE_TYPES, default='mid',
                         help="The file type for the ground truth files.")
     
     parser.add_argument("--trans", help="The directory which contains the "
-                        "transcriptions.")
+                        "transcriptions.", required=True)
     parser.add_argument("--trans_ext", choices=FILE_TYPES, default='mid',
                         help="The file type for the transcriptions.")
     
@@ -155,18 +168,26 @@ def parse_args(args_input=None):
 if __name__ == '__main__':
     args = parse_args()
     
+    if args.ext is not None:
+        args.trans_ext = args.ext
+        args.gt_ext = args.ext
+    
     trans = glob.glob(os.path.join(args.trans, '*.' + args.trans_ext))
     
-    proportion = np.zeros((len(degradations.get_degradations()), 0))
+    proportion = np.zeros((len(DEGRADATIONS), 0))
+    clean_prop = []
     
     for file in trans:
         basename = os.path.splitext(os.path.basename(file))[0]
         gt = os.path.join(args.gt, basename + '.' + args.gt_ext)
         
         # TODO: Also get some parameters?
-        proportion = np.vstack((proportions, get_proportions(gt, trans)))
+        prop, clean = get_proportions(gt, trans)
+        proportion = np.vstack((proportions, prop))
+        clean_prop.append(clean)
         
     proportion = np.mean(proportion, axis=0)
+    clean = np.mean(clean)
     
     # TODO: Write out to json file
     
