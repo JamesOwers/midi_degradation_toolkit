@@ -64,6 +64,24 @@ def test_pre_process():
         f"Pre-processing \n{UNSORTED_DF}\n with sort=True resulted in "
         f"\n{res}\ninstead of \n{basic_res}"
     )
+    
+    float_df = pd.DataFrame({
+        'onset': [0.5, 100.5, 200.5, 200.5],
+        'track': [0, 1, 0, 1.5],
+        'pitch': [10, 20, 30.5, 40],
+        'dur': [100, 100, 100.5, 100]
+    })
+    float_res = pd.DataFrame({
+        'onset': [0, 100, 200, 200],
+        'track': [0, 1, 0, 2],
+        'pitch': [10, 20, 30, 40],
+        'dur': [100, 100, 100, 100]
+    })
+    res = deg.pre_process(float_df)
+    assert res.equals(float_res), (
+        f"Pre-processing \n{float_df}\n resulted in \n{res}\n"
+        f"instead of \n{float_res}"
+    )
 
 
 def test_post_process():

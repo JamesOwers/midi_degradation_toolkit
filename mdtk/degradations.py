@@ -102,6 +102,7 @@ def pre_process(df, sort=False):
     if sort:
         df = df.sort_values(NOTE_DF_SORT_ORDER)
     df = df.reset_index(drop=True)
+    df = df.round().astype(int)
     return df
 
 
