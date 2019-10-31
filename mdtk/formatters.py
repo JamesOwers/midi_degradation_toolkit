@@ -7,6 +7,7 @@ import os
 import warnings
 
 from mdtk.data_structures import NOTE_DF_SORT_ORDER
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 # Convenience function...
 def diff_pd(df1, df2):
@@ -34,8 +35,8 @@ def diff_pd(df1, df2):
 #       I'm doing things this way just for ability to change things
 #       later with ease
 class CommandVocab(object):
-    def __init__(self, min_pitch=0,
-                 max_pitch=127,
+    def __init__(self, min_pitch=MIN_PITCH_DEFAULT,
+                 max_pitch=MAX_PITCH_DEFAULT,
                  time_increment=40,
                  max_time_shift=4000, 
                  specials=["<pad>", "<unk>", "<eos>", "<sos>"]):
@@ -215,8 +216,8 @@ def pianoroll_str_to_df(pr_str, time_increment=40):
     return df
 
 
-def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
-                           time_increment=40):
+def double_pianoroll_to_df(pianoroll, min_pitch=MIN_PITCH_DEFAULT,
+                           max_pitch=MAX_PITCH_DEFAULT, time_increment=40):
     """
     Convert a double pianoroll (sustain and onset, as output by a task 4 model),
     into a DataFrame for use in evaluation.
@@ -309,8 +310,8 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
     return df
 
 
-def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
-                      max_time_shift=4000):
+def df_to_command_str(df, min_pitch=MIN_PITCH_DEFAULT, max_pitch=MAX_PITCH_DEFAULT,
+                      time_increment=40, max_time_shift=4000):
     """
     Convert a given pandas DataFrame into a sequence commands, note_on (o),
     note_off (f), and time_shift (t). Each command is followed by a number:
