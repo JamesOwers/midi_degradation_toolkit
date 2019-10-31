@@ -83,9 +83,9 @@ class Command_ErrorClassificationNet(Command_ErrorDetectionNet):
 
 
 
-class Pianoroll_ErrorIdentificationNet(nn.Module):
+class Pianoroll_ErrorLocationNet(nn.Module):
     """
-    Baseline model for the Error Identification task, in which the label for
+    Baseline model for the Error Location task, in which the label for
     each data point is a binary label for each frame of input, with  0 = not
     degraded and 1 = degraded.
     

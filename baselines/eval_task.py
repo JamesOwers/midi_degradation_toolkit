@@ -176,7 +176,7 @@ def main(args):
 task_names = [
     'ErrorDetection',
     'ErrorClassification',
-    'ErrorIdentification',
+    'ErrorLocation',
     'ErrorCorrection'
 ]
 

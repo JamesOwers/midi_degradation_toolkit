@@ -175,7 +175,7 @@ def parse_args():
 task_names = [
     'ErrorDetection',
     'ErrorClassification',
-    'ErrorIdentification',
+    'ErrorLocation',
     'ErrorCorrection'
 ]
 

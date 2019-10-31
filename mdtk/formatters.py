@@ -452,7 +452,7 @@ FORMATTERS = {
         'dataset': 'PianorollDataset',
         'models': [None,
                    None,
-                   'Pianoroll_ErrorIdentificationNet',
+                   'Pianoroll_ErrorLocationNet',
                    'Pianoroll_ErrorCorrectionNet']
     }
 }

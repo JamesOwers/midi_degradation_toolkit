@@ -437,9 +437,9 @@ class ErrorClassificationTrainer(BaseTrainer):
 
 
 
-class ErrorIdentificationTrainer(BaseTrainer):
-    """Trains Task 3 - Error identification. The model provided is expected to be
-    an mdtk.pytorch_models.ErrorIdentificationNet. Expects a DataLoader using an
+class ErrorLocationTrainer(BaseTrainer):
+    """Trains Task 3 - Error Location. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorLocationNet. Expects a DataLoader using an
     mdtk.pytorch_datasets.CommandDataset."""
     def __init__(self, model, criterion, train_dataloader: DataLoader,
                  test_dataloader: DataLoader = None,
@@ -587,8 +587,8 @@ class ErrorIdentificationTrainer(BaseTrainer):
 
 
 class ErrorCorrectionTrainer(BaseTrainer):
-    """Trains Task 4 - Error identification. The model provided is expected to be
-    an mdtk.pytorch_models.ErrorIdentificationNet. Expects a DataLoader using an
+    """Trains Task 4 - Error Correction. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorCorrectionNet. Expects a DataLoader using an
     mdtk.pytorch_datasets.CommandDataset."""
     def __init__(self, model, criterion, train_dataloader: DataLoader,
                  test_dataloader: DataLoader = None,
