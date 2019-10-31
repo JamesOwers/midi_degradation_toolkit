@@ -100,6 +100,9 @@ def parse_args():
                         'will create them. Choices are '
                         f'{list(FORMATTERS.keys())}. Required if --baseline '
                         'is not given.')
+    parser.add_argument("--reformat", action="store_true", help="Force the "
+                        "creation of the desired --format csvs, even if they "
+                        "already exist.")
 
     parser.add_argument("--task", required=True, choices=range(1, 5), help='The '
                         'task number to train a model for.', type=int)
@@ -210,9 +213,9 @@ if __name__ == '__main__':
 
     # Generate (if needed) and load formatted csv
     prefix = FORMATTERS[args.format]["prefix"]
-    if not all([os.path.exists(
+    if (not all([os.path.exists(
             os.path.join(args.input, f'{split}_{prefix}_corpus.csv')
-        ) for split in ['train', 'valid', 'test']]):
+        ) for split in ['train', 'valid', 'test']])) or args.reformat:
         create_corpus_csvs(args.input, FORMATTERS[args.format])
     train_dataset = os.path.join(args.input, f'train_{prefix}_corpus.csv')
     valid_dataset = os.path.join(args.input, f'valid_{prefix}_corpus.csv')
