@@ -66,10 +66,11 @@ def test_pre_process():
     )
     
     float_df = pd.DataFrame({
-        'onset': [0.5, 100.5, 200.5, 200.5],
         'track': [0, 1, 0, 1.5],
+        'onset': [0.5, 100.5, 200.5, 200.5],
         'pitch': [10, 20, 30.5, 40],
-        'dur': [100, 100, 100.5, 100]
+        'dur': [100, 100, 100.5, 100],
+        'extra': [5, 5, 'apple', None]
     })
     float_res = pd.DataFrame({
         'onset': [0, 100, 200, 200],

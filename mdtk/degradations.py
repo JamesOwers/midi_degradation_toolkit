@@ -99,6 +99,7 @@ def pre_process(df, sort=False):
     df : pd.DataFrame
         The postprocessed dataframe.
     """
+    df = df.loc[:, NOTE_DF_SORT_ORDER]
     if sort:
         df = df.sort_values(NOTE_DF_SORT_ORDER)
     df = df.reset_index(drop=True)
