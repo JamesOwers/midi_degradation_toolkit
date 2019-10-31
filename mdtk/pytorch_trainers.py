@@ -355,8 +355,7 @@ class ErrorClassificationTrainer(BaseTrainer):
         total_loss = 0
         total_correct = 0
         total_element = 0
-        if evaluate:
-            confusion_mat = np.zeros((9, 9))
+        confusion_mat = None
         
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
@@ -397,6 +396,9 @@ class ErrorClassificationTrainer(BaseTrainer):
 
             # Confusion matrix
             if evaluate:
+                if confusion_mat is None:
+                    num_degs = model_output.shape[1]
+                    confusion_mat = np.zeros((num_degs, num_degs))
                 for label, output in zip(labels.cpu(),
                                          model_output.cpu().data.numpy()):
                     confusion_mat[label, np.argmax(output)] += 1

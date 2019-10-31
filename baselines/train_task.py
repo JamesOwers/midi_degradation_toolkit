@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import os
-
+import pandas as pd
 import numpy as np
 
 import torch
@@ -232,6 +232,7 @@ if __name__ == '__main__':
     Trainer = task_trainers[task_idx]
     Criterion = task_criteria[task_idx]
     
+    deg_ids_df = pd.read_csv(os.path.join(args.input, 'degradation_ids.csv'))
     if args.format == 'command':
         vocab = CommandVocab()
         vocab_size = len(vocab)
@@ -243,7 +244,7 @@ if __name__ == '__main__':
             'vocab_size': vocab_size,
             'embedding_dim': args.embedding,
             'hidden_dim': args.hidden,
-            'output_size': 2 if args.task == 1 else 9,
+            'output_size': 2 if args.task == 1 else len(deg_ids_df),
             'dropout_prob': args.dropout
         }
     elif args.format == 'pianoroll':
@@ -256,7 +257,7 @@ if __name__ == '__main__':
         model_kwargs = {
             'input_dim': 2 * (args.pr_max_pitch - args.pr_min_pitch + 1),
             'hidden_dim': args.hidden,
-            'output_dim': 2 if args.task in [1, 3] else 9,
+            'output_dim': 2 if args.task in [1, 3] else len(deg_ids_df),
             'layers': args.layers,
             'dropout_prob': args.dropout
         }
