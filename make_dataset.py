@@ -92,9 +92,9 @@ def parse_args(args_input=None):
                         'with our provided pytorch Dataset classes. Choices are'
                         f' {list(FORMATTERS.keys())}.', nargs='*', default=[],
                         choices=FORMATTERS.keys())
-    parser.add_argument('--clear', action='store_true', help='Delete '
-                        '--input-dir and --output-dir prior to creating this '
-                        'dataset. This ensures no stale data remains.')
+    parser.add_argument('--stale-data', action='store_true', help='Do not '
+                        'clear --input-dir prior to creating this dataset. '
+                        'Stale data may remain.')
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
                         'include in the dataset', default=[])
@@ -214,11 +214,15 @@ if __name__ == '__main__':
     assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
 
     # Clear input and output dirs =============================================
-    if ARGS.clear:
+    if not ARGS.stale_data:
         if os.path.exists(ARGS.input_dir):
+            if ARGS.verbose:
+                print(f'Clearing stale data from {ARGS.input_dir}.')
             shutil.rmtree(ARGS.input_dir)
-        if os.path.exists(ARGS.output_dir):
-            shutil.rmtree(ARGS.output_dir)
+    if os.path.exists(ARGS.output_dir):
+        if ARGS.verbose:
+            print(f'Clearing stale data from {ARGS.output_dir}.')
+        shutil.rmtree(ARGS.output_dir)
     # This avoids an error if no datasets are selected
     if not os.path.exists(ARGS.input_dir):
         os.makedirs(ARGS.input_dir, exist_ok=True)
@@ -341,6 +345,10 @@ if __name__ == '__main__':
     # The reason for this is we know there will be no filename duplicates
     csv_paths = glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
                      recursive=ARGS.recursive)
+    if len(csv_paths) == 0:
+        print('No data selected. Choose a dataset with --datasets, or use '
+              'local data with --local-csv-dirs or --local-midi-dirs')
+        sys.exit(0)
     read_note_csv_kwargs = dict(
         onset=0,
         pitch=2,
