@@ -108,7 +108,10 @@ def create_corpus_csvs(acme_dir, format_dict):
         meta_df.loc[idx, f'{prefix}_corpus_path'] = fh.name
         meta_df.loc[idx, f'{prefix}_corpus_line_nr'] = line_counts[split]
         line_counts[split] += 1
-    meta_df.to_csv(os.path.join(acme_dir, 'metadata.csv'))
+    meta_df.loc[:, f'{prefix}_corpus_line_nr'] = (
+        meta_df[f'{prefix}_corpus_line_nr'].astype(int)
+    )
+    meta_df.to_csv(os.path.join(acme_dir, 'metadata.csv'), index=False)
 
 
 def df_to_pianoroll_str(df, time_increment=40):
