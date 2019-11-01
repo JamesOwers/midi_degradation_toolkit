@@ -12,6 +12,7 @@ import mdtk.pytorch_models
 import mdtk.pytorch_trainers
 from mdtk.pytorch_datasets import transform_to_torchtensor
 from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
 
@@ -165,9 +166,9 @@ def parse_args():
                         help="adam first beta value")
 
     # Piano-roll specific size args
-    parser.add_argument("--pr-min-pitch", type=int, default=21,
+    parser.add_argument("--pr-min-pitch", type=int, default=MIN_PITCH_DEFAULT,
                         help="Minimum pianoroll pitch")
-    parser.add_argument("--pr-max-pitch", type=int, default=108,
+    parser.add_argument("--pr-max-pitch", type=int, default=MAX_PITCH_DEFAULT,
                         help="Maximum pianoroll pitch")
 
     args = parser.parse_args()

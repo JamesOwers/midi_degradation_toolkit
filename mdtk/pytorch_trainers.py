@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import tqdm
 from mdtk.eval import helpfulness, get_f1
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
 
@@ -707,14 +708,15 @@ class ErrorCorrectionTrainer(BaseTrainer):
                     # TODO: Only 1 of these calls is necessary. deg and clean
                     # could conceivably be returned by the data loader.
                     deg_df = self.formatter['model_to_df'](
-                        in_data.cpu().data.numpy(), min_pitch=21,
-                        max_pitch=108, time_increment=40)
+                        in_data.cpu().data.numpy(), min_pitch=MIN_PITCH_DEFAULT,
+                        max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
                     model_out_df = self.formatter['model_to_df'](
-                        out_data.round().cpu().data.numpy(), min_pitch=21,
-                        max_pitch=108, time_increment=40)
+                        out_data.round().cpu().data.numpy(),
+                        min_pitch=MIN_PITCH_DEFAULT,
+                        max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
                     clean_df = self.formatter['model_to_df'](
-                        clean_data.cpu().data.numpy(), min_pitch=21,
-                        max_pitch=108, time_increment=40)
+                        clean_data.cpu().data.numpy(), min_pitch=MIN_PITCH_DEFAULT,
+                        max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
                     h, f = helpfulness(model_out_df, deg_df, clean_df)
                     total_help += h
                     total_fm += f
