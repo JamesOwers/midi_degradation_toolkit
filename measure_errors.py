@@ -11,13 +11,14 @@ import numpy as np
 import pretty_midi
 
 from mdtk import degradations, midi, data_structures, formatters
-from mdtk.degradations import MIN_PITCH, MAX_PITCH, DEGRADATIONS
+from mdtk.degradations import (MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT,
+                               DEGRADATIONS, MIN_SHIFT_DEFAULT)
 
 FILE_TYPES = ['mid', 'pkl', 'csv']
 
 
-def load_file(filename, pr_min_pitch=MIN_PITCH, pr_max_pitch=MAX_PITCH,
-              pr_time_increment=40):
+def load_file(filename, pr_min_pitch=MIN_PITCH_DEFAULT,
+              pr_max_pitch=MAX_PITCH_DEFAULT, pr_time_increment=40):
     """
     Load the given filename into a pandas dataframe.
 
@@ -70,7 +71,8 @@ def load_file(filename, pr_min_pitch=MIN_PITCH, pr_max_pitch=MAX_PITCH,
             raise ValueError("Piano roll dimension 2 size ("
                              f"{piano_roll.shape[1]}) must be equal to 1 or 2"
                              f" times the given pitch range [{pr_min_pitch} - "
-                             f"{pr_max_pitch}]")
+                             f"{pr_max_pitch}] = "
+                             f"{pr_min_pitch - pr_max_pitch + 1}")
             
         piano_roll = np.vstack((note_pr, onset_pr))
         return formatters.double_pianoroll_to_df(
@@ -78,6 +80,144 @@ def load_file(filename, pr_min_pitch=MIN_PITCH, pr_max_pitch=MAX_PITCH,
             time_increment=pr_time_increment)
 
     raise NotImplementedError(f'Extension {ext} not supported.')
+
+
+
+def get_note_degs(gt_note, trans_note):
+    """
+    Get the count of each degradation given a ground truth note and a
+    transcribed note.
+    
+    Parameters
+    ----------
+    gt_note : dict
+        The ground truth note, with integer fields onset, pitch, track,
+        and dur.
+
+    trans_note : dict
+        The corresponding transcribed note, with integer fields onset,
+        pitch, track, and dur.
+
+    Returns
+    -------
+    deg_counts : np.array(float)
+        The count of each degradation between the notes, for the set
+        of degradations which lead to the smallest total number of
+        degradations. If multiple sets of degradations lead to the
+        ground truth in the same total number of degradations, the mean
+        of those counts is returned. Indices are in order of
+        mdtk.degradations.DEGRADATIONS.
+    """
+    deg_counts = np.zeros(len(DEGRADATIONS))
+
+    # Pitch shift
+    if gt_note['pitch'] != trans_note['pitch']:
+        deg_counts[DEGRADATIONS.index('pitch_shift')] = 1
+
+    # Time shift
+    if abs(gt_note['dur'] - trans_note['dur']) < MIN_SHIFT_DEFAULT:
+        if abs(gt_note['onset'] - trans_note['onset']) < MIN_SHIFT_DEFAULT:
+            return deg_counts
+        deg_counts[DEGRADATIONS.index('time_shift')] = 1
+        return deg_counts
+
+    # Onset shift
+    if abs(gt_note['onset'] - trans_note['onset']) >= MIN_SHIFT_DEFAULT:
+        deg_counts[DEGRADATIONS.index('onset_shift')] = 1
+
+    # Offset shift
+    gt_offset = gt_note['onset'] + gt_note['dur']
+    trans_offset = trans_note['onset'] + trans_note['dur']
+    if abs(gt_offset - trans_offset) >= MIN_SHIFT_DEFAULT:
+        deg_counts[DEGRADATIONS.index('offset_shift')] = 1
+
+    return deg_counts
+
+
+
+def get_excerpt_degs_recursive(gt_excerpt, trans_excerpt, known=dict()):
+    """
+    Get the count of each degradation given a ground truth excerpt and a
+    transcribed excerpt.
+
+    Parameters
+    ----------
+    gt_excerpt : pd.DataFrame
+        The ground truth data frame.
+
+    trans_excerpt : pd.DataFrame
+        The corresponding transcribed dataframe.
+        
+    known : dict(tuple(tuple, tuple) -> np.array(int))
+        For top-down dynamic programming, a tuple of the remaining gt
+        row indices and the remaining transcription row indices, mapped
+        to a tuple of precalculated deg_counts.
+
+    Returns
+    -------
+    deg_counts : np.array(float)
+        The count of each degradation in this transcription, for the set
+        of degradations which lead to the smallest total number of
+        degradations. If multiple sets of degradations lead to the
+        ground truth in the same total number of degradations, the mean
+        of those counts is returned. Indices are in order of
+        mdtk.degradations.DEGRADATIONS.
+    """
+    # Base case 1: gt is empty
+    if len(gt_excerpt) == 0:
+        deg_counts = np.zeros(len(DEGRADATIONS))
+        deg_counts[DEGRADATIONS.index('add_note')] += len(trans_excerpt)
+        return deg_counts
+
+    # Base case 2: transcription is empty
+    if len(trans_excerpt) == 0:
+        deg_counts = np.zeros(len(DEGRADATIONS))
+        deg_counts[DEGRADATIONS.index('remove_note')] += len(gt_excerpt)
+        return deg_counts
+
+    # Dynamic programming short-circuit step
+    key = tuple(tuple(gt_excerpt.index.values),
+                tuple(trans_excerpt.index.values))
+    # This try except is faster than checking in and then returning
+    try:
+        return known[key]
+    except:
+        pass
+
+    # Recursive step - for every pair of notes
+    min_count = np.inf
+    num_min = 0
+    deg_counts = np.zeros(len(DEGRADATIONS))
+    for gt_idx, gt_note in gt_excerpt.iterrows():
+        for trans_idx, trans_note in trans_excerpt.iterrows():
+            df_excerpt_new = gt_excerpt.drop(gt_idx)
+            trans_excerpt_new = trans_excerpt.drop(trans_idx)
+
+            # Caluculate degs
+            deg_counts_this = get_note_degs(gt_note, trans_note)
+            deg_counts_this += get_excerpt_degs_recursive(
+                gt_excerpt_new, trans_excerpt_new, known=known
+            )
+
+            # Update the minimum number of degs
+            num_degs = np.sum(deg_counts_this)
+            if num_degs < min_count:
+                min_count = num_degs
+                num_min = 1
+                deg_counts = deg_counts_this
+            elif num_degs == min_count:
+                num_min += 1
+                deg_counts += deg_counts_this
+                
+    # TODO: special checks for split and join
+
+    # Average across each path to get to the min
+    deg_counts /= num_min
+
+    # Update known dict for dynamic programming
+    known[key] = deg_counts
+    
+    return deg_counts
 
 
 
@@ -96,17 +236,14 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
 
     Returns
     -------
-    degs : list(int)
+    degs : np.array(float)
         The count of each degradation in this transcription, in the order
         given by mdtk.degradations.DEGRADATIONS.
 
     clean : int
         1 if the sum of degs is 0. 0 Otherwise.
     """
-    deg_counts = np.zeros(len(DEGRADATIONS))
-
-    # TODO: Everything
-    
+    deg_counts = get_excerpt_degs_recursive(gt_excerpt, trans_excerpt)
 
     clean = 1 if np.sum(deg_counts) == 0 else 0
     return deg_counts, clean
