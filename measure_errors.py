@@ -112,24 +112,24 @@ def get_note_degs(gt_note, trans_note):
 
     # Pitch shift
     if gt_note['pitch'] != trans_note['pitch']:
-        deg_counts[DEGRADATIONS.index('pitch_shift')] = 1
+        deg_counts[list(DEGRADATIONS).index('pitch_shift')] = 1
 
     # Time shift
     if abs(gt_note['dur'] - trans_note['dur']) < MIN_SHIFT_DEFAULT:
         if abs(gt_note['onset'] - trans_note['onset']) < MIN_SHIFT_DEFAULT:
             return deg_counts
-        deg_counts[DEGRADATIONS.index('time_shift')] = 1
+        deg_counts[list(DEGRADATIONS).index('time_shift')] = 1
         return deg_counts
 
     # Onset shift
     if abs(gt_note['onset'] - trans_note['onset']) >= MIN_SHIFT_DEFAULT:
-        deg_counts[DEGRADATIONS.index('onset_shift')] = 1
+        deg_counts[list(DEGRADATIONS).index('onset_shift')] = 1
 
     # Offset shift
     gt_offset = gt_note['onset'] + gt_note['dur']
     trans_offset = trans_note['onset'] + trans_note['dur']
     if abs(gt_offset - trans_offset) >= MIN_SHIFT_DEFAULT:
-        deg_counts[DEGRADATIONS.index('offset_shift')] = 1
+        deg_counts[list(DEGRADATIONS).index('offset_shift')] = 1
 
     return deg_counts
 
@@ -166,18 +166,18 @@ def get_excerpt_degs_recursive(gt_excerpt, trans_excerpt, known=dict()):
     # Base case 1: gt is empty
     if len(gt_excerpt) == 0:
         deg_counts = np.zeros(len(DEGRADATIONS))
-        deg_counts[DEGRADATIONS.index('add_note')] += len(trans_excerpt)
+        deg_counts[list(DEGRADATIONS).index('add_note')] += len(trans_excerpt)
         return deg_counts
 
     # Base case 2: transcription is empty
     if len(trans_excerpt) == 0:
         deg_counts = np.zeros(len(DEGRADATIONS))
-        deg_counts[DEGRADATIONS.index('remove_note')] += len(gt_excerpt)
+        deg_counts[list(DEGRADATIONS).index('remove_note')] += len(gt_excerpt)
         return deg_counts
 
     # Dynamic programming short-circuit step
-    key = tuple(tuple(gt_excerpt.index.values),
-                tuple(trans_excerpt.index.values))
+    key = (tuple(gt_excerpt.index.values),
+           tuple(trans_excerpt.index.values))
     # This try except is faster than checking in and then returning
     try:
         return known[key]
@@ -185,16 +185,24 @@ def get_excerpt_degs_recursive(gt_excerpt, trans_excerpt, known=dict()):
         pass
 
     # Recursive step - for every pair of notes
+    # TODO: idea:
+    # First, precalculate all note-to-note diffs, then graph search
+    # between them somehow
     min_count = np.inf
     num_min = 0
     deg_counts = np.zeros(len(DEGRADATIONS))
     for gt_idx, gt_note in gt_excerpt.iterrows():
         for trans_idx, trans_note in trans_excerpt.iterrows():
-            df_excerpt_new = gt_excerpt.drop(gt_idx)
+            gt_excerpt_new = gt_excerpt.drop(gt_idx)
             trans_excerpt_new = trans_excerpt.drop(trans_idx)
 
             # Caluculate degs
-            deg_counts_this = get_note_degs(gt_note, trans_note)
+            note_key = (tuple([gt_idx]), tuple([trans_idx]))
+            try:
+                deg_counts_this = known(note_key)
+            except:
+                deg_counts_this = get_note_degs(gt_note, trans_note)
+                known[note_key] = deg_counts_this
             deg_counts_this += get_excerpt_degs_recursive(
                 gt_excerpt_new, trans_excerpt_new, known=known
             )
