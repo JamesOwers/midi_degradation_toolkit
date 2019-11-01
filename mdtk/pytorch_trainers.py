@@ -704,6 +704,8 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 total_data_points += len(input_data)
                 for in_data, out_data, clean_data in \
                         zip(input_data, model_output, labels):
+                    # TODO: Only 1 of these calls is necessary. deg and clean
+                    # could conceivably be returned by the data loader.
                     deg_df = self.formatter['model_to_df'](
                         in_data.cpu().data.numpy(), min_pitch=21,
                         max_pitch=108, time_increment=40)

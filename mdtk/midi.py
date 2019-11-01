@@ -97,7 +97,11 @@ def midi_to_df(midi_path, warn=False):
             dur: The duration of the note (offset - onset), in milliseconds.
         Sorting will be first by onset, then track, then pitch, then duration.
     """
-    midi = pretty_midi.PrettyMIDI(midi_path)
+    try:
+        midi = pretty_midi.PrettyMIDI(midi_path)
+    except:
+        warnings.warn(f'Error parsing midi file {midi_path}. Skipping.')
+        return None
 
     notes = []
     for index, instrument in enumerate(midi.instruments):
