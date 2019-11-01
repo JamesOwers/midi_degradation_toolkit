@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import argparse
 import os
+import sys
 import pandas as pd
 import numpy as np
+import warnings
 
 import torch
 import torch.nn as nn
@@ -15,22 +17,13 @@ from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
 from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
+def print_warn_msg_only(message, category, filename, lineno, file=None,
+                        line=None):
+    print(message, file=sys.stderr)
 
-## For dev mode warnings...
-#import sys
-#if not sys.warnoptions:
-#    import warnings
-#    warnings.simplefilter("always") # Change the filter in this process
-#    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
-
-
-# For user mode warnings...
-import sys
-if not sys.warnoptions:
-    import warnings
-    warnings.simplefilter("ignore") # Change the filter in this process
-    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
-
+warnings.showwarning = print_warn_msg_only
+# TODO: This should ideally be 'once', but it doesn't work for some reason
+warnings.filterwarnings('ignore', message='.* exceeds given seq_len')
 
 def get_inverse_weights(dataset, task, formatter, transform=torch.tensor):
     """
