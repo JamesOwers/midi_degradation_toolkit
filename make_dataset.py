@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Script to generate Altered and Corrupted Midi Excerpt (ACME) datasets"""
 import os
+import sys
 import json
 import argparse
 from glob import glob
@@ -15,19 +16,11 @@ from mdtk import degradations, downloaders, data_structures, midi
 from mdtk.filesystem_utils import make_directory, copy_file
 from mdtk.formatters import create_corpus_csvs, FORMATTERS
 
-## For dev mode warnings...
-#import sys
-#if not sys.warnoptions:
-#    import warnings
-#    warnings.simplefilter("always") # Change the filter in this process
-#    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
+def print_warn_msg_only(message, category, filename, lineno, file=None,
+                        line=None):
+    print(message, file=sys.stderr)
 
-
-# For user mode warnings...
-import sys
-if not sys.warnoptions:
-    warnings.simplefilter("ignore") # Change the filter in this process
-    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
+warnings.showwarning = print_warn_msg_only
 
 
 with open('./img/logo.txt', 'r') as ff:
@@ -171,6 +164,8 @@ def parse_args(args_input=None):
                         default=[0.8, 0.1, 0.1])
     parser.add_argument('--seed', type=int, default=None, help='The numpy seed'
                         ' to use when creating the dataset.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose '
+                        'printing.')
     args = parser.parse_args(args=args_input)
     return args
 
@@ -249,22 +244,26 @@ if __name__ == '__main__':
                  )
         for ds_name in ds_names
     }
-    midi_input_dirs = {name: os.path.join(ARGS.input_dir, 'midi', name)
+    midi_dir = os.path.join(ARGS.input_dir, 'midi')
+    csv_dir = os.path.join(ARGS.input_dir, 'csv')
+    print(f'MIDI directory: {midi_dir}')
+    print(f'CSV directory: {csv_dir}')
+    midi_input_dirs = {name: os.path.join(midi_dir, name)
                        for name in ds_names}
-    csv_input_dirs = {name: os.path.join(ARGS.input_dir, 'csv', name)
+    csv_input_dirs = {name: os.path.join(csv_dir, name)
                       for name in ds_names}
 
 
     # Set up directories ======================================================
     for path in midi_input_dirs.values():
-        make_directory(path)
+        make_directory(path, verbose=ARGS.verbose)
     for path in csv_input_dirs.values():
-        make_directory(path)
+        make_directory(path, verbose=ARGS.verbose)
     for out_subdir in ['clean', 'altered']:
         output_dirs = [os.path.join(ARGS.output_dir, out_subdir, name)
                        for name in ds_names]
         for path in output_dirs:
-            make_directory(path)
+            make_directory(path, verbose=ARGS.verbose)
 
 
     # Download data ===========================================================
@@ -274,10 +273,10 @@ if __name__ == '__main__':
         csv_output_path = csv_input_dirs[name]
         try:
             downloader.download_csv(output_path=csv_output_path,
-                                    overwrite=OVERWRITE)
+                                    overwrite=OVERWRITE, verbose=ARGS.verbose)
         except NotImplementedError:
             downloader.download_midi(output_path=midi_output_path,
-                                     overwrite=OVERWRITE)
+                                     overwrite=OVERWRITE, verbose=ARGS.verbose)
 
 
     # Copy over user midi =====================================================
@@ -304,7 +303,7 @@ if __name__ == '__main__':
                     os.path.basename(filepath)
                 )
             os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir)
+            copy_file(filepath, outdir, verbose=ARGS.verbose)
 
 
     # Copy over user csv ======================================================
@@ -328,13 +327,11 @@ if __name__ == '__main__':
                     os.path.basename(filepath)
                 )
             os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir)
+            copy_file(filepath, outdir, verbose=ARGS.verbose)
 
 
     # Convert from midi to csv ================================================
-    for name in tqdm(midi_input_dirs, desc=f"Converting midi from "
-                     f"{os.path.join(ARGS.input_dir, 'midi')} to csv at "
-                     f"{os.path.join(ARGS.input_dir, 'csv')}"):
+    for name in midi_input_dirs:
         midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
                              recursive=ARGS.recursive)
 
@@ -478,7 +475,9 @@ if __name__ == '__main__':
             deg_fun = degradations.DEGRADATIONS[deg_name]
             deg_fun_kwargs = degradation_kwargs[deg_name] # degradation_kwargs
                                                           # at top of main call
-            degraded = deg_fun(excerpt, **deg_fun_kwargs)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                degraded = deg_fun(excerpt, **deg_fun_kwargs)
 
             if degraded is not None:
                 # Update labels
