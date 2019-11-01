@@ -298,8 +298,9 @@ if __name__ == '__main__':
         csv_input_dirs[dirname] = csv_outdir
         if ARGS.recursive:
             path = os.path.join(path, '**')
-        for filepath in glob(os.path.join(path, '*.mid'),
-                             recursive=ARGS.recursive):
+        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
+                                  recursive=ARGS.recursive),
+                             desc=f'Loading user midi from {path}'):
             if ARGS.recursive:
                 outdir = os.path.join(
                     basedir,
@@ -307,7 +308,7 @@ if __name__ == '__main__':
                     os.path.basename(filepath)
                 )
             os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir, verbose=ARGS.verbose)
+            copy_file(filepath, outdir)
 
 
     # Copy over user csv ======================================================
@@ -322,8 +323,9 @@ if __name__ == '__main__':
         csv_input_dirs[dirname] = outdir
         if ARGS.recursive:
             path = os.path.join(path, '**')
-        for filepath in glob(os.path.join(path, '*.csv'),
-                             recursive=ARGS.recursive):
+        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
+                                  recursive=ARGS.recursive),
+                             desc=f'Loading user csv from {path}'):
             if ARGS.recursive:
                 outdir = os.path.join(
                     basedir,
@@ -331,7 +333,7 @@ if __name__ == '__main__':
                     os.path.basename(filepath)
                 )
             os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir, verbose=ARGS.verbose)
+            copy_file(filepath, outdir)
 
 
     # Convert from midi to csv ================================================
