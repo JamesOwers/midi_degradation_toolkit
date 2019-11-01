@@ -707,16 +707,25 @@ class ErrorCorrectionTrainer(BaseTrainer):
                         zip(input_data, model_output, labels):
                     # TODO: Only 1 of these calls is necessary. deg and clean
                     # could conceivably be returned by the data loader.
-                    deg_df = self.formatter['model_to_df'](
-                        in_data.cpu().data.numpy(), min_pitch=MIN_PITCH_DEFAULT,
-                        max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
-                    model_out_df = self.formatter['model_to_df'](
-                        out_data.round().cpu().data.numpy(),
-                        min_pitch=MIN_PITCH_DEFAULT,
-                        max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
-                    clean_df = self.formatter['model_to_df'](
-                        clean_data.cpu().data.numpy(), min_pitch=MIN_PITCH_DEFAULT,
-                        max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
+                    # N.B. Currently, the precise min and max pitch don't
+                    # matter here. The converter just treats them all the same,
+                    # corrects and warns if the range doesn't make sense.
+                    # However, if loading deg and clean from the original df,
+                    # using the correct min and max pitch will be important.
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        deg_df = self.formatter['model_to_df'](
+                            in_data.cpu().data.numpy(),
+                            min_pitch=MIN_PITCH_DEFAULT,
+                            max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
+                        model_out_df = self.formatter['model_to_df'](
+                            out_data.round().cpu().data.numpy(),
+                            min_pitch=MIN_PITCH_DEFAULT,
+                            max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
+                        clean_df = self.formatter['model_to_df'](
+                            clean_data.cpu().data.numpy(),
+                            min_pitch=MIN_PITCH_DEFAULT,
+                            max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
                     h, f = helpfulness(model_out_df, deg_df, clean_df)
                     total_help += h
                     total_fm += f

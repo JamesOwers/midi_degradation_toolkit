@@ -250,7 +250,7 @@ def double_pianoroll_to_df(pianoroll, min_pitch=MIN_PITCH_DEFAULT,
     if max_pitch != pianoroll.shape[1] / 2 + min_pitch - 1:
         warnings.warn("max_pitch doesn't match pianoroll shape and min_pitch. "
                       "Setting max_pitch to "
-                      f"{pianoroll.shape[1] / 2 + min_pitch - 1}.")
+                      f"{int(pianoroll.shape[1] / 2 + min_pitch - 1)}.")
         max_pitch = int(pianoroll.shape[1] / 2 + min_pitch - 1)
 
     df_notes = []
