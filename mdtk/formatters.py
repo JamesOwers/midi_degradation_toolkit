@@ -7,6 +7,7 @@ import os
 import warnings
 
 from mdtk.data_structures import NOTE_DF_SORT_ORDER
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 # Convenience function...
 def diff_pd(df1, df2):
@@ -34,8 +35,8 @@ def diff_pd(df1, df2):
 #       I'm doing things this way just for ability to change things
 #       later with ease
 class CommandVocab(object):
-    def __init__(self, min_pitch=0,
-                 max_pitch=127,
+    def __init__(self, min_pitch=MIN_PITCH_DEFAULT,
+                 max_pitch=MAX_PITCH_DEFAULT,
                  time_increment=40,
                  max_time_shift=4000, 
                  specials=["<pad>", "<unk>", "<eos>", "<sos>"]):
@@ -107,7 +108,10 @@ def create_corpus_csvs(acme_dir, format_dict):
         meta_df.loc[idx, f'{prefix}_corpus_path'] = fh.name
         meta_df.loc[idx, f'{prefix}_corpus_line_nr'] = line_counts[split]
         line_counts[split] += 1
-    meta_df.to_csv(os.path.join(acme_dir, 'metadata.csv'))
+    meta_df.loc[:, f'{prefix}_corpus_line_nr'] = (
+        meta_df[f'{prefix}_corpus_line_nr'].astype(int)
+    )
+    meta_df.to_csv(os.path.join(acme_dir, 'metadata.csv'), index=False)
 
 
 def df_to_pianoroll_str(df, time_increment=40):
@@ -215,8 +219,8 @@ def pianoroll_str_to_df(pr_str, time_increment=40):
     return df
 
 
-def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
-                           time_increment=40):
+def double_pianoroll_to_df(pianoroll, min_pitch=MIN_PITCH_DEFAULT,
+                           max_pitch=MAX_PITCH_DEFAULT, time_increment=40):
     """
     Convert a double pianoroll (sustain and onset, as output by a task 4 model),
     into a DataFrame for use in evaluation.
@@ -246,7 +250,7 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
     if max_pitch != pianoroll.shape[1] / 2 + min_pitch - 1:
         warnings.warn("max_pitch doesn't match pianoroll shape and min_pitch. "
                       "Setting max_pitch to "
-                      f"{pianoroll.shape[1] / 2 + min_pitch - 1}.")
+                      f"{int(pianoroll.shape[1] / 2 + min_pitch - 1)}.")
         max_pitch = int(pianoroll.shape[1] / 2 + min_pitch - 1)
 
     df_notes = []
@@ -309,8 +313,8 @@ def double_pianoroll_to_df(pianoroll, min_pitch=0, max_pitch=127,
     return df
 
 
-def df_to_command_str(df, min_pitch=0, max_pitch=127, time_increment=40,
-                      max_time_shift=4000):
+def df_to_command_str(df, min_pitch=MIN_PITCH_DEFAULT, max_pitch=MAX_PITCH_DEFAULT,
+                      time_increment=40, max_time_shift=4000):
     """
     Convert a given pandas DataFrame into a sequence commands, note_on (o),
     note_off (f), and time_shift (t). Each command is followed by a number:
@@ -452,7 +456,7 @@ FORMATTERS = {
         'dataset': 'PianorollDataset',
         'models': [None,
                    None,
-                   'Pianoroll_ErrorIdentificationNet',
+                   'Pianoroll_ErrorLocationNet',
                    'Pianoroll_ErrorCorrectionNet']
     }
 }

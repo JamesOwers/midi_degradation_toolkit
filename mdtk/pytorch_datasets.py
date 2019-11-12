@@ -9,6 +9,7 @@ import os
 import warnings
 
 from mdtk.formatters import FORMATTERS
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
 
@@ -156,9 +157,9 @@ class CommandDataset(Dataset):
 
 # This is adapted from https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
 class PianorollDataset(Dataset):
-    def __init__(self, corpus_path, seq_len, min_pitch=0,
-                 max_pitch=127, encoding="utf-8", corpus_lines=None,
-                 in_memory=True, transform=None):
+    def __init__(self, corpus_path, seq_len, min_pitch=MIN_PITCH_DEFAULT,
+                 max_pitch=MAX_PITCH_DEFAULT, encoding="utf-8",
+                 corpus_lines=None, in_memory=True, transform=None):
         """
         Returns piano-roll-based data for ACME tasks.
 

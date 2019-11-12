@@ -1,12 +1,12 @@
 """Code to interact with MIDI files, including parsing and converting them
 to csvs."""
-
 import os
 import glob
 import warnings
 
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 import pretty_midi
 
@@ -43,7 +43,10 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
     if recursive:
         dir_prefix_len = len(midi_dir_path) + 1
         midi_dir_path = os.path.join(midi_dir_path, '**')
-    for midi_path in glob.glob(os.path.join(midi_dir_path, '*.mid')):
+    for midi_path in tqdm(glob.glob(os.path.join(midi_dir_path, '*.mid')),
+                          desc='Converting midi from '
+                          f'{os.path.basename(midi_dir_path)} to csv at '
+                          f'{os.path.basename(csv_dir_path)}: '):
         if recursive:
             csv_path = os.path.join(
                 csv_dir_path,
@@ -94,7 +97,11 @@ def midi_to_df(midi_path, warn=False):
             dur: The duration of the note (offset - onset), in milliseconds.
         Sorting will be first by onset, then track, then pitch, then duration.
     """
-    midi = pretty_midi.PrettyMIDI(midi_path)
+    try:
+        midi = pretty_midi.PrettyMIDI(midi_path)
+    except:
+        warnings.warn(f'Error parsing midi file {midi_path}. Skipping.')
+        return None
 
     notes = []
     for index, instrument in enumerate(midi.instruments):

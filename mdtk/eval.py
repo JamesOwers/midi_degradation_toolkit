@@ -3,9 +3,96 @@ from mir_eval.transcription import precision_recall_f1_overlap
 import numpy as np
 
 
-def helpfulness(corrected_df, degraded_df, clean_df, time_increment=40):
+def ErrorDetection(outputs, targets):
+    """
+    Evaluate Error Detection, given a list of outputs and targets.
+
+    Parameters
+    ----------
+    outputs : np.array(int)
+        A list of binary outputs for the task.
+
+    targets : np.array(int)
+        A list of binary targets for the task.
+
+    Returns
+    -------
+    rev_p : float
+        The reverse precision (treating 0 as 1 and 1 as 0) given the
+        outputs and targets.
+
+    rev_r : float
+        The reverse recall (treating 0 as 1 and 1 as 0) given the
+        outputs and targets.
+
+    rev_fm : float
+        The reverse F-measure (treating 0 as 1 and 1 as 0) given the
+        outputs and targets.
+    """
+    rev_tp = np.sum(np.logical_and(outputs == 0, targets == 0))
+    rev_fp = np.sum(1 - outputs) - rev_tp
+    rev_fn = np.sum(1 - targets) - rev_tp
+
+    rev_p, rev_r, rev_fm = get_f1(rev_tp, rev_fp, rev_fn)
+    return rev_p, rev_r, rev_fm
+
+
+def ErrorClassification(outputs, targets):
+    """
+    Evaluate Error Classification, given a list of outputs and targets.
+
+    Parameters
+    ----------
+    outputs : np.array(int)
+        A list of outputs for the task.
+
+    targets : np.array(int)
+        A list of targets for the task.
+
+    Returns
+    -------
+    acc : float
+        The accuracy of the outputs given the targets.
+    """
+    return np.sum(outputs == targets) / len(outputs)
+
+
+def ErrorLocation(outputs, targets):
+    """
+    Evaluate Error Location, given a list of outputs and targets.
+
+    Parameters
+    ----------
+    outputs : np.ndarray(int)
+        A (data_points X frames) array of binary outputs for the task.
+
+    targets : np.array(int)
+        A (data_points X frames) array of binary targets for the task.
+
+    Returns
+    -------
+    p : float
+        The precision given the outputs and targets.
+
+    r : float
+        The recall given the outputs and targets.
+
+    fm : float
+        The  F-measure given the outputs and targets.
+    """
+    tp = np.sum(np.logical_and(outputs == 1, targets == 1))
+    fp = np.sum(outputs) - tp
+    fn = np.sum(targets) - tp
+
+    p, r, fm = get_f1(tp, fp, fn)
+    return p, r, fm
+
+
+def ErrorCorrection(corrected_df, degraded_df, clean_df, time_increment=40):
     """
     Get the helpfulness of an excerpt, given the degraded and clean versions.
+    This is the evaluation metric for the Error Correction task, which can
+    also be called by the alias 'helpfulness'.
 
     Parameters
     ----------
@@ -52,6 +139,7 @@ def helpfulness(corrected_df, degraded_df, clean_df, time_increment=40):
         h = 1 - 0.5 * (1 - corrected_fm) / (1 - degraded_fm)
 
     return h, corrected_fm
+helpfulness = ErrorCorrection
 
 
 def get_combined_fmeasure(df, gt_df, time_increment=40):

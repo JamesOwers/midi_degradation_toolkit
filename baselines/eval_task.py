@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import argparse
 import os
+import warnings
+import sys
 
 import numpy as np
 
@@ -13,24 +15,16 @@ import mdtk.pytorch_trainers
 from mdtk.pytorch_datasets import transform_to_torchtensor
 from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
 from mdtk.eval import helpfulness
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
+def print_warn_msg_only(message, category, filename, lineno, file=None,
+                        line=None):
+    print(message, file=sys.stderr)
 
-
-## For dev mode warnings...
-#import sys
-#if not sys.warnoptions:
-#    import warnings
-#    warnings.simplefilter("always") # Change the filter in this process
-#    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
-
-
-# For user mode warnings...
-import sys
-if not sys.warnoptions:
-    import warnings
-    warnings.simplefilter("ignore") # Change the filter in this process
-    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
+warnings.showwarning = print_warn_msg_only
+# TODO: This should ideally be 'once', but it doesn't work for some reason
+warnings.filterwarnings('ignore', message='.* exceeds given seq_len')
     
 
 
@@ -81,9 +75,9 @@ def construct_parser():
                         help="Loading on memory: true or false")
 
     # Piano-roll specific size args
-    parser.add_argument("--pr-min-pitch", type=int, default=21,
+    parser.add_argument("--pr-min-pitch", type=int, default=MIN_PITCH_DEFAULT,
                         help="Minimum pianoroll pitch")
-    parser.add_argument("--pr-max-pitch", type=int, default=108,
+    parser.add_argument("--pr-max-pitch", type=int, default=MAX_PITCH_DEFAULT,
                         help="Maximum pianoroll pitch")
     return parser
 
@@ -176,7 +170,7 @@ def main(args):
 task_names = [
     'ErrorDetection',
     'ErrorClassification',
-    'ErrorIdentification',
+    'ErrorLocation',
     'ErrorCorrection'
 ]
 
