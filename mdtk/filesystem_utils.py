@@ -8,14 +8,15 @@ import zipfile
 
 
 
-def download_file(source, dest, verbose=True, overwrite=None):
+def download_file(source, dest, verbose=False, overwrite=None):
         """Get a file from a url and save it locally"""
         if verbose:
             print(f'Downloading {source} to {dest}')
         if os.path.exists(dest):
             if overwrite is None:
-                warnings.warn(f'WARNING: {dest} already exists, not '
-                              'downloading', category=UserWarning)
+                if verbose:
+                    warnings.warn(f'WARNING: {dest} already exists, not '
+                                  'downloading', category=UserWarning)
                 return
             if not overwrite:
                 raise OSError(f'{dest} already exists')
@@ -26,7 +27,7 @@ def download_file(source, dest, verbose=True, overwrite=None):
             raise e
 
 
-def make_directory(path, overwrite=None, verbose=True):
+def make_directory(path, overwrite=None, verbose=False):
         """Convenience function to create a directory and handle cases where
         it already exists.
         
@@ -49,13 +50,15 @@ def make_directory(path, overwrite=None, verbose=True):
             mkdir(path)
         except FileExistsError as e:
             if overwrite is True:
-                print(f'Deleting existing directory: {path}')
+                if verbose:
+                    print(f'Deleting existing directory: {path}')
                 shutil.rmtree(path)
                 mkdir(path)
             elif overwrite is None:
-                warnings.warn(f'WARNING: {path} already exists, writing files '
-                      'within here only if they do not already exist.',
-                      category=UserWarning)
+                if verbose:
+                    warnings.warn(f'WARNING: {path} already exists, writing '
+                                  'files only if they do not already exist.',
+                                  category=UserWarning)
             elif overwrite is False:
                 raise e
             else:
@@ -63,7 +66,7 @@ def make_directory(path, overwrite=None, verbose=True):
                                  f'"{overwrite}"')
 
 
-def extract_zip(zip_path, out_path, overwrite=None, verbose=True):
+def extract_zip(zip_path, out_path, overwrite=None, verbose=False):
     """Convenience function to extract zip file to out_path.
     TODO: make work for all types of zip files."""
     if verbose:
@@ -72,12 +75,15 @@ def extract_zip(zip_path, out_path, overwrite=None, verbose=True):
     extracted_path = os.path.join(out_path, dirname)
     if os.path.exists(extracted_path):     
         if overwrite is True:
-            warnings.warn(f'Deleting existing directory: {extracted_path}')
+            if verbose:
+                warnings.warn('Deleting existing directory: '
+                              f'{extracted_path}')
             shutil.rmtree(extracted_path)
         elif overwrite is None:
-            warnings.warn(f'{extracted_path} already exists. Assuming this '
-                          'zip has already been extracted, not extracting.',
-                  category=UserWarning)
+            if verbose:
+                warnings.warn(f'{extracted_path} already exists. Assuming '
+                              'this zip has already been extracted, not '
+                              'extracting.', category=UserWarning)
             return extracted_path
         elif overwrite is False:
             raise FileExistsError(f'{extracted_path} already exists')

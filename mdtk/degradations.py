@@ -8,8 +8,16 @@ from numpy.random import randint, choice
 from mdtk.data_structures import NOTE_DF_SORT_ORDER
 
 
-MIN_PITCH = 0
-MAX_PITCH = 127
+MIN_PITCH_DEFAULT = 21
+MAX_PITCH_DEFAULT = 108
+
+MIN_SHIFT_DEFAULT = 100
+MAX_SHIFT_DEFAULT = np.inf
+
+MIN_DURATION_DEFAULT = 50
+MAX_DURATION_DEFAULT = np.inf
+
+TRIES_DEFAULT = 10
 
 TRIES_WARN_MSG = ("WARNING: Generated invalid (overlapping) degraded excerpt "
                   "too many times. Try raising tries parameter (default 10). "
@@ -91,9 +99,11 @@ def pre_process(df, sort=False):
     df : pd.DataFrame
         The postprocessed dataframe.
     """
+    df = df.loc[:, NOTE_DF_SORT_ORDER]
     if sort:
         df = df.sort_values(NOTE_DF_SORT_ORDER)
     df = df.reset_index(drop=True)
+    df = df.round().astype(int)
     return df
 
 
@@ -160,8 +170,9 @@ def split_range_sample(split_range, p=None):
 
 
 @set_random_seed
-def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
-                distribution=None, tries=10):
+def pitch_shift(excerpt, min_pitch=MIN_PITCH_DEFAULT,
+                max_pitch=MAX_PITCH_DEFAULT, distribution=None,
+                tries=TRIES_DEFAULT):
     """
     Shift the pitch of one note from the given excerpt.
 
@@ -286,8 +297,9 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False,
-               tries=10):
+def time_shift(excerpt, min_shift=MIN_SHIFT_DEFAULT,
+               max_shift=MAX_SHIFT_DEFAULT, align_onset=False,
+               tries=TRIES_DEFAULT):
     """
     Shift the onset and offset times of one note from the given excerpt,
     leaving its duration unchanged.
@@ -401,9 +413,10 @@ def time_shift(excerpt, min_shift=50, max_shift=np.inf, align_onset=False,
 
 
 @set_random_seed
-def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                max_duration=np.inf, align_onset=False, align_dur=False,
-                tries=10):
+def onset_shift(excerpt, min_shift=MIN_SHIFT_DEFAULT,
+                max_shift=MAX_SHIFT_DEFAULT, min_duration=MIN_DURATION_DEFAULT,
+                max_duration=MAX_DURATION_DEFAULT, align_onset=False,
+                align_dur=False, tries=TRIES_DEFAULT):
     """
     Shift the onset time of one note from the given excerpt.
 
@@ -583,8 +596,10 @@ def onset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
-def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
-                 max_duration=np.inf, align_dur=False, tries=10):
+def offset_shift(excerpt, min_shift=MIN_SHIFT_DEFAULT,
+                 max_shift=MAX_SHIFT_DEFAULT, min_duration=MIN_DURATION_DEFAULT,
+                 max_duration=MAX_DURATION_DEFAULT, align_dur=False,
+                 tries=TRIES_DEFAULT):
     """
     Shift the offset time of one note from the given excerpt.
 
@@ -711,7 +726,7 @@ def offset_shift(excerpt, min_shift=50, max_shift=np.inf, min_duration=50,
 
 
 @set_random_seed
-def remove_note(excerpt, tries=10):
+def remove_note(excerpt, tries=TRIES_DEFAULT):
     """
     Remove one note from the given excerpt.
 
@@ -754,9 +769,10 @@ def remove_note(excerpt, tries=10):
 
 
 @set_random_seed
-def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
-             min_duration=50, max_duration=np.inf,
-             align_pitch=False, align_time=False, tries=10):
+def add_note(excerpt, min_pitch=MIN_PITCH_DEFAULT, max_pitch=MAX_PITCH_DEFAULT,
+             min_duration=MIN_DURATION_DEFAULT,
+             max_duration=MAX_DURATION_DEFAULT, align_pitch=False,
+             align_time=False, tries=TRIES_DEFAULT):
     """
     Add one note to the given excerpt.
 
@@ -892,7 +908,8 @@ def add_note(excerpt, min_pitch=MIN_PITCH, max_pitch=MAX_PITCH,
 
 
 @set_random_seed
-def split_note(excerpt, min_duration=50, num_splits=1, tries=10):
+def split_note(excerpt, min_duration=MIN_DURATION_DEFAULT, num_splits=1,
+               tries=TRIES_DEFAULT):
     """
     Split one note from the excerpt into two or more notes of equal
     duration.
@@ -976,7 +993,7 @@ def split_note(excerpt, min_duration=50, num_splits=1, tries=10):
 
 @set_random_seed
 def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False,
-               tries=10):
+               tries=TRIES_DEFAULT):
     """
     Combine two notes of the same pitch and track into one.
 
@@ -1094,7 +1111,7 @@ DEGRADATIONS = {
 }
 
 
-def get_degradations(degradation_list):
+def get_degradations(degradation_list=DEGRADATIONS):
     """
     A convenience function to get degradation functions from strings.
 

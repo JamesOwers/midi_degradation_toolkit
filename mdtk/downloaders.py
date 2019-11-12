@@ -45,14 +45,16 @@ class DataDownloader:
 #        self.extracted = False
 
 
-    def download_midi(self, output_path, cache_path=None, overwrite=None):
+    def download_midi(self, output_path, cache_path=None, overwrite=None,
+                      verbose=False):
         """Downloads the MIDI data to output_path"""
         cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError('In order to download MIDI, you must '
                                   'implement the download_midi method.')
 
 
-    def download_csv(self, output_path, cache_path=None, overwrite=None):
+    def download_csv(self, output_path, cache_path=None, overwrite=None,
+                     verbose=False):
         """Downloads the csv data to output_path"""
         cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError('In order to download CSV, you must '
@@ -89,12 +91,13 @@ class PPDDSep2018Monophonic(DataDownloader):
         self.clean = clean
 
 
-    def download_midi(self, output_path, cache_path=None, overwrite=None):
+    def download_midi(self, output_path, cache_path=None, overwrite=None,
+                      verbose=False):
         # Cleaning paths, and setting up cache dir ============================
         cache_path = self.cache_path if cache_path is None else cache_path
         base_path = os.path.join(cache_path, self.dataset_name)
-        make_directory(base_path, overwrite)
-        make_directory(output_path, overwrite)
+        make_directory(base_path, overwrite, verbose=verbose)
+        make_directory(output_path, overwrite, verbose=verbose)
 
         # Downloading the data ================================================
         zip_paths = []
@@ -102,12 +105,13 @@ class PPDDSep2018Monophonic(DataDownloader):
             filename = url.split('/')[-1]
             zip_path = os.path.join(base_path, filename)
             zip_paths += [zip_path]
-            download_file(url, zip_path, overwrite=overwrite)
+            download_file(url, zip_path, overwrite=overwrite, verbose=verbose)
 
         # Extracting data from zip files ======================================
         extracted_paths = []
         for zip_path in zip_paths:
-            path = extract_zip(zip_path, base_path, overwrite=overwrite)
+            path = extract_zip(zip_path, base_path, overwrite=overwrite,
+                               verbose=verbose)
             extracted_paths += [path]
 
         # Copying midi files to output_path ===================================
@@ -221,14 +225,15 @@ class PianoMidi(DataDownloader):
         return urls
 
 
-    def download_midi(self, output_path, cache_path=None, overwrite=None):
+    def download_midi(self, output_path, cache_path=None, overwrite=None,
+                      verbose=False):
         # Cleaning paths, and setting up cache dir ============================
         cache_path = self.cache_path if cache_path is None else cache_path
         base_path = os.path.join(cache_path, self.dataset_name)
         midi_dl_path = os.path.join(base_path, 'midis')
-        make_directory(base_path, overwrite)
-        make_directory(output_path, overwrite)
-        make_directory(midi_dl_path, overwrite)
+        make_directory(base_path, overwrite, verbose=verbose)
+        make_directory(output_path, overwrite, verbose=verbose)
+        make_directory(midi_dl_path, overwrite, verbose=verbose)
 
         # Downloading the data ================================================
         zip_paths = []
@@ -239,7 +244,7 @@ class PianoMidi(DataDownloader):
                 zip_paths += [path]
             else:
                 path = os.path.join(midi_dl_path, filename)
-            download_file(url, path, overwrite=overwrite)
+            download_file(url, path, overwrite=overwrite, verbose=verbose)
 #            I removed this sleep because it makes things very slow in the case
 #            of things already having been downloaded, is it really required?
 #            time.sleep(1) # Don't want to overload the server
@@ -249,15 +254,15 @@ class PianoMidi(DataDownloader):
         for zip_path in zip_paths:
             zip_name = os.path.splitext(os.path.basename(zip_path))[0]
             out_path = os.path.join(base_path, zip_name)
-            extract_zip(zip_path, out_path, overwrite=overwrite)
+            extract_zip(zip_path, out_path, overwrite=overwrite,
+                        verbose=verbose)
             extracted_paths += [out_path]
 
         # Copying midi files to output_path ===================================
-        for path in extracted_paths:
-            midi_paths = glob.glob(os.path.join(path, '*.mid'))
-            for filepath in tqdm(midi_paths,
-                                 desc=f"Copying midi to {output_path}: "):
-                copy_file(filepath, output_path)
+        for filepath in tqdm([p for path in extracted_paths
+                              for p in glob.glob(os.path.join(path, '*.mid'))],
+                             desc=f"Copying midi to {output_path}: "):
+            copy_file(filepath, output_path)
         self.midi_output_path = output_path
 
         # Delete cache ========================================================

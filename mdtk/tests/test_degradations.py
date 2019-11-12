@@ -64,6 +64,25 @@ def test_pre_process():
         f"Pre-processing \n{UNSORTED_DF}\n with sort=True resulted in "
         f"\n{res}\ninstead of \n{basic_res}"
     )
+    
+    float_df = pd.DataFrame({
+        'track': [0, 1, 0, 1.5],
+        'onset': [0.5, 100.5, 200.5, 200.5],
+        'pitch': [10, 20, 30.5, 40],
+        'dur': [100, 100, 100.5, 100],
+        'extra': [5, 5, 'apple', None]
+    })
+    float_res = pd.DataFrame({
+        'onset': [0, 100, 200, 200],
+        'track': [0, 1, 0, 2],
+        'pitch': [10, 20, 30, 40],
+        'dur': [100, 100, 100, 100]
+    })
+    res = deg.pre_process(float_df)
+    assert res.equals(float_res), (
+        f"Pre-processing \n{float_df}\n resulted in \n{res}\n"
+        f"instead of \n{float_res}"
+    )
 
 
 def test_post_process():
@@ -167,7 +186,7 @@ def test_pitch_shift():
 
             basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
                                       'track': [0, 1, 0, 1],
-                                      'pitch': [10, 107, 30, 40],
+                                      'pitch': [10, 33, 30, 40],
                                       'dur': [100, 100, 100, 100]})
 
             assert res.equals(basic_res), (
@@ -292,9 +311,9 @@ def test_time_shift():
         for i in range(2):
             res = deg.time_shift(BASIC_DF, seed=1)
 
-            basic_res = pd.DataFrame({'onset': [0, 158, 200, 200],
-                                      'track': [0, 1, 0, 1],
-                                      'pitch': [10, 20, 30, 40],
+            basic_res = pd.DataFrame({'onset': [0, 200, 200, 200],
+                                      'track': [0, 0, 1, 1],
+                                      'pitch': [10, 30, 20, 40],
                                       'dur': [100, 100, 100, 100]})
 
             assert res.equals(basic_res), (
@@ -436,10 +455,10 @@ def test_onset_shift():
         for i in range(2):
             res = deg.onset_shift(BASIC_DF, seed=1)
 
-            basic_res = pd.DataFrame({'onset': [0, 150, 200, 200],
-                                      'track': [0, 1, 0, 1],
-                                      'pitch': [10, 20, 30, 40],
-                                      'dur': [100, 50, 100, 100]})
+            basic_res = pd.DataFrame({'onset': [0, 72, 100, 200],
+                                      'track': [0, 0, 1, 1],
+                                      'pitch': [10, 30, 20, 40],
+                                      'dur': [100, 228, 100, 100]})
 
             assert res.equals(basic_res), (
                 f"Onset shifting \n{BASIC_DF}\nresulted in \n{res}\n"
@@ -661,7 +680,7 @@ def test_offset_shift():
             basic_res = pd.DataFrame({'onset': [0, 100, 200, 200],
                                       'track': [0, 1, 0, 1],
                                       'pitch': [10, 20, 30, 40],
-                                      'dur': [100, 158, 100, 100]})
+                                      'dur': [100, 200, 100, 100]})
 
             assert res.equals(basic_res), (
                 f"Offset shifting \n{BASIC_DF}\nresulted in \n{res}\n"
@@ -829,7 +848,7 @@ def test_add_note():
 
         basic_res = pd.DataFrame({'onset': [0, 100, 200, 200, 235],
                                   'track': [0, 1, 0, 1, 0],
-                                  'pitch': [10, 20, 30, 40, 37],
+                                  'pitch': [10, 20, 30, 40, 58],
                                   'dur': [100, 100, 100, 100, 62]})
 
         assert res.equals(basic_res), (
