@@ -119,8 +119,9 @@ def round_to_n(x, n=3):
         return np.round(x, -(np.floor(np.log10(x))).astype(int) + (n - 1))
 
     
-def plot_confusion(confusion_mat, save_plots=False):
-    fig, ax = plt.subplots()
+def plot_confusion(confusion_mat, save_plots=False, ax=None):
+    if ax is None:
+        ax = plt.gca()
     degs = ['none', 'pitch_shift', 'time_shift', 'onset_shift',
             'offset_shift', 'remove_note', 'add_note', 'split_note',
             'join_notes']
@@ -143,11 +144,10 @@ def plot_confusion(confusion_mat, save_plots=False):
     plt.ylim(8.5, -0.5)
     plt.tight_layout()
     if save_plots:
-        plt.savefig(f'{save_plots}/confusion.png',
+        plt.savefig(f'{save_plots}.png',
                     dpi=300)
-        plt.savefig(f'{save_plots}/confusion.pdf',
+        plt.savefig(f'{save_plots}.pdf',
                     dpi=300)
-    plt.show()
 
 
 def construct_parser():
@@ -293,13 +293,16 @@ def main(args):
                 .dropna(axis=1)  # removes cols with na in them (not a metric for this task)
         )
         if 'confusion_mat' in df.columns:
-            confusion_mat = df['confusion_mat'][0]
-            confusion[task_name] = confusion_mat
-            if save_plots:
-                save_plot_loc = f"{save_plots}/{task_name}"
-                if not os.path.exists(save_plot_loc):
-                    os.makedirs(save_plot_loc)
-            plot_confusion(confusion_mat, save_plots=save_plot_loc)
+            confusion[task_name] = df['confusion_mat']
+            for split in ['train', 'valid', 'test']:
+                confusion_mat = df.loc[split, 'confusion_mat']
+                if save_plots:
+                    save_plot_loc = f"{save_plots}/{task_name}"
+                    if not os.path.exists(save_plot_loc):
+                        os.makedirs(save_plot_loc)
+                plt.figure(figsize=(5, 5))
+                plot_confusion(confusion_mat, save_plots=f"{save_plot_loc}/{split}_confusion")
+                plt.show()
             df.drop('confusion_mat', axis=1, inplace=True)
         df = (
             df
