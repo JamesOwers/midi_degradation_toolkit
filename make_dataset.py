@@ -22,7 +22,7 @@ def print_warn_msg_only(message, category, filename, lineno, file=None,
 warnings.showwarning = print_warn_msg_only
 
 
-with open('./img/logo.txt', 'r') as ff:
+with open(os.path.join('img', 'logo.txt'), 'r') as ff:
     LOGO = ff.read()
 
 

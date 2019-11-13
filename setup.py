@@ -28,7 +28,7 @@ setuptools.setup(
         "Development Status :: 1 - Planning",
         "Programming Language :: Python :: 3 :: Only",
         "License :: OSI Approved :: MIT License",
-        "Operating System :: Unix",  #TODO: make win friendly
+        "Operating System :: OS Independent",
         "Topic :: Multimedia :: Sound/Audio :: MIDI"
     ],
     dependency_links=['https://github.com/craffel/pretty-midi/tarball/'
