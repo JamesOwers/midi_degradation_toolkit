@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import argparse
 import os
-
+import sys
+import pandas as pd
 import numpy as np
+import warnings
 
 import torch
 import torch.nn as nn
@@ -12,24 +14,16 @@ import mdtk.pytorch_models
 import mdtk.pytorch_trainers
 from mdtk.pytorch_datasets import transform_to_torchtensor
 from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
+def print_warn_msg_only(message, category, filename, lineno, file=None,
+                        line=None):
+    print(message, file=sys.stderr)
 
-## For dev mode warnings...
-#import sys
-#if not sys.warnoptions:
-#    import warnings
-#    warnings.simplefilter("always") # Change the filter in this process
-#    os.environ["PYTHONWARNINGS"] = "always" # Also affect subprocesses
-
-
-# For user mode warnings...
-import sys
-if not sys.warnoptions:
-    import warnings
-    warnings.simplefilter("ignore") # Change the filter in this process
-    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
-
+warnings.showwarning = print_warn_msg_only
+# TODO: This should ideally be 'once', but it doesn't work for some reason
+warnings.filterwarnings('ignore', message='.* exceeds given seq_len')
 
 def get_inverse_weights(dataset, task, formatter, transform=torch.tensor):
     """
@@ -100,6 +94,9 @@ def parse_args():
                         'will create them. Choices are '
                         f'{list(FORMATTERS.keys())}. Required if --baseline '
                         'is not given.')
+    parser.add_argument("--reformat", action="store_true", help="Force the "
+                        "creation of the desired --format csvs, even if they "
+                        "already exist.")
 
     parser.add_argument("--task", required=True, choices=range(1, 5), help='The '
                         'task number to train a model for.', type=int)
@@ -162,9 +159,9 @@ def parse_args():
                         help="adam first beta value")
 
     # Piano-roll specific size args
-    parser.add_argument("--pr-min-pitch", type=int, default=21,
+    parser.add_argument("--pr-min-pitch", type=int, default=MIN_PITCH_DEFAULT,
                         help="Minimum pianoroll pitch")
-    parser.add_argument("--pr-max-pitch", type=int, default=108,
+    parser.add_argument("--pr-max-pitch", type=int, default=MAX_PITCH_DEFAULT,
                         help="Maximum pianoroll pitch")
 
     args = parser.parse_args()
@@ -175,7 +172,7 @@ def parse_args():
 task_names = [
     'ErrorDetection',
     'ErrorClassification',
-    'ErrorIdentification',
+    'ErrorLocation',
     'ErrorCorrection'
 ]
 
@@ -210,9 +207,9 @@ if __name__ == '__main__':
 
     # Generate (if needed) and load formatted csv
     prefix = FORMATTERS[args.format]["prefix"]
-    if not all([os.path.exists(
+    if (not all([os.path.exists(
             os.path.join(args.input, f'{split}_{prefix}_corpus.csv')
-        ) for split in ['train', 'valid', 'test']]):
+        ) for split in ['train', 'valid', 'test']])) or args.reformat:
         create_corpus_csvs(args.input, FORMATTERS[args.format])
     train_dataset = os.path.join(args.input, f'train_{prefix}_corpus.csv')
     valid_dataset = os.path.join(args.input, f'valid_{prefix}_corpus.csv')
@@ -229,6 +226,7 @@ if __name__ == '__main__':
     Trainer = task_trainers[task_idx]
     Criterion = task_criteria[task_idx]
     
+    deg_ids_df = pd.read_csv(os.path.join(args.input, 'degradation_ids.csv'))
     if args.format == 'command':
         vocab = CommandVocab()
         vocab_size = len(vocab)
@@ -240,7 +238,7 @@ if __name__ == '__main__':
             'vocab_size': vocab_size,
             'embedding_dim': args.embedding,
             'hidden_dim': args.hidden,
-            'output_size': 2 if args.task == 1 else 9,
+            'output_size': 2 if args.task == 1 else len(deg_ids_df),
             'dropout_prob': args.dropout
         }
     elif args.format == 'pianoroll':
@@ -253,7 +251,7 @@ if __name__ == '__main__':
         model_kwargs = {
             'input_dim': 2 * (args.pr_max_pitch - args.pr_min_pitch + 1),
             'hidden_dim': args.hidden,
-            'output_dim': 2 if args.task in [1, 3] else 9,
+            'output_dim': 2 if args.task in [1, 3] else len(deg_ids_df),
             'layers': args.layers,
             'dropout_prob': args.dropout
         }

@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 import tqdm
 from mdtk.eval import helpfulness, get_f1
+from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
 
@@ -355,8 +356,7 @@ class ErrorClassificationTrainer(BaseTrainer):
         total_loss = 0
         total_correct = 0
         total_element = 0
-        if evaluate:
-            confusion_mat = np.zeros((9, 9))
+        confusion_mat = None
         
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
@@ -397,6 +397,9 @@ class ErrorClassificationTrainer(BaseTrainer):
 
             # Confusion matrix
             if evaluate:
+                if confusion_mat is None:
+                    num_degs = model_output.shape[1]
+                    confusion_mat = np.zeros((num_degs, num_degs))
                 for label, output in zip(labels.cpu(),
                                          model_output.cpu().data.numpy()):
                     confusion_mat[label, np.argmax(output)] += 1
@@ -437,9 +440,9 @@ class ErrorClassificationTrainer(BaseTrainer):
 
 
 
-class ErrorIdentificationTrainer(BaseTrainer):
-    """Trains Task 3 - Error identification. The model provided is expected to be
-    an mdtk.pytorch_models.ErrorIdentificationNet. Expects a DataLoader using an
+class ErrorLocationTrainer(BaseTrainer):
+    """Trains Task 3 - Error Location. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorLocationNet. Expects a DataLoader using an
     mdtk.pytorch_datasets.CommandDataset."""
     def __init__(self, model, criterion, train_dataloader: DataLoader,
                  test_dataloader: DataLoader = None,
@@ -587,8 +590,8 @@ class ErrorIdentificationTrainer(BaseTrainer):
 
 
 class ErrorCorrectionTrainer(BaseTrainer):
-    """Trains Task 4 - Error identification. The model provided is expected to be
-    an mdtk.pytorch_models.ErrorIdentificationNet. Expects a DataLoader using an
+    """Trains Task 4 - Error Correction. The model provided is expected to be
+    an mdtk.pytorch_models.ErrorCorrectionNet. Expects a DataLoader using an
     mdtk.pytorch_datasets.CommandDataset."""
     def __init__(self, model, criterion, train_dataloader: DataLoader,
                  test_dataloader: DataLoader = None,
@@ -702,15 +705,27 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 total_data_points += len(input_data)
                 for in_data, out_data, clean_data in \
                         zip(input_data, model_output, labels):
-                    deg_df = self.formatter['model_to_df'](
-                        in_data.cpu().data.numpy(), min_pitch=21,
-                        max_pitch=108, time_increment=40)
-                    model_out_df = self.formatter['model_to_df'](
-                        out_data.round().cpu().data.numpy(), min_pitch=21,
-                        max_pitch=108, time_increment=40)
-                    clean_df = self.formatter['model_to_df'](
-                        clean_data.cpu().data.numpy(), min_pitch=21,
-                        max_pitch=108, time_increment=40)
+                    # TODO: Only 1 of these calls is necessary. deg and clean
+                    # could conceivably be returned by the data loader.
+                    # N.B. Currently, the precise min and max pitch don't
+                    # matter here. The converter just treats them all the same,
+                    # corrects and warns if the range doesn't make sense.
+                    # However, if loading deg and clean from the original df,
+                    # using the correct min and max pitch will be important.
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        deg_df = self.formatter['model_to_df'](
+                            in_data.cpu().data.numpy(),
+                            min_pitch=MIN_PITCH_DEFAULT,
+                            max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
+                        model_out_df = self.formatter['model_to_df'](
+                            out_data.round().cpu().data.numpy(),
+                            min_pitch=MIN_PITCH_DEFAULT,
+                            max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
+                        clean_df = self.formatter['model_to_df'](
+                            clean_data.cpu().data.numpy(),
+                            min_pitch=MIN_PITCH_DEFAULT,
+                            max_pitch=MAX_PITCH_DEFAULT, time_increment=40)
                     h, f = helpfulness(model_out_df, deg_df, clean_df)
                     total_help += h
                     total_fm += f
