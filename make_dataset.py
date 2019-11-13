@@ -4,7 +4,6 @@ import os
 import sys
 import json
 import argparse
-from glob import glob
 import warnings
 import pandas as pd
 import shutil
@@ -13,7 +12,7 @@ import numpy as np
 from tqdm import tqdm
 
 from mdtk import degradations, downloaders, data_structures, midi
-from mdtk.filesystem_utils import make_directory, copy_file
+from mdtk.filesystem_utils import make_directory, copy_file, glob
 from mdtk.formatters import create_corpus_csvs, FORMATTERS
 
 def print_warn_msg_only(message, category, filename, lineno, file=None,

@@ -6,11 +6,9 @@ new class which extends DataDownloader, and write an accompanying test in
 """
 import os
 import shutil
-import glob
-import time
 from tqdm import tqdm
 from mdtk.filesystem_utils import (download_file, make_directory, extract_zip,
-                                   copy_file)
+                                   copy_file, glob)
 
 
 USER_HOME = os.path.expanduser('~')
@@ -116,7 +114,7 @@ class PPDDSep2018Monophonic(DataDownloader):
 
         # Copying midi files to output_path ===================================
         for path in extracted_paths:
-            midi_paths = [glob.glob(os.path.join(path, mp, '*.mid')) for mp
+            midi_paths = [glob(os.path.join(path, mp, '*.mid')) for mp
                           in self.midi_paths]
             midi_paths = [pp for sublist in midi_paths for pp in sublist]
             for filepath in tqdm(midi_paths,
@@ -260,7 +258,7 @@ class PianoMidi(DataDownloader):
 
         # Copying midi files to output_path ===================================
         for filepath in tqdm([p for path in extracted_paths
-                              for p in glob.glob(os.path.join(path, '*.mid'))],
+                              for p in glob(os.path.join(path, '*.mid'))],
                              desc=f"Copying midi to {output_path}: "):
             copy_file(filepath, output_path)
         self.midi_output_path = output_path

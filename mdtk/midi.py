@@ -1,16 +1,15 @@
 """Code to interact with MIDI files, including parsing and converting them
 to csvs."""
 import os
-import glob
 import warnings
 
 import pandas as pd
-import numpy as np
 from tqdm import tqdm
 
 import pretty_midi
 
 from mdtk.data_structures import NOTE_DF_SORT_ORDER, check_note_df
+from mdtk.filesystem_utils import glob
 
 
 
@@ -43,7 +42,7 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
     if recursive:
         dir_prefix_len = len(midi_dir_path) + 1
         midi_dir_path = os.path.join(midi_dir_path, '**')
-    for midi_path in tqdm(glob.glob(os.path.join(midi_dir_path, '*.mid')),
+    for midi_path in tqdm(glob(os.path.join(midi_dir_path, '*.mid')),
                           desc='Converting midi from '
                           f'{os.path.basename(midi_dir_path)} to csv at '
                           f'{os.path.basename(csv_dir_path)}: '):
