@@ -97,7 +97,8 @@ def parse_args(args_input=None):
     parser.add_argument('--formats', metavar='format', help='Create '
                         'custom versions of the acme data for easier loading '
                         'with our provided pytorch Dataset classes. Choices are'
-                        f' {list(FORMATTERS.keys())}.', nargs='*', default=[],
+                        f' {list(FORMATTERS.keys())}. Specify none to avoid ''
+                        'creation', nargs='*', default=list(FORMATTERS.keys()),
                         choices=FORMATTERS.keys())
     parser.add_argument('--clear', action='store_true', help='Delete '
                         '--input-dir and --output-dir prior to creating this '
@@ -176,7 +177,6 @@ def parse_args(args_input=None):
 
 
 if __name__ == '__main__':
-    # TODO: set warning level such that we avoid warning fatigue
     ARGS = parse_args()
     if ARGS.seed is None:
         seed = np.random.randint(0, 2**32)
@@ -218,6 +218,16 @@ if __name__ == '__main__':
     assert min(ARGS.splits) >= 0, "--splits values must not be negative."
     assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
 
+    # Parse formats
+    if len(ARGS.formats) == 1 and ARGS.formats[0].lower() == 'none':
+        formats = []
+    else:
+        assert all([name in FORMATTERS.keys() for name in ARGS.formats]), (
+                f"all provided formats {ARGS.formats} must be in the "
+                "list of available formats {list(FORMATTERS.keys())}")
+        formats = ARGS.formats
+    
+    
     # Clear input and output dirs =============================================
     if ARGS.clear:
         if os.path.exists(ARGS.input_dir):
@@ -510,7 +520,7 @@ if __name__ == '__main__':
 
     meta_file.close()
 
-    for f in ARGS.formats:
+    for f in formats:
         create_corpus_csvs(ARGS.output_dir, FORMATTERS[f])
 
     print('Finished!')
@@ -531,8 +541,8 @@ if __name__ == '__main__':
 
     print('\ndegradation_ids.csv is a mapping of degradation name to the id '
           'number used in metadata.csv')
-
-    for f in ARGS.formats:
+    
+    for f in formats:
         print(f"\n{FORMATTERS[f]['message']}")
 
     print('\nTo reproduce this dataset again, run the script with argument '
