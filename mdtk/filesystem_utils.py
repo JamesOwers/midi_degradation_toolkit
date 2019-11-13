@@ -5,6 +5,7 @@ import shutil
 import urllib
 import warnings
 import zipfile
+from glob import glob as base_glob
 
 
 
@@ -105,3 +106,12 @@ def copy_file(filepath, output_path, overwrite=None, mkdir=False):
             raise FileExistsError(f'{path} already exists')
     else:
         shutil.copy(filepath, output_path)
+
+        
+def glob(*args, **kwargs):
+    """Wrapper for base glob.glob to ensure output is sorted. the output
+    of base glob is not sorted the same way on different operating systems
+    without this manual sort."""
+    out_list = base_glob(*args, **kwargs)
+    out_list.sort()
+    return out_list
