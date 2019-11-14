@@ -42,10 +42,10 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
     if recursive:
         dir_prefix_len = len(midi_dir_path) + 1
         midi_dir_path = os.path.join(midi_dir_path, '**')
-    for midi_path in tqdm(sorted(glob(os.path.join(midi_dir_path, '*.mid')),
-                                 desc='Converting midi from '
-                                 f'{os.path.basename(midi_dir_path)} to csv '
-                                 f'at {os.path.basename(csv_dir_path)}: ')):
+    for midi_path in tqdm(glob(os.path.join(midi_dir_path, '*.mid')),
+                          desc='Converting midi from '
+                          f'{os.path.basename(midi_dir_path)} to csv '
+                          f'at {os.path.basename(csv_dir_path)}: '):
         if recursive:
             csv_path = os.path.join(
                 csv_dir_path,

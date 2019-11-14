@@ -355,8 +355,8 @@ if __name__ == '__main__':
     # Create all Composition objects and write clean data to output ===========
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
-    csv_paths = glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
-                     recursive=ARGS.recursive)
+    csv_paths = sorted(glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
+                            recursive=ARGS.recursive))
     if len(csv_paths) == 0:
         print('No data selected. Choose a dataset with --datasets, or use '
               'local data with --local-csv-dirs or --local-midi-dirs')

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import argparse
+from glob import glob
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,6 @@ import seaborn as sns
 
 from .eval_task import main as eval_main
 from .eval_task import construct_parser as eval_construct_parser
-from mdtk.filesystem_utils import glob
 
 
 

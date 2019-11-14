@@ -115,7 +115,7 @@ class PPDDSep2018Monophonic(DataDownloader):
 
         # Copying midi files to output_path ===================================
         for path in extracted_paths:
-            midi_paths = [sorted(glob(os.path.join(path, mp, '*.mid'))) for mp
+            midi_paths = [glob(os.path.join(path, mp, '*.mid')) for mp
                           in self.midi_paths]
             midi_paths = [pp for sublist in midi_paths for pp in sublist]
             for filepath in tqdm(midi_paths,
@@ -259,7 +259,7 @@ class PianoMidi(DataDownloader):
 
         # Copying midi files to output_path ===================================
         for filepath in tqdm([p for path in extracted_paths for p 
-                              in sorted(glob(os.path.join(path, '*.mid')))],
+                              in glob(os.path.join(path, '*.mid'))],
                              desc=f"Copying midi to {output_path}: "):
             copy_file(filepath, output_path)
         self.midi_output_path = output_path
