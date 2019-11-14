@@ -175,10 +175,11 @@ if __name__ == '__main__':
     ARGS = parse_args()
     if ARGS.seed is None:
         seed = np.random.randint(0, 2**32)
+        print(f'No random seed supplied. Setting to {seed}.')
     else:
         seed = ARGS.seed
+        print(f'Setting random seed to {seed}.')
     np.random.seed(seed)
-    
     # Check given degradation_kwargs
     assert (ARGS.degradation_kwargs is None or
             ARGS.degradation_kwarg_json is None), ("Don't specify both "
