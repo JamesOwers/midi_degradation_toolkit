@@ -90,7 +90,7 @@ def parse_args(args_input=None):
     parser.add_argument('--formats', metavar='format', help='Create '
                         'custom versions of the acme data for easier loading '
                         'with our provided pytorch Dataset classes. Choices are'
-                        f' {list(FORMATTERS.keys())}. Specify none to avoid ''
+                        f' {list(FORMATTERS.keys())}. Specify none to avoid '
                         'creation', nargs='*', default=list(FORMATTERS.keys()),
                         choices=FORMATTERS.keys())
     parser.add_argument('--stale-data', action='store_true', help='Do not '
