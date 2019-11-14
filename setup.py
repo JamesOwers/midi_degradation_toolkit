@@ -22,8 +22,10 @@ setuptools.setup(
         'matplotlib',
         'tqdm',
         'mir_eval',
-        'pretty_midi'
+        'pretty_midi',
+        'torch'
     ],
+    python_requires='~=3.7',
     classifiers=[
         "Development Status :: 1 - Planning",
         "Programming Language :: Python :: 3 :: Only",
