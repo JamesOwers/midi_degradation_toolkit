@@ -532,9 +532,12 @@ if __name__ == '__main__':
     for f in formats:
         create_corpus_csvs(ARGS.output_dir, FORMATTERS[f])
 
-    print('Finished!')
-    print(f'Count of degradations {list(zip(deg_choices, current_counts))}')
-    print(f'The data used as input is contained in {ARGS.input_dir}')
+    print(f'\n{10*"="} Finished! {10*"="}\n')
+    print(f'Count of degradations:')
+    for deg_name, count in zip(deg_choices, current_counts):
+        print(f'\t* {deg_name}: {int(count)}')
+    
+    print(f'\nThe data used as input is contained in {ARGS.input_dir}')
 
     print(f'\nYou will find the generated data at {ARGS.output_dir} '
           'with subdirectories')
