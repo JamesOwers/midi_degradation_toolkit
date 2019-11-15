@@ -387,31 +387,33 @@ if __name__ == '__main__':
     # it's assumed there shouldn't be duplicates within each dataset!), and
     # this allows for easy matching of source and target data
     deg_choices = ARGS.degradations
-    goal_dist = ARGS.degradation_dist
+    goal_deg_dist = ARGS.degradation_dist
 
-    # Remove any degs with goal_dist == 0 and normalize
-    non_zero = [i for i, p in enumerate(goal_dist) if p != 0]
+    # Remove any degs with goal_deg_dist == 0 and normalize
+    non_zero = [i for i, p in enumerate(goal_deg_dist) if p != 0]
     deg_choices = np.array(deg_choices)[non_zero]
-    goal_dist = np.array(goal_dist)[non_zero]
-    goal_dist /= np.sum(goal_dist)
+    goal_deg_dist = np.array(goal_deg_dist)[non_zero]
+    goal_deg_dist /= np.sum(goal_deg_dist)
 
     # Add none for no degradation
     if 0 < ARGS.clean_prop < 1:
         deg_choices = np.insert(deg_choices, 0, 'none')
-        goal_dist *= 1 - ARGS.clean_prop
-        goal_dist = np.insert(goal_dist, 0, ARGS.clean_prop)
+        goal_deg_dist *= 1 - ARGS.clean_prop
+        goal_deg_dist = np.insert(goal_deg_dist, 0, ARGS.clean_prop)
     elif ARGS.clean_prop == 1:
         deg_choices = np.array(['none'])
-        goal_dist = np.array([1])
+        goal_deg_dist = np.array([1])
+    nr_degs = len(goal_deg_dist)
 
     # Normalize split proportions and remove 0s
-    splits = ['train', 'valid', 'test']
+    split_names = ['train', 'valid', 'test']
     split_props = np.array(ARGS.splits)
     split_props /= np.sum(split_props)
     non_zero = [i for i, p in enumerate(split_props) if p != 0]
-    splits = np.array(splits)[non_zero]
+    split_names = np.array(split_names)[non_zero]
     split_props = np.array(split_props)[non_zero]
-
+    nr_splits = len(split_names)
+    
     # Write out deg_choices to degradation_ids.csv
     with open(
             os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
@@ -423,20 +425,20 @@ if __name__ == '__main__':
     # The idea is to keep track of the current distribution of degradations
     # and then sample in reverse order of the difference between this and
     # the goal distribution. We do the same for splits.
-    current_counts = np.zeros(len(deg_choices))
-    current_splits = np.zeros(len(splits))
+    deg_counts = np.zeros(nr_degs)
+    split_counts = np.zeros(nr_splits)
       
     meta_file.write('altered_csv_path,degraded,degradation_id,'
                     'clean_csv_path,split\n')
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
-        if np.sum(current_counts) == 0: # First iteration, set to uniform
-            current_dist = np.ones(len(goal_dist)) / len(goal_dist)
-            current_split_dist = np.ones(len(splits)) / len(splits)
+        if np.sum(deg_counts) == 0: # First iteration, set to uniform
+            current_deg_dist = np.ones(nr_degs) / nr_degs
+            current_split_dist = np.ones(nr_splits) / nr_splits
         else:
-            current_dist = current_counts / np.sum(current_counts)
-            current_split_dist = current_splits / np.sum(current_splits)
+            current_deg_dist = deg_counts / np.sum(deg_counts)
+            current_split_dist = split_counts / np.sum(split_counts)
 
         # Grab an excerpt from this composition
         excerpt = None
@@ -469,14 +471,19 @@ if __name__ == '__main__':
 
         # Try degradations in reverse order of the difference between
         # their current distribution and their desired distribution.
-        diffs = goal_dist - current_dist
+        diffs = goal_deg_dist - current_deg_dist
         degs_sorted = sorted(zip(diffs, deg_choices,
                                  list(range(len(deg_choices)))))[::-1]
 
         # Calculate split in the same way (but only save the first)
         split_diffs = split_props - current_split_dist
-        _, split, split_num = sorted(zip(split_diffs, splits,
-                              list(range(len(splits)))))[-1]
+        _, split_name, split_num = sorted(
+            zip(
+                    split_diffs,
+                    split_names,
+                    list(range(nr_splits))
+            )
+        )[-1]
 
         # Make default labels for no degradation
         fn = os.path.basename(comp.csv_path)
@@ -513,8 +520,8 @@ if __name__ == '__main__':
         # Write data
         if not (degraded is None and ARGS.clean_prop == 0):
             # Update counts
-            current_counts[deg_num] += 1
-            current_splits[split_num] += 1
+            deg_counts[deg_num] += 1
+            split_counts[split_num] += 1
 
             # Write clean csv
             clean_outpath = os.path.join(ARGS.output_dir, clean_path)
@@ -522,7 +529,7 @@ if __name__ == '__main__':
 
             # Write metadata
             meta_file.write(f'{altered_path},{deg_binary},{deg_num},'
-                            f'{clean_path},{split}\n')
+                            f'{clean_path},{split_name}\n')
         else:
             warnings.warn("Unable to degrade chosen excerpt from "
                           f"{comp.csv_path} and no clean excerpts requested."
@@ -535,7 +542,7 @@ if __name__ == '__main__':
 
     print(f'\n{10*"="} Finished! {10*"="}\n')
     print(f'Count of degradations:')
-    for deg_name, count in zip(deg_choices, current_counts):
+    for deg_name, count in zip(deg_choices, deg_counts):
         print(f'\t* {deg_name}: {int(count)}')
     
     print(f'\nThe data used as input is contained in {ARGS.input_dir}')
