@@ -105,7 +105,7 @@ def create_corpus_csvs(acme_dir, format_dict):
         split = row.split
         fh = fh_dict[split]
         fh.write(f'{alt_str},{clean_str},{deg_num}\n')
-        meta_df.loc[idx, f'{prefix}_corpus_path'] = fh.name
+        meta_df.loc[idx, f'{prefix}_corpus_path'] = os.path.basename(fh.name)
         meta_df.loc[idx, f'{prefix}_corpus_line_nr'] = line_counts[split]
         line_counts[split] += 1
     meta_df.loc[:, f'{prefix}_corpus_line_nr'] = (
