@@ -309,8 +309,8 @@ if __name__ == '__main__':
         csv_input_dirs[dirname] = csv_outdir
         if ARGS.recursive:
             path = os.path.join(path, '**')
-        for filepath in tqdm(sorted(glob(os.path.join(path, '*.mid'),
-                                         recursive=ARGS.recursive)),
+        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
+                                  recursive=ARGS.recursive),
                              desc=f'Loading user midi from {path}'):
             if ARGS.recursive:
                 outdir = os.path.join(
@@ -334,8 +334,8 @@ if __name__ == '__main__':
         csv_input_dirs[dirname] = outdir
         if ARGS.recursive:
             path = os.path.join(path, '**')
-        for filepath in tqdm(sorted(glob(os.path.join(path, '*.mid'),
-                                         recursive=ARGS.recursive)),
+        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
+                                  recursive=ARGS.recursive),
                              desc=f'Loading user csv from {path}'):
             if ARGS.recursive:
                 outdir = os.path.join(
