@@ -282,6 +282,7 @@ if __name__ == '__main__':
 
 
     # Download data ===========================================================
+    print('Downloading datasets, this could take a while...')
     for name in downloader_dict:
         downloader = downloader_dict[name]
         midi_output_path = midi_input_dirs[name]
