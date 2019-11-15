@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
-from glob import glob
 import argparse
+from glob import glob
 
 import numpy as np
 import pandas as pd
@@ -83,9 +83,9 @@ def plot_task_losses(output_dir, task_name, settings,
         
         plt.figure(setting_fig.number) 
         if save_plots:
-            plt.savefig(f'{save_plots}/{task_name}__{lr}_{wd}_{hid}.png',
+            plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.png',
                         dpi=300)
-            plt.savefig(f'{save_plots}/{task_name}__{lr}_{wd}_{hid}.pdf',
+            plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.pdf',
                         dpi=300)
         plt.title(f'{task_name}__{"_".join(setting)}')
         setting_fig.show()

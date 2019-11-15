@@ -1,12 +1,9 @@
 import os
 import shutil
 import urllib
-from glob import glob
-import numpy as np
 
 from mdtk.downloaders import (PPDDSep2018Monophonic, PianoMidi,
                               PPDDSep2018Polyphonic, make_directory)
-from mdtk.data_structures import Composition
 
 
 DOWNLOADERS = [PPDDSep2018Monophonic, PPDDSep2018Polyphonic,
