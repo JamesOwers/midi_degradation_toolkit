@@ -193,6 +193,8 @@ def construct_parser():
     parser.add_argument("--splits", nargs='+', required=True,
                         default=['train', 'valid', 'test'],
                         help="which splits to evaluate: train, valid, test.")
+    parser.add_argument("-s", "--show_plots", action='store_true',
+                        help='Whether to use plt.show() or not')
     return parser
     
     
@@ -239,9 +241,13 @@ def main(args):
     for task_name, setting_name in zip(task_names, setting_names):
         print(f'{task_name} plots {20*"="}')
         settings = get_settings(output_dir, task_name)
-        results[task_name] = plot_task_losses(output_dir, task_name,
-                                              settings, setting_name)
-        plt.show()
+        results[task_name] = plot_task_losses(
+            output_dir, task_name, settings, setting_name,
+            save_plots=f'{save_plots}'
+        )
+        if args.show_plots:
+            plt.show()
+        plt.close('all')
     
     
     for task_name, setting_name in zip(task_names, setting_names):
@@ -267,7 +273,15 @@ def main(args):
                       ci='sd', data=df, linewidth=0)
         plt.xticks(rotation=90)
         plt.title(f'Summary of {task_name} - median over repeats')
-        plt.show()
+        if save_plots:
+            plt.savefig(f'{save_plots}/{task_name}/min_loss_summary.pdf',
+                        dpi=300)
+            plt.savefig(f'{save_plots}/{task_name}/min_loss_summary.png',
+                        dpi=300)
+        if args.show_plots:
+            plt.show()
+        plt.close('all')
+            
     #     sns.pointplot(x='expt_id', y='min_vld_loss', estimator=np.mean,
     #                   ci='sd', data=df, linewidth=0)
     #     plt.xticks(rotation=90)
@@ -288,7 +302,9 @@ def main(args):
                         dpi=300)
             plt.savefig(f'{save_plots}/{task_name}__best_model_loss.pdf',
                         dpi=300)
-        plt.show()
+        if args.show_plots:
+            plt.show()
+        plt.close('all')
     
     
     task_eval_log = {}
@@ -329,8 +345,11 @@ def main(args):
                     if not os.path.exists(save_plot_loc):
                         os.makedirs(save_plot_loc)
                 plt.figure(figsize=(5, 5))
-                plot_confusion(confusion_mat, save_plots=f"{save_plot_loc}/{split}_confusion")
-                plt.show()
+                plot_confusion(confusion_mat,
+                               save_plots=f"{save_plot_loc}/{split}_confusion")
+                if args.show_plots:
+                    plt.show()
+                plt.close('all')
             df.drop('confusion_mat', axis=1, inplace=True)
         df = (
             df
