@@ -21,11 +21,11 @@ onset,track,pitch,dur
 ...
 ```
 where:
-* onset is the time in milliseconds when a note began,
-* track is the identifier for a distinct track in the midi file,
-* pitch is the midinote pitch number ranging from 0 (C-2) to 127 (G9) (concert 
-  A4 is midinote 69),
-* and dur is how long the note is held in milliseconds.
+* `onset` is the time in milliseconds when a note began,
+* `track` is the identifier for a distinct track in the midi file,
+* `pitch` is the midinote pitch number ranging from 0 (C-2) to 127 (G9) (concert 
+  A4 is midinote 69), and
+* `dur` is how long the note is held in milliseconds.
 
 There are then functions to alter these files, introducing un-musical
 degradations such as pitch shifts.
@@ -38,6 +38,8 @@ Some highlights include:
   data for use
 * [`mdtk.degradations`](./mdtk/degradations.py) - functions to alter midi data
   e.g. `pitch_shift` or `time_shift`
+* [`mdtk.eval`](./mdtk/eval.py) - functions for evaluating model performance
+  on each task, given a list of outputs and targets
 * [`mdtk.formatters`](./mdtk/formatters.py) - functions converting between
   different data formats, e.g. making very small files for pytorch dataset
   classes to read
