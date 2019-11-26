@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-import os
 from glob import glob
 import argparse
+import warnings
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .eval_task import main as eval_main
-from .eval_task import construct_parser as eval_construct_parser
-
+from baselines.eval_task import main as eval_main
+from baselines.eval_task import construct_parser as eval_construct_parser
 
 
 def plot_log_file(log_file, trn_kwargs=None, vld_kwargs=None):
@@ -83,18 +82,18 @@ def plot_task_losses(output_dir, task_name, settings,
         
         plt.figure(setting_fig.number) 
         if save_plots:
-            plt.savefig(f'{save_plots}/{task_name}__{lr}_{wd}_{hid}.png',
+            plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.png',
                         dpi=300)
-            plt.savefig(f'{save_plots}/{task_name}__{lr}_{wd}_{hid}.pdf',
+            plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.pdf',
                         dpi=300)
         plt.title(f'{task_name}__{"_".join(setting)}')
         setting_fig.show()
     
     plt.figure(summary_fig.number)
     if save_plots:
-        plt.savefig(f'{save_plots}/{task_name}__summary.png',
+        plt.savefig(f'{save_plots}/{task_name}__all_loss_summary.png',
                     dpi=300)
-        plt.savefig(f'{save_plots}/{task_name}__summary.pdf',
+        plt.savefig(f'{save_plots}/{task_name}__all_loss_summary.pdf',
                     dpi=300)
     summary_fig.show()
     return res
@@ -118,7 +117,7 @@ def round_to_n(x, n=3):
     else:
         return np.round(x, -(np.floor(np.log10(x))).astype(int) + (n - 1))
 
-    
+
 def plot_confusion(confusion_mat, save_plots=False, ax=None):
     if ax is None:
         ax = plt.gca()
@@ -151,7 +150,12 @@ def plot_confusion(confusion_mat, save_plots=False, ax=None):
 
 
 def construct_parser():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Script for summarising '
+                                     'results of experiments run. Expects a '
+                                     'directory of output data, with '
+                                     'subdirectories for the name of the task.'
+                                     ' These subdirs contain the logs and '
+                                     'checkpoints for models fitted.')
     
     parser.add_argument("--output_dir", default='output',
                         help='location of logs and model checkpoints')
@@ -162,32 +166,58 @@ def construct_parser():
     parser.add_argument("--in_dir", default='acme',
                         help='location of the pianoroll and command '
                         'corpus datasets')
-    parser.add_argument("--task_names", nargs='+',
+    parser.add_argument("--task_names", nargs='+', required=True,
                         help='names of tasks to get results for. '
                         'must correspond to names of dirs in output_dir')
-    parser.add_argument("--setting_names", nargs='+',
-                        help='list of lists describing the names of '
+    parser.add_argument("--setting_names", nargs='+', required=True,
+                        help='A list (with no spaces) describing the names of '
                         'variables the gridsearches were performed over '
-                        'for each task')
-    parser.add_argument("--formats", nargs='+',
-                        help='format type for each task')
-    parser.add_argument("--seq_len", nargs='+',
+                        'for each task e.g. for --task_names task1 task4 '
+                        "--setting_names \"['lr','wd','hid']\" "
+                        "\"['lr','wd','hid','lay']\". You need to be careful "
+                        "to preserve quotes")
+    parser.add_argument("--formats", nargs='+', required=True,
+                        choices=['pianoroll', 'command'],
+                        help='data format type for each task e.g. '
+                        'for --task_names task1 task4 --formats command '
+                        'pianoroll')
+    parser.add_argument("--seq_len", nargs='+', required=True,
                         help='seq_len for each task')
-    parser.add_argument("--metrics", nargs='+',
+    parser.add_argument("--metrics", nargs='+', required=True,
                         help='metric for each task')
-    parser.add_argument("--task_desc", nargs='+',
-                        help='description for each task to use in result '
-                        'table')
-    parser.add_argument("--splits", nargs='+', default=['train', 'valid', 'test'],
+    parser.add_argument("--task_desc", nargs='+', required=True,
+                        help='description (with no spaces) for each task to '
+                        'use as the identifier in the results table e.g. for '
+                        '--task_names task1 task4 --task_desc ErrorDetection '
+                        'ErrorCorrection')
+    parser.add_argument("--splits", nargs='+', required=True,
+                        default=['train', 'valid', 'test'],
                         help="which splits to evaluate: train, valid, test.")
+    parser.add_argument("-s", "--show_plots", action='store_true',
+                        help='Whether to use plt.show() or not')
     return parser
     
     
 def main(args):
     task_names = args.task_names
+    nr_tasks = len(task_names)
     # TODO: change the way this is done! ATM can't think of
     # better way of handling sending a list of lists
     setting_names = [eval(ll) for ll in args.setting_names]
+    assert len(setting_names) == nr_tasks, ("You must submit a list of "
+              "parameters being searched for each task --setting_names . "
+              "Submit lists of parameter names with no spaces, e.g. "
+              "--task_names task1 task4 "
+              "--setting_names ['lr','wd','hid'] ['lr','wd','hid','lay'] ."
+              f"You submitted {nr_tasks} tasks: {task_names}, but "
+              f"{len(setting_names)} setting names: {setting_names}")
+    for varname in ['formats', 'seq_len', 'metrics', 'task_desc']:
+        value = getattr(args, varname)
+        vlen = len(value)
+        assert vlen == nr_tasks, (f"You submitted {vlen} {varname}, but need "
+            f"to supply {nr_tasks}. task_names: {task_names}, "
+            f"{varname}: {value}")
+    
     in_dir = args.in_dir
     output_dir = args.output_dir
     save_plots = args.save_plots
@@ -211,9 +241,13 @@ def main(args):
     for task_name, setting_name in zip(task_names, setting_names):
         print(f'{task_name} plots {20*"="}')
         settings = get_settings(output_dir, task_name)
-        results[task_name] = plot_task_losses(output_dir, task_name,
-                                              settings, setting_name)
-        plt.show()
+        results[task_name] = plot_task_losses(
+            output_dir, task_name, settings, setting_name,
+            save_plots=f'{save_plots}'
+        )
+        if args.show_plots:
+            plt.show()
+        plt.close('all')
     
     
     for task_name, setting_name in zip(task_names, setting_names):
@@ -239,7 +273,15 @@ def main(args):
                       ci='sd', data=df, linewidth=0)
         plt.xticks(rotation=90)
         plt.title(f'Summary of {task_name} - median over repeats')
-        plt.show()
+        if save_plots:
+            plt.savefig(f'{save_plots}/{task_name}__min_loss_summary.pdf',
+                        dpi=300)
+            plt.savefig(f'{save_plots}/{task_name}__min_loss_summary.png',
+                        dpi=300)
+        if args.show_plots:
+            plt.show()
+        plt.close('all')
+            
     #     sns.pointplot(x='expt_id', y='min_vld_loss', estimator=np.mean,
     #                   ci='sd', data=df, linewidth=0)
     #     plt.xticks(rotation=90)
@@ -260,7 +302,9 @@ def main(args):
                         dpi=300)
             plt.savefig(f'{save_plots}/{task_name}__best_model_loss.pdf',
                         dpi=300)
-        plt.show()
+        if args.show_plots:
+            plt.show()
+        plt.close('all')
     
     
     task_eval_log = {}
@@ -276,7 +320,9 @@ def main(args):
     #         f"--splits test"
         )
         eval_args = eval_parser.parse_args(eval_args_str.split())
-        log_info = eval_main(eval_args)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            log_info = eval_main(eval_args)
         task_eval_log[task_name] = log_info
     
     dict_of_df = {k: pd.DataFrame(v).T for k,v in task_eval_log.items()}
@@ -296,13 +342,14 @@ def main(args):
             confusion[task_name] = df['confusion_mat']
             for split in ['train', 'valid', 'test']:
                 confusion_mat = df.loc[split, 'confusion_mat']
-                if save_plots:
-                    save_plot_loc = f"{save_plots}/{task_name}"
-                    if not os.path.exists(save_plot_loc):
-                        os.makedirs(save_plot_loc)
                 plt.figure(figsize=(5, 5))
-                plot_confusion(confusion_mat, save_plots=f"{save_plot_loc}/{split}_confusion")
-                plt.show()
+                plot_confusion(
+                    confusion_mat,
+                    save_plots=f"{save_plots}/{task_name}__{split}_confusion"
+                )
+                if args.show_plots:
+                    plt.show()
+                plt.close('all')
             df.drop('confusion_mat', axis=1, inplace=True)
         df = (
             df

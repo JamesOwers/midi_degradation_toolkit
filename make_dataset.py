@@ -4,10 +4,10 @@ import os
 import sys
 import json
 import argparse
-from glob import glob
 import warnings
 import pandas as pd
 import shutil
+from glob import glob
 
 import numpy as np
 from tqdm import tqdm
@@ -23,7 +23,7 @@ def print_warn_msg_only(message, category, filename, lineno, file=None,
 warnings.showwarning = print_warn_msg_only
 
 
-with open('./img/logo.txt', 'r') as ff:
+with open(os.path.join('img', 'logo.txt'), 'r') as ff:
     LOGO = ff.read()
 
 
@@ -90,7 +90,7 @@ def parse_args(args_input=None):
     parser.add_argument('--formats', metavar='format', help='Create '
                         'custom versions of the acme data for easier loading '
                         'with our provided pytorch Dataset classes. Choices are'
-                        f' {list(FORMATTERS.keys())}. Specify none to avoid ''
+                        f' {list(FORMATTERS.keys())}. Specify none to avoid '
                         'creation', nargs='*', default=list(FORMATTERS.keys()),
                         choices=FORMATTERS.keys())
     parser.add_argument('--stale-data', action='store_true', help='Do not '
@@ -99,7 +99,6 @@ def parse_args(args_input=None):
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
                         'include in the dataset', default=[])
-    # TODO: check this works!
     parser.add_argument('--local-csv-dirs', metavar='csv_dir', type=str,
                         nargs='*', help='directories containing csv files to '
                         'include in the dataset', default=[])
@@ -114,12 +113,10 @@ def parse_args(args_input=None):
                         '--download-cache-dir and --clear-download-cache. To '
                         'download no data, provide an input of "None"',
                         )
-    # TODO: check this works!
     parser.add_argument('--download-cache-dir', type=str,
                         default=downloaders.DEFAULT_CACHE_PATH, help='The '
                         'directory to use for storing intermediate downloaded '
                         'data e.g. zip files, and prior to preprocessing.')
-    # TODO: check this works!
     parser.add_argument('--clear-download-cache', action='store_true',
                         help='clear downloaded data cache')
     parser.add_argument('--degradations', metavar='deg_name', nargs='*',
@@ -136,7 +133,6 @@ def parse_args(args_input=None):
     parser.add_argument('--min-notes', metavar='N', type=int, default=10,
                         help='The minimum number of notes required for an '
                         'excerpt to be valid.')
-    # TODO: check this works!
     parser.add_argument('--degradation-kwargs', metavar='json_string',
                         help='json with keyword arguments for the '
                         'degradation functions. First provide the degradation '
@@ -145,7 +141,6 @@ def parse_args(args_input=None):
                         'kwarg. e.g. {"pitch_shift__distribution": "poisson", '
                         '"pitch_shift__min_pitch: 5"}',
                         type=json.loads, default=None)
-    # TODO: check this works!
     parser.add_argument('--degradation-kwarg-json', metavar='json_file',
                         help='A file containing parameters as described in '
                         '--degradation-kwargs. If this file is given, '
@@ -175,10 +170,11 @@ if __name__ == '__main__':
     ARGS = parse_args()
     if ARGS.seed is None:
         seed = np.random.randint(0, 2**32)
+        print(f'No random seed supplied. Setting to {seed}.')
     else:
         seed = ARGS.seed
+        print(f'Setting random seed to {seed}.')
     np.random.seed(seed)
-    
     # Check given degradation_kwargs
     assert (ARGS.degradation_kwargs is None or
             ARGS.degradation_kwarg_json is None), ("Don't specify both "
@@ -241,7 +237,6 @@ if __name__ == '__main__':
 
 
     # Instantiate downloaders =================================================
-    # TODO: make OVERWRITE this an arg for the script
     OVERWRITE = None
     ds_names = ARGS.datasets
     if len(ds_names) == 1 and ds_names[0].lower() == 'none':
@@ -281,6 +276,7 @@ if __name__ == '__main__':
 
 
     # Download data ===========================================================
+    print('Downloading datasets, this could take a while...')
     for name in downloader_dict:
         downloader = downloader_dict[name]
         midi_output_path = midi_input_dirs[name]
@@ -355,8 +351,8 @@ if __name__ == '__main__':
     # Create all Composition objects and write clean data to output ===========
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
-    csv_paths = glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
-                     recursive=ARGS.recursive)
+    csv_paths = sorted(glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
+                            recursive=ARGS.recursive))
     if len(csv_paths) == 0:
         print('No data selected. Choose a dataset with --datasets, or use '
               'local data with --local-csv-dirs or --local-midi-dirs')
@@ -386,31 +382,33 @@ if __name__ == '__main__':
     # it's assumed there shouldn't be duplicates within each dataset!), and
     # this allows for easy matching of source and target data
     deg_choices = ARGS.degradations
-    goal_dist = ARGS.degradation_dist
+    goal_deg_dist = ARGS.degradation_dist
 
-    # Remove any degs with goal_dist == 0 and normalize
-    non_zero = [i for i, p in enumerate(goal_dist) if p != 0]
+    # Remove any degs with goal_deg_dist == 0 and normalize
+    non_zero = [i for i, p in enumerate(goal_deg_dist) if p != 0]
     deg_choices = np.array(deg_choices)[non_zero]
-    goal_dist = np.array(goal_dist)[non_zero]
-    goal_dist /= np.sum(goal_dist)
+    goal_deg_dist = np.array(goal_deg_dist)[non_zero]
+    goal_deg_dist /= np.sum(goal_deg_dist)
 
     # Add none for no degradation
     if 0 < ARGS.clean_prop < 1:
         deg_choices = np.insert(deg_choices, 0, 'none')
-        goal_dist *= 1 - ARGS.clean_prop
-        goal_dist = np.insert(goal_dist, 0, ARGS.clean_prop)
+        goal_deg_dist *= 1 - ARGS.clean_prop
+        goal_deg_dist = np.insert(goal_deg_dist, 0, ARGS.clean_prop)
     elif ARGS.clean_prop == 1:
         deg_choices = np.array(['none'])
-        goal_dist = np.array([1])
+        goal_deg_dist = np.array([1])
+    nr_degs = len(goal_deg_dist)
 
     # Normalize split proportions and remove 0s
-    splits = ['train', 'valid', 'test']
+    split_names = ['train', 'valid', 'test']
     split_props = np.array(ARGS.splits)
     split_props /= np.sum(split_props)
     non_zero = [i for i, p in enumerate(split_props) if p != 0]
-    splits = np.array(splits)[non_zero]
+    split_names = np.array(split_names)[non_zero]
     split_props = np.array(split_props)[non_zero]
-
+    nr_splits = len(split_names)
+    
     # Write out deg_choices to degradation_ids.csv
     with open(
             os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
@@ -422,20 +420,20 @@ if __name__ == '__main__':
     # The idea is to keep track of the current distribution of degradations
     # and then sample in reverse order of the difference between this and
     # the goal distribution. We do the same for splits.
-    current_counts = np.zeros(len(deg_choices))
-    current_splits = np.zeros(len(splits))
+    deg_counts = np.zeros(nr_degs)
+    split_counts = np.zeros(nr_splits)
       
     meta_file.write('altered_csv_path,degraded,degradation_id,'
                     'clean_csv_path,split\n')
     for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
-        if np.sum(current_counts) == 0: # First iteration, set to uniform
-            current_dist = np.ones(len(goal_dist)) / len(goal_dist)
-            current_split_dist = np.ones(len(splits)) / len(splits)
+        if np.sum(deg_counts) == 0: # First iteration, set to uniform
+            current_deg_dist = np.ones(nr_degs) / nr_degs
+            current_split_dist = np.ones(nr_splits) / nr_splits
         else:
-            current_dist = current_counts / np.sum(current_counts)
-            current_split_dist = current_splits / np.sum(current_splits)
+            current_deg_dist = deg_counts / np.sum(deg_counts)
+            current_split_dist = split_counts / np.sum(split_counts)
 
         # Grab an excerpt from this composition
         excerpt = None
@@ -468,14 +466,19 @@ if __name__ == '__main__':
 
         # Try degradations in reverse order of the difference between
         # their current distribution and their desired distribution.
-        diffs = goal_dist - current_dist
+        diffs = goal_deg_dist - current_deg_dist
         degs_sorted = sorted(zip(diffs, deg_choices,
                                  list(range(len(deg_choices)))))[::-1]
 
         # Calculate split in the same way (but only save the first)
         split_diffs = split_props - current_split_dist
-        _, split, split_num = sorted(zip(split_diffs, splits,
-                              list(range(len(splits)))))[-1]
+        _, split_name, split_num = sorted(
+            zip(
+                    split_diffs,
+                    split_names,
+                    list(range(nr_splits))
+            )
+        )[-1]
 
         # Make default labels for no degradation
         fn = os.path.basename(comp.csv_path)
@@ -512,8 +515,8 @@ if __name__ == '__main__':
         # Write data
         if not (degraded is None and ARGS.clean_prop == 0):
             # Update counts
-            current_counts[deg_num] += 1
-            current_splits[split_num] += 1
+            deg_counts[deg_num] += 1
+            split_counts[split_num] += 1
 
             # Write clean csv
             clean_outpath = os.path.join(ARGS.output_dir, clean_path)
@@ -521,7 +524,7 @@ if __name__ == '__main__':
 
             # Write metadata
             meta_file.write(f'{altered_path},{deg_binary},{deg_num},'
-                            f'{clean_path},{split}\n')
+                            f'{clean_path},{split_name}\n')
         else:
             warnings.warn("Unable to degrade chosen excerpt from "
                           f"{comp.csv_path} and no clean excerpts requested."
@@ -532,9 +535,12 @@ if __name__ == '__main__':
     for f in formats:
         create_corpus_csvs(ARGS.output_dir, FORMATTERS[f])
 
-    print('Finished!')
-    print(f'Count of degradations {list(zip(deg_choices, current_counts))}')
-    print(f'The data used as input is contained in {ARGS.input_dir}')
+    print(f'\n{10*"="} Finished! {10*"="}\n')
+    print(f'Count of degradations:')
+    for deg_name, count in zip(deg_choices, deg_counts):
+        print(f'\t* {deg_name}: {int(count)}')
+    
+    print(f'\nThe data used as input is contained in {ARGS.input_dir}')
 
     print(f'\nYou will find the generated data at {ARGS.output_dir} '
           'with subdirectories')
@@ -556,5 +562,4 @@ if __name__ == '__main__':
 
     print('\nTo reproduce this dataset again, run the script with argument '
           f'--seed {seed}')
-    #TODO: print('see the examples directory for baseline models using this data')
     print(LOGO)

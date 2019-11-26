@@ -1,4 +1,5 @@
 import sys
+import warnings
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -9,9 +10,6 @@ from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 
 
-# TODO: I don't like the fomatter being passed in here - would prefer these
-# Trainers to be more general except for the iteration method for which you
-# hardcode how to do the train/test iteration.
 class BaseTrainer:
     """Provides methods to train pytorch models. Adapted from:
     https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/trainer/pretrain.py"""
@@ -136,7 +134,6 @@ class BaseTrainer:
         print(f"Model saved {output_path}")
         return output_path
 
-#   TODO: implement load method (for use with load from checkpoint)
 
 
 class ErrorDetectionTrainer(BaseTrainer):
@@ -705,13 +702,6 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 total_data_points += len(input_data)
                 for in_data, out_data, clean_data in \
                         zip(input_data, model_output, labels):
-                    # TODO: Only 1 of these calls is necessary. deg and clean
-                    # could conceivably be returned by the data loader.
-                    # N.B. Currently, the precise min and max pitch don't
-                    # matter here. The converter just treats them all the same,
-                    # corrects and warns if the range doesn't make sense.
-                    # However, if loading deg and clean from the original df,
-                    # using the correct min and max pitch will be important.
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")
                         deg_df = self.formatter['model_to_df'](

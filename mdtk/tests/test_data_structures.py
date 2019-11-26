@@ -445,18 +445,7 @@ def test_pianoroll_all_pitches():
     assert (pianoroll == np.ones((1, 2, 128, 1), dtype='uint8')).all()
 
 
-# TODO: test all note_on occur with sounding
-
-# TODO: test all note_off occur with sounding
-
-# TODO: test all sounding begin note_on and end_note_off
-
-# TODO: test all methods in pianoroll and all attributes
-
-
 # Composition class tests =====================================================
-# TODO: write import from csv tests
-
 def test_composition_df_assertions():
     """Essentially the same tests as test_check_note_df"""
     assertion = False
@@ -504,16 +493,6 @@ def test_composition_all_pitches():
 
 
 
-# TODO: reimplement this if and when we implement auto fix of note_df
-#def test_auto_sort_onset_and_pitch():
-#    comp = Composition(note_df=note_df_2pitch_aligned, fix_note_df=True)
-#    assert comp.note_df.equals(
-#        note_df_2pitch_aligned
-#            .sort_values(['onset', 'pitch'])
-#            .reset_index(drop=True)
-#    )
-
-
 def test_not_ending_in_silence():
     for df in ALL_VALID_DF.values():
         comp = Composition(note_df=df)
@@ -555,19 +534,11 @@ def test_composition_read_csv():
         comp.plot()
         comp.synthesize()
 
-def test_csv_and_df_imports_same():
-    # TODO: write test that imports from all csvs and checks same as
-    # importing from df
-    pass
 
 
-# TODO: Check if anything alters input data - loop over all functions and
-#       methods
 
 
 # Cleanup =====================================================================
-# TODO: This isn't technichally a test...should probably be some other function
-#       look up the proper way to do this.
 def test_remove_csvs():
     for csv in ALL_CSV:
         os.remove(csv)
