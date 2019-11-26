@@ -23,7 +23,8 @@ setuptools.setup(
         'tqdm',
         'mir_eval',
         'pretty_midi',
-        'torch'
+        'torch',
+        'seaborn'
     ],
     python_requires='~=3.7',
     classifiers=[
