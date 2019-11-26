@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from baselines.eval_task import main as eval_main
 from baselines.eval_task import construct_parser as eval_construct_parser
@@ -149,7 +150,12 @@ def plot_confusion(confusion_mat, save_plots=False, ax=None):
 
 
 def construct_parser():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Script for summarising '
+                                     'results of experiments run. Expects a '
+                                     'directory of output data, with '
+                                     'subdirectories for the name of the task.'
+                                     ' These subdirs contain the logs and '
+                                     'checkpoints for models fitted.')
     
     parser.add_argument("--output_dir", default='output',
                         help='location of logs and model checkpoints')
@@ -160,32 +166,56 @@ def construct_parser():
     parser.add_argument("--in_dir", default='acme',
                         help='location of the pianoroll and command '
                         'corpus datasets')
-    parser.add_argument("--task_names", nargs='+',
+    parser.add_argument("--task_names", nargs='+', required=True,
                         help='names of tasks to get results for. '
                         'must correspond to names of dirs in output_dir')
-    parser.add_argument("--setting_names", nargs='+',
-                        help='list of lists describing the names of '
+    parser.add_argument("--setting_names", nargs='+', required=True,
+                        help='A list (with no spaces) describing the names of '
                         'variables the gridsearches were performed over '
-                        'for each task')
-    parser.add_argument("--formats", nargs='+',
-                        help='format type for each task')
-    parser.add_argument("--seq_len", nargs='+',
+                        'for each task e.g. for --task_names task1 task4 '
+                        "--setting_names \"['lr','wd','hid']\" "
+                        "\"['lr','wd','hid','lay']\". You need to be careful "
+                        "to preserve quotes")
+    parser.add_argument("--formats", nargs='+', required=True,
+                        choices=['pianoroll', 'command'],
+                        help='data format type for each task e.g. '
+                        'for --task_names task1 task4 --formats command '
+                        'pianoroll')
+    parser.add_argument("--seq_len", nargs='+', required=True,
                         help='seq_len for each task')
-    parser.add_argument("--metrics", nargs='+',
+    parser.add_argument("--metrics", nargs='+', required=True,
                         help='metric for each task')
-    parser.add_argument("--task_desc", nargs='+',
-                        help='description for each task to use in result '
-                        'table')
-    parser.add_argument("--splits", nargs='+', default=['train', 'valid', 'test'],
+    parser.add_argument("--task_desc", nargs='+', required=True,
+                        help='description (with no spaces) for each task to '
+                        'use as the identifier in the results table e.g. for '
+                        '--task_names task1 task4 --task_desc ErrorDetection '
+                        'ErrorCorrection')
+    parser.add_argument("--splits", nargs='+', required=True,
+                        default=['train', 'valid', 'test'],
                         help="which splits to evaluate: train, valid, test.")
     return parser
     
     
 def main(args):
     task_names = args.task_names
+    nr_tasks = len(task_names)
     # TODO: change the way this is done! ATM can't think of
     # better way of handling sending a list of lists
     setting_names = [eval(ll) for ll in args.setting_names]
+    assert len(setting_names) == nr_tasks, ("You must submit a list of "
+              "parameters being searched for each task --setting_names . "
+              "Submit lists of parameter names with no spaces, e.g. "
+              "--task_names task1 task4 "
+              "--setting_names ['lr','wd','hid'] ['lr','wd','hid','lay'] ."
+              f"You submitted {nr_tasks} tasks: {task_names}, but "
+              f"{len(setting_names)} setting names: {setting_names}")
+    for varname in ['formats', 'seq_len', 'metrics', 'task_desc']:
+        value = getattr(args, varname)
+        vlen = len(value)
+        assert vlen == nr_tasks, (f"You submitted {vlen} {varname}, but need "
+            f"to supply {nr_tasks}. task_names: {task_names}, "
+            f"{varname}: {value}")
+    
     in_dir = args.in_dir
     output_dir = args.output_dir
     save_plots = args.save_plots
