@@ -19,9 +19,6 @@ DATASETS = ['PPDDSep2018Monophonic', 'PPDDSep2018Polyphonic', 'PianoMidi']
 
 
 # Classes =====================================================================
-# TODO: make attributes useful to users standard e.g. beat-aligned=True/False
-# TODO: some things are likely to be important re preprocessing e.g. the unit
-#       for the onset and duration of notes. Add these as attributes too.
 class DataDownloader:
     """Base class for data downloaders"""
     def __init__(self, cache_path=DEFAULT_CACHE_PATH):
@@ -60,11 +57,7 @@ class DataDownloader:
                                   'implement the download_csv method.')
 
 
-# TODO: since these datasets already have CSV in the right format, we should
-#       implement download_csv() methods to use in favour of the download_midi
-#       this method would reformat csv to be correct (cols need renaming etc.)
-# TODO: handle conversion from quarters to ms - use tempo data, but use min/max
-#       tempo values as some were a bit spurious
+
 class PPDDSep2018Monophonic(DataDownloader):
     """Patterns for Preditction Development Dataset. Monophonic data only.
 
@@ -72,8 +65,6 @@ class PPDDSep2018Monophonic(DataDownloader):
     ----------
     https://www.music-ir.org/mirex/wiki/2019:Patterns_for_Prediction
     """
-    # TODO: add 'sample_size', to allow only a small random sample of the
-    #       total midi files to be copied to the output
     def __init__(self, cache_path=DEFAULT_CACHE_PATH,
                  sizes=['small', 'medium', 'large'], clean=False):
         super().__init__(cache_path = cache_path)
@@ -136,8 +127,6 @@ class PPDDSep2018Polyphonic(PPDDSep2018Monophonic):
     ----------
     https://www.music-ir.org/mirex/wiki/2019:Patterns_for_Prediction
     """
-    # TODO: add 'sample_size', to allow only a small random sample of the
-    #       total midi files to be copied to the output
     def __init__(self, cache_path=DEFAULT_CACHE_PATH,
                  sizes=['small', 'medium', 'large'], clean=False):
         super().__init__(cache_path=cache_path, sizes=sizes, clean=clean)

@@ -31,9 +31,7 @@ def diff_pd(df1, df2):
         return pd.DataFrame({'from': changed_from, 'to': changed_to},
                             index=changed.index)
 
-# TODO: later can auto detect vocab from corpus if necessary
-#       I'm doing things this way just for ability to change things
-#       later with ease
+
 class CommandVocab(object):
     def __init__(self, min_pitch=MIN_PITCH_DEFAULT,
                  max_pitch=MAX_PITCH_DEFAULT,
@@ -351,7 +349,6 @@ def df_to_command_str(df, min_pitch=MIN_PITCH_DEFAULT, max_pitch=MAX_PITCH_DEFAU
     assert time_increment > 0, "time_increment must be positive."
     assert max_time_shift > 0, "max_time_shift must be positive."
 
-    # TODO: This rounding may result in notes of length 0.
     note_off = df.loc[:, ['onset', 'pitch']]
     note_off['onset'] = note_off['onset'] + df['dur']
     note_off['cmd'] = note_off['pitch'].apply(lambda x: f'f{x}')

@@ -67,8 +67,7 @@ def make_directory(path, overwrite=None, verbose=False):
 
 
 def extract_zip(zip_path, out_path, overwrite=None, verbose=False):
-    """Convenience function to extract zip file to out_path.
-    TODO: make work for all types of zip files."""
+    """Convenience function to extract zip file to out_path."""
     if verbose:
         print(f'Extracting {zip_path} to {out_path}')
     dirname = os.path.splitext(os.path.basename(zip_path))[0]

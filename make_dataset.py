@@ -99,7 +99,6 @@ def parse_args(args_input=None):
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
                         'include in the dataset', default=[])
-    # TODO: check this works!
     parser.add_argument('--local-csv-dirs', metavar='csv_dir', type=str,
                         nargs='*', help='directories containing csv files to '
                         'include in the dataset', default=[])
@@ -114,12 +113,10 @@ def parse_args(args_input=None):
                         '--download-cache-dir and --clear-download-cache. To '
                         'download no data, provide an input of "None"',
                         )
-    # TODO: check this works!
     parser.add_argument('--download-cache-dir', type=str,
                         default=downloaders.DEFAULT_CACHE_PATH, help='The '
                         'directory to use for storing intermediate downloaded '
                         'data e.g. zip files, and prior to preprocessing.')
-    # TODO: check this works!
     parser.add_argument('--clear-download-cache', action='store_true',
                         help='clear downloaded data cache')
     parser.add_argument('--degradations', metavar='deg_name', nargs='*',
@@ -136,7 +133,6 @@ def parse_args(args_input=None):
     parser.add_argument('--min-notes', metavar='N', type=int, default=10,
                         help='The minimum number of notes required for an '
                         'excerpt to be valid.')
-    # TODO: check this works!
     parser.add_argument('--degradation-kwargs', metavar='json_string',
                         help='json with keyword arguments for the '
                         'degradation functions. First provide the degradation '
@@ -145,7 +141,6 @@ def parse_args(args_input=None):
                         'kwarg. e.g. {"pitch_shift__distribution": "poisson", '
                         '"pitch_shift__min_pitch: 5"}',
                         type=json.loads, default=None)
-    # TODO: check this works!
     parser.add_argument('--degradation-kwarg-json', metavar='json_file',
                         help='A file containing parameters as described in '
                         '--degradation-kwargs. If this file is given, '
@@ -242,7 +237,6 @@ if __name__ == '__main__':
 
 
     # Instantiate downloaders =================================================
-    # TODO: make OVERWRITE this an arg for the script
     OVERWRITE = None
     ds_names = ARGS.datasets
     if len(ds_names) == 1 and ds_names[0].lower() == 'none':
@@ -568,5 +562,4 @@ if __name__ == '__main__':
 
     print('\nTo reproduce this dataset again, run the script with argument '
           f'--seed {seed}')
-    #TODO: print('see the examples directory for baseline models using this data')
     print(LOGO)

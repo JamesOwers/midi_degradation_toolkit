@@ -230,7 +230,6 @@ def fix_overlapping_notes(df):
     bad_note = np.append(bad_note, False)  # last note always fine
     df.loc[bad_note, 'dur'] = (next_note_on[bad_note[:-1]]
                                - df.loc[bad_note, 'onset'].values)
-    # TODO: add an assertion to catch dur==0 and add a test
     return df
 
 
@@ -246,7 +245,6 @@ def fix_overlapping_pitches(df):
     bad_note = np.append(bad_note, False)  # last note always fine
     df.loc[bad_note, 'dur'] = (next_note_on[bad_note[:-1]]
                                - df.loc[bad_note, 'onset'].values)
-    # TODO: add an assertion to catch dur==0 and add a test
     return df
 
 
@@ -930,10 +928,6 @@ class Composition:
             self.note_df = note_df
             # We do not assume that the supplied note_df is correctly formed,
             # and simply bomb out if it is not
-            # TODO: implement df methods to fix issues instead e.g. overlaps.
-            #       Copy code from read_note_csv. e.g.:
-            #       * reorder columns
-            #       * if all columns but track and no extra cols, assume 1 trk
             if self.monophonic_tracks is not None:
                 make_monophonic(self.note_df, tracks=monophonic_tracks)
             if self.max_note_len is not None:
