@@ -66,11 +66,13 @@ the paper.
     ```
     output
         task1__all_loss_summary.pdf  <- all of the loss curves in one plot
-        task1__best_model_loss.pdf <- the loss curves for the best model
-        task1__min_loss_summary.pdf <- of all models, a summary of the minimum
-                                       validation losses they attained over
-                                       each setting
-        table...
+        task1__best_model_loss.pdf   <- the loss curves for the best model
+        task1__min_loss_summary.pdf  <- of all models, a summary of the minimum
+                                        validation losses they attained over
+                                        each setting
+        task1_table.tex              <- full results for train vaild test split
+        ...
+        summary_table.tex            <- superset of table in the paper
     ```
 
     
