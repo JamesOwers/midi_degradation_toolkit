@@ -4,7 +4,8 @@ datasets.
 
 The accompanying paper (submitted to ICASSP, available upon request)
 "Symbolic Music Correction using The MIDI Degradation Toolkit" describes the
-toolkit and its motivation in detail.
+toolkit and its motivation in detail. For instructions to reproduce the results
+from the paper, see [`./baselines/README.md`](./baselines/README.md).
 
 The script for creating datasets is [`./make_dataset.py`](make_dataset.py).
 However, components in the tookit can be used standalone - for example the
