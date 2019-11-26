@@ -1,7 +1,7 @@
 # Baselines
 
-This directory contains scripts which we used to fit and analyse the results
-from all the baseline models proposed in the accompanying paper (submitted to
+This directory contains scripts which we used to fit all the baseline models
+and analyse the results as outlined in the accompanying paper (submitted to
 ICASSP, available upon request) "Symbolic Music Correction using The MIDI
 Degradation Toolkit".
 
@@ -35,7 +35,7 @@ the paper.
     ```
     repo_dir=..
     cd $repo_dir
-    head baselines/experiment.txt | bash
+    head -5 baselines/experiment.txt | bash
     ```
     * You should now have a folder `$repo_dir/output` which containing
     subdirectories with the name of each task
@@ -61,5 +61,16 @@ the paper.
     * This will load the models and perform evaluation, so it is again
     recommended that you execute the above command with GPU availability
 1. Observe the results!
-    * 
+    * The output directory now contains additional plots and tables
+    * For example:
+    ```
+    output
+        task1__all_loss_summary.pdf  <- all of the loss curves in one plot
+        task1__best_model_loss.pdf <- the loss curves for the best model
+        task1__min_loss_summary.pdf <- of all models, a summary of the minimum
+                                       validation losses they attained over
+                                       each setting
+        table...
+    ```
+
     
