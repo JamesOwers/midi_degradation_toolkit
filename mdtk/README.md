@@ -13,7 +13,8 @@ describes the toolkit and its motivation in detail.
   this file with an appropreate name and ensure it has a method `download_midi`
   which puts all midi files in a specified directory `output_path`)
 * `eval.py` - functions for calculating evaluation metrics for each task
-  outlined in the paper
+  outlined in the paper, taking as input a list of outputs and targets as
+  required
 * `filesystem_utils.py` - utility funcitons for moving and copying files etc
 * `formatters.py` - functions for conversion of data, especially for creating
   the much smaller single files read by the pytorch_dataset classes
