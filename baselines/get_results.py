@@ -340,13 +340,11 @@ def main(args):
             confusion[task_name] = df['confusion_mat']
             for split in ['train', 'valid', 'test']:
                 confusion_mat = df.loc[split, 'confusion_mat']
-                if save_plots:
-                    save_plot_loc = f"{save_plots}/{task_name}"
-                    if not os.path.exists(save_plot_loc):
-                        os.makedirs(save_plot_loc)
                 plt.figure(figsize=(5, 5))
-                plot_confusion(confusion_mat,
-                               save_plots=f"{save_plot_loc}/{split}_confusion")
+                plot_confusion(
+                    confusion_mat,
+                    save_plots=f"{save_plots}/{task_name}__{split}_confusion"
+                )
                 if args.show_plots:
                     plt.show()
                 plt.close('all')
