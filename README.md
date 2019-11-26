@@ -10,8 +10,8 @@ The script for creating datasets is [`./make_dataset.py`](make_dataset.py).
 However, components in the tookit can be used standalone - for example the
 degradation functions, and pytorch dataset classes.
 
-As a brief overview, the toolkit takes midi files as input, and first
-converts them to a standard data structure like this:
+As a brief overview, the toolkit takes midi files as input and first converts
+them to a standard data structure like this:
 ```
 onset,track,pitch,dur
 0    ,0    ,100  ,250
@@ -19,11 +19,15 @@ onset,track,pitch,dur
 250  ,1    ,100  ,100
 ...
 ```
-where onset is the time in milliseconds where a note began, track is the
-identifier for a distinct track in the midi file, pitch is the midinote pitch
-number ranging from 0 (C-2) to 127 (G9) (concert A4 is midinote 69), and dur is
-the how long the note is held in milliseconds. There are then functions to
-alter these files, introducing un-musical degradations such as pitch shifts.
+where:
+* onset is the time in milliseconds when a note began,
+* track is the identifier for a distinct track in the midi file,
+* pitch is the midinote pitch number ranging from 0 (C-2) to 127 (G9) (concert 
+  A4 is midinote 69),
+* and dur is how long the note is held in milliseconds.
+
+There are then functions to alter these files, introducing un-musical
+degradations such as pitch shifts.
 
 Finally, the toolkit also contains modules to aid modelling, such as pytorch
 dataset classes for easy data loading.
@@ -39,19 +43,20 @@ Some highlights include:
 * [`mdtk.pytorch_datasets`](./mdtk/pytorch_datasets.py) - pytorch dataset
   classes for quickly loading and modelling data (not restricted to pytorch
   models!)
-* [`baselines`](./baselines) - scripts for running the baseline models included
-  in the paper (available upon request)
+* [`./baselines`](./baselines) - scripts for running the baseline models
+  included in the paper (available upon request)
 
 
 ## Install
 We recommend using an enviroment manager such as conda, but you may omit these
-lines if you use something else. This install will allow you to `import mdtk`
-and run all the scripts in this repository. The only requirement is **python
-version 3.7**.
+lines if you use something else. This install will allow you to both run all
+the scripts in this repository and use the toolkit in your own scripts
+(`import mdtk`). The only requirement is **python version 3.7**.
 
 ```
 git clone https://github.com/JamesOwers/midi_degradation_toolkit
 cd midi_degradation_toolkit
+conda update conda
 conda create -n mdtk python=3.7
 conda activate mdtk
 pip install .  # use pip install -e . for dev mode if you want to edit files
