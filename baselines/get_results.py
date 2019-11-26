@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-import os
 from glob import glob
 import argparse
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -320,7 +320,9 @@ def main(args):
     #         f"--splits test"
         )
         eval_args = eval_parser.parse_args(eval_args_str.split())
-        log_info = eval_main(eval_args)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            log_info = eval_main(eval_args)
         task_eval_log[task_name] = log_info
     
     dict_of_df = {k: pd.DataFrame(v).T for k,v in task_eval_log.items()}
