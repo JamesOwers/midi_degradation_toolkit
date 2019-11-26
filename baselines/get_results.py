@@ -91,9 +91,9 @@ def plot_task_losses(output_dir, task_name, settings,
     
     plt.figure(summary_fig.number)
     if save_plots:
-        plt.savefig(f'{save_plots}/{task_name}__summary.png',
+        plt.savefig(f'{save_plots}/{task_name}__all_loss_summary.png',
                     dpi=300)
-        plt.savefig(f'{save_plots}/{task_name}__summary.pdf',
+        plt.savefig(f'{save_plots}/{task_name}__all_loss_summary.pdf',
                     dpi=300)
     summary_fig.show()
     return res
@@ -274,9 +274,9 @@ def main(args):
         plt.xticks(rotation=90)
         plt.title(f'Summary of {task_name} - median over repeats')
         if save_plots:
-            plt.savefig(f'{save_plots}/{task_name}/min_loss_summary.pdf',
+            plt.savefig(f'{save_plots}/{task_name}__min_loss_summary.pdf',
                         dpi=300)
-            plt.savefig(f'{save_plots}/{task_name}/min_loss_summary.png',
+            plt.savefig(f'{save_plots}/{task_name}__min_loss_summary.png',
                         dpi=300)
         if args.show_plots:
             plt.show()
