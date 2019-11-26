@@ -72,7 +72,6 @@ def overlaps(df, idx):
     df = df.loc[(df['pitch'] == note.pitch) &
                 (df['track'] == note.track) &
                 (df.index != idx)]
-    offsets = df['onset'] + df['dur']
     overlap = any((note.onset < df['onset'] + df['dur']) &
                   (note.onset + note.dur > df['onset']))
     return overlap
