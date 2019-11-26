@@ -46,6 +46,8 @@ Some highlights include:
 * [`./baselines`](./baselines) - scripts for running the baseline models
   included in the paper (available upon request)
 
+For more information about mdtk modules, see the package readme: 
+[`./mdtk/README.md`](./mdtk/README.md)
 
 ## Install
 We recommend using an enviroment manager such as conda, but you may omit these
