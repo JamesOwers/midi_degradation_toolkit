@@ -1,26 +1,15 @@
 #!/usr/bin/env python
 import os
-<<<<<<< HEAD
-import argparse
-from glob import glob
-=======
 from glob import glob
 import argparse
->>>>>>> get_results2
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-<<<<<<< HEAD
-from .eval_task import main as eval_main
-from .eval_task import construct_parser as eval_construct_parser
-=======
 from baselines.eval_task import main as eval_main
 from baselines.eval_task import construct_parser as eval_construct_parser
->>>>>>> get_results2
-
 
 
 def plot_log_file(log_file, trn_kwargs=None, vld_kwargs=None):
@@ -93,15 +82,9 @@ def plot_task_losses(output_dir, task_name, settings,
         
         plt.figure(setting_fig.number) 
         if save_plots:
-<<<<<<< HEAD
             plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.png',
                         dpi=300)
             plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.pdf',
-=======
-            plt.savefig(f'{save_plots}/{task_name}__{lr}_{wd}_{hid}.png',
-                        dpi=300)
-            plt.savefig(f'{save_plots}/{task_name}__{lr}_{wd}_{hid}.pdf',
->>>>>>> get_results2
                         dpi=300)
         plt.title(f'{task_name}__{"_".join(setting)}')
         setting_fig.show()
@@ -134,15 +117,10 @@ def round_to_n(x, n=3):
     else:
         return np.round(x, -(np.floor(np.log10(x))).astype(int) + (n - 1))
 
-    
-<<<<<<< HEAD
+
 def plot_confusion(confusion_mat, save_plots=False, ax=None):
     if ax is None:
         ax = plt.gca()
-=======
-def plot_confusion(confusion_mat, save_plots=False):
-    fig, ax = plt.subplots()
->>>>>>> get_results2
     degs = ['none', 'pitch_shift', 'time_shift', 'onset_shift',
             'offset_shift', 'remove_note', 'add_note', 'split_note',
             'join_notes']
@@ -165,18 +143,10 @@ def plot_confusion(confusion_mat, save_plots=False):
     plt.ylim(8.5, -0.5)
     plt.tight_layout()
     if save_plots:
-<<<<<<< HEAD
         plt.savefig(f'{save_plots}.png',
                     dpi=300)
         plt.savefig(f'{save_plots}.pdf',
                     dpi=300)
-=======
-        plt.savefig(f'{save_plots}/confusion.png',
-                    dpi=300)
-        plt.savefig(f'{save_plots}/confusion.pdf',
-                    dpi=300)
-    plt.show()
->>>>>>> get_results2
 
 
 def construct_parser():
@@ -322,7 +292,6 @@ def main(args):
                 .dropna(axis=1)  # removes cols with na in them (not a metric for this task)
         )
         if 'confusion_mat' in df.columns:
-<<<<<<< HEAD
             confusion[task_name] = df['confusion_mat']
             for split in ['train', 'valid', 'test']:
                 confusion_mat = df.loc[split, 'confusion_mat']
@@ -333,15 +302,6 @@ def main(args):
                 plt.figure(figsize=(5, 5))
                 plot_confusion(confusion_mat, save_plots=f"{save_plot_loc}/{split}_confusion")
                 plt.show()
-=======
-            confusion_mat = df['confusion_mat'][0]
-            confusion[task_name] = confusion_mat
-            if save_plots:
-                save_plot_loc = f"{save_plots}/{task_name}"
-                if not os.path.exists(save_plot_loc):
-                    os.makedirs(save_plot_loc)
-            plot_confusion(confusion_mat, save_plots=save_plot_loc)
->>>>>>> get_results2
             df.drop('confusion_mat', axis=1, inplace=True)
         df = (
             df
