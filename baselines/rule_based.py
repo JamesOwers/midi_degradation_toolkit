@@ -7,7 +7,7 @@ from mdtk.formatters import FORMATTERS, create_corpus_csvs
 import argparse
 import os
 
-def construct_parser():
+def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("-i", "--input", default='acme', help='The '
