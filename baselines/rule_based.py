@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument("-i", "--input", default='acme', help='The '
                         'base directory of the ACME dataset to use as input.')
     parser.add_argument("-s", "--seq_len", type=int, default=250,
-                        help="maximum sequence length.")
+                        help="maximum sequence length for a pianoroll.")
     parser.add_argument("--reformat", action="store_true", help="Force the "
                         "creation of the pianoroll csvs, even if they "
                         "already exist.")
