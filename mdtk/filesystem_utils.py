@@ -2,7 +2,8 @@
 import os
 import sys
 import shutil
-import urllib
+import urllib.request
+import urllib.error
 import warnings
 import zipfile
 
