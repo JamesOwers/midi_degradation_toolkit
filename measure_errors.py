@@ -14,6 +14,7 @@ import pretty_midi
 from mdtk import degradations, midi, data_structures, formatters
 from mdtk.degradations import (MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT,
                                DEGRADATIONS, MIN_SHIFT_DEFAULT)
+from mdtk.data_structures import NOTE_DF_SORT_ORDER
 
 FILE_TYPES = ['mid', 'pkl', 'csv']
 
@@ -259,7 +260,8 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
 
 
 
-def get_proportions(gt, trans, length=5000, min_notes=10):
+def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
+                    min_notes=10):
     """
     Get the proportions of each degradation given a ground truth file and its
     transcription.
@@ -271,6 +273,12 @@ def get_proportions(gt, trans, length=5000, min_notes=10):
         
     trans : string
         The filename of a transciption of the given ground truth.
+        
+    trans_start : int
+        The starting time of the transcription, in ms.
+        
+    trans_end : int
+        The ending time of the transcription, in ms.
         
     length : int
         The length of the excerpts to grab in ms (plus sustains).
@@ -295,7 +303,34 @@ def get_proportions(gt, trans, length=5000, min_notes=10):
 
     gt_df = load_file(gt)
     trans_df = load_file(trans)
+    
+    # Enforce transcription bounds
+    if trans_end is not None:
+        # Clip at end
+        gt_df.dur = gt_df.dur.clip(upper=trans_end - gt_df.onset)
+        
+    if trans_start != 0:
+        # Align to time 0
+        gt_df.onset -= trans_start
+        
+        # Move onsets of notes which lie before start (and finish after start)
+        need_to_shift = (gt_df.onset < 0) & (gt_df.onset + gt_df.dur > 0)
+        shift_amt = gt_df.loc[need_to_shift, 'onset']
+        gt_df.loc[need_to_shift, 'onset'] = 0
+        gt_df.loc[need_to_shift, 'dur'] += shift_amt
+        
+    if trans_end is not None or trans_start != 0:
+        # Remove notes entirely outside of window
+        gt_df = pd.DataFrame(gt_df.loc[(gt_df.onset >= 0) & (gt_df.dur >= 0)])
+        gt_df.reset_index(drop=True, inplace=True)
+        
+        if trans_start != 0:
+            gt_df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
+            gt_df.reset_index(drop=True, inplace=True)
 
+    print(trans_df)
+    print(gt_df)
+    
     # Take each excerpt
     for idx, note in gt_df.iterrows():
         note_onset = note['onset']
@@ -349,6 +384,16 @@ def parse_args(args_input=None):
     parser.add_argument("--pr-max-pitch", type=int, default=108,
                         help="Maximum pianoroll pitch.")
     
+    # Transcription doesn't have same time basis as ground truth
+    parser.add_argument("--trans_start", type=int, default=0, help="What time"
+                        " the transcription starts, in ms. Notes before this "
+                        "in the gt will be ignored, and all transcribed notes "
+                        "will be shifted forward by this amount.")
+    parser.add_argument("--trans_end", type=int, default=None, help="What time"
+                        "the transcription ends, in ms (if any). Notes after "
+                        "this in the gt will be ignored, and notes still on "
+                        "will be cut at this time.")
+    
     # Excerpt arguments
     parser.add_argument('--excerpt-length', metavar='ms', type=int,
                         help='The length of the excerpt (in ms) to take from '
@@ -398,7 +443,9 @@ if __name__ == '__main__':
         gt = gt_list[0]
         
         # TODO: Also get some parameters?
-        prop, clean = get_proportions(gt, file, length=args.excerpt_length,
+        prop, clean = get_proportions(gt, file, trans_start=args.trans_start,
+                                      trans_end=args.trans_end,
+                                      length=args.excerpt_length,
                                       min_notes=args.min_notes)
         proportion = np.vstack((proportions, prop))
         clean_prop.append(clean)
