@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import pickle
 import numpy as np
+import warnings
 
 import pretty_midi
 
@@ -41,15 +42,15 @@ def load_file(filename, pr_min_pitch=MIN_PITCH_DEFAULT,
     df : pandas dataframe
         A pandas dataframe representing the music from the given file.
     """
-    ext = os.path.splitext(os.path.basename(file))[1]
+    ext = os.path.splitext(os.path.basename(filename))[1]
 
-    if ext == 'mid':
-        return midi.mid_to_df(filename)
+    if ext == '.mid':
+        return midi.midi_to_df(filename)
 
-    if ext == 'csv':
-        return data_structures.read_note_csv(filename)
+    if ext == '.csv':
+        return pd.read_csv(filename, names=['onset', 'track', 'pitch', 'dur'])
 
-    if ext == 'pkl':
+    if ext == '.pkl':
         with open(filename, 'rb') as file:
             pkl = pickle.load(file)
 
@@ -332,19 +333,15 @@ def parse_args(args_input=None):
                                      "a degraded MIDI dataset with the measure"
                                      " proportion of each degration.")
     
-    parser.add_argument("--ext", choices=FILE_TYPES, default=None,
-                        help="File extension to use for both ground truth and "
-                        "transcriptions.")
-    
     parser.add_argument("--gt", help="The directory which contains the ground "
                         "truth musical scores or piano rolls.", required=True)
-    parser.add_argument("--gt_ext", choices=FILE_TYPES, default='mid',
-                        help="The file type for the ground truth files.")
+    parser.add_argument("--gt_ext", choices=FILE_TYPES, default=None,
+                        help="Restrict the file type for the ground truths.")
     
     parser.add_argument("--trans", help="The directory which contains the "
                         "transcriptions.", required=True)
-    parser.add_argument("--trans_ext", choices=FILE_TYPES, default='mid',
-                        help="The file type for the transcriptions.")
+    parser.add_argument("--trans_ext", choices=FILE_TYPES, default=None,
+                        help="Restrict the file type for the transcriptions.")
     
     # Pianoroll specific args
     parser.add_argument("--pr-min-pitch", type=int, default=21,
@@ -369,27 +366,45 @@ def parse_args(args_input=None):
 if __name__ == '__main__':
     args = parse_args()
     
-    if args.ext is not None:
-        args.trans_ext = args.ext
-        args.gt_ext = args.ext
+    # Get allowed file extensions
+    trans_ext = [args.trans_ext] if args.trans_ext is not None else FILE_TYPES
+    gt_ext = [args.gt_ext] if args.gt_ext is not None else FILE_TYPES
     
-    trans = glob.glob(os.path.join(args.trans, '*.' + args.trans_ext))
+    trans = []
+    for ext in trans_ext:
+        trans.extend(glob.glob(os.path.join(args.trans, '*.' + ext)))
     
     proportion = np.zeros((len(DEGRADATIONS), 0))
     clean_prop = []
     
     for file in trans:
         basename = os.path.splitext(os.path.basename(file))[0]
-        gt = os.path.join(args.gt, basename + '.' + args.gt_ext)
+        
+        # Find gt file
+        gt_list = []
+        for ext in gt_ext:
+            gt_list.extend(glob.glob(os.path.join(args.gt, basename + '.' + ext)))
+            
+        if len(gt_list) == 0:
+            warnings.warn(f'No ground truth found for transcription {file}. Check'
+                          ' that the file extension --gt_ext is correct (or not '
+                          'given), and the dir --gt is correct. Searched for file'
+                          f' {basename}.{gt_ext} in dir {args.gt}.')
+            continue
+        elif len(gt_list) > 1:
+            warnings.warn(f'Multiple ground truths found for transcription {file}:'
+                          f'{gt_list}. Defaulting to the first one. Try narrowing '
+                          'down extensions with --gt_ext.')
+        gt = gt_list[0]
         
         # TODO: Also get some parameters?
-        prop, clean = get_proportions(gt, trans, length=args.excerpt_length,
+        prop, clean = get_proportions(gt, file, length=args.excerpt_length,
                                       min_notes=args.min_notes)
         proportion = np.vstack((proportions, prop))
         clean_prop.append(clean)
         
     proportion = np.mean(proportion, axis=0)
-    clean = np.mean(clean)
+    clean = np.mean(clean_prop)
     
     # TODO: Write out to json file
     
