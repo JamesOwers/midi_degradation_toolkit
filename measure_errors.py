@@ -19,6 +19,61 @@ from mdtk.data_structures import NOTE_DF_SORT_ORDER
 FILE_TYPES = ['mid', 'pkl', 'csv']
 
 
+
+def get_df_excerpt(note_df, start_time, end_time):
+    """
+    Return an excerpt of the given note_df, with notes cut at the given
+    start and end times.
+    
+    Parameters
+    ----------
+    note_df : pd.DataFrame
+        The note_df we want to take an excerpt of.
+        
+    start_time : int
+        The start time for the returned excerpt, in ms, inclusive. Notes
+        entirely before this time will be dropped. Notes which onset before
+        this time but continue after it will have their onset shifted to
+        this time.
+        
+    end_time : int
+        The end time for the returned excerpt, in ms, exclusive. Notes
+        entirely after this time will be dropped. Notes which onset before
+        this time but continue after it will have their offset shifted to
+        this time. None to enforce no end time.
+    
+    Returns
+    -------
+    note_df : pd.DataFrame
+        An excerpt of the notes from the given note_df, within the given
+        two times.
+    """
+    # Make copy so as not to change original values
+    note_df = note_df.copy()
+    
+    # Move onsets of notes which lie before start (and finish after start)
+    need_to_shift = ((note_df.onset < start_time) &
+                     (note_df.onset + note_df.dur > start_time))
+    shift_amt = start_time - note_df.loc[need_to_shift, 'onset']
+    note_df.loc[need_to_shift, 'onset'] = start_time
+    note_df.loc[need_to_shift, 'dur'] -= shift_amt
+    
+    # Shorten notes which go past end time
+    if end_time is not None:
+        need_to_shorten = ((note_df.onset < end_time) &
+                           (note_df.onset + note_df.dur > end_time))
+        note_df.loc[need_to_shorten, 'dur'] = (
+            end_time - note_df.loc[need_to_shorten, 'onset']
+        )
+    
+    # Drop notes which lie outside of bounds
+    to_keep = note_df.onset >= start_time
+    if end_time is not None:
+        to_keep &= note_df.onset < end_time
+    note_df = note_df.loc[to_keep]
+    return note_df
+
+
 def load_file(filename, pr_min_pitch=MIN_PITCH_DEFAULT,
               pr_max_pitch=MAX_PITCH_DEFAULT, pr_time_increment=40):
     """
@@ -305,58 +360,37 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
     trans_df = load_file(trans)
     
     # Enforce transcription bounds
-    if trans_end is not None:
-        # Clip at end
-        gt_df.dur = gt_df.dur.clip(upper=trans_end - gt_df.onset)
-        
+    gt_df = get_df_excerpt(gt_df, trans_start, trans_end)
     if trans_start != 0:
-        # Align to time 0
         gt_df.onset -= trans_start
-        
-        # Move onsets of notes which lie before start (and finish after start)
-        need_to_shift = (gt_df.onset < 0) & (gt_df.onset + gt_df.dur > 0)
-        shift_amt = gt_df.loc[need_to_shift, 'onset']
-        gt_df.loc[need_to_shift, 'onset'] = 0
-        gt_df.loc[need_to_shift, 'dur'] += shift_amt
-        
-    if trans_end is not None or trans_start != 0:
-        # Remove notes entirely outside of window
-        gt_df = pd.DataFrame(gt_df.loc[(gt_df.onset >= 0) & (gt_df.dur >= 0)])
-        gt_df.reset_index(drop=True, inplace=True)
-        
-        if trans_start != 0:
-            gt_df.sort_values(by=NOTE_DF_SORT_ORDER, inplace=True)
-            gt_df.reset_index(drop=True, inplace=True)
-
-    print(trans_df)
-    print(gt_df)
     
-    # Take each excerpt
-    for idx, note in gt_df.iterrows():
-        note_onset = note['onset']
-        gt_excerpt = pd.DataFrame(
-            gt_df.loc[gt_df['onset'].between(note_onset, note_onset + length)]
-        )
-        gt_excerpt['onset'] = gt_excerpt['onset'] - note_onset
+    end_time = max((gt_df.onset + gt_df.dur).max(),
+                   (trans_df.onset + trans_df.dur).max())
+    # Take each excerpt from time 0 until the end
+    for excerpt_start in range(0, end_time, length):
+        excerpt_end = min(excerpt_start + length, end_time)
+        gt_excerpt = get_df_excerpt(gt_df, excerpt_start, excerpt_end)
+        trans_excerpt = get_df_excerpt(trans_df, excerpt_start, excerpt_end)
 
         # Check for validity
-        if len(gt_excerpt) < min_notes:
+        if len(gt_excerpt) < min_notes && len(trans_excerpt) < min_notes:
+            warnings.warn(f'Skipping excerpt {gt} for too few notes. '
+                          f'Time range = [{start_time}, {end_time}). '
+                          f'Try lowering the minimum note count -N '
+                          f'(currently {min_notes}), or '
+                          'ignore this if it is just due to a song length '
+                          'not being divisible by the --excerpt-length '
+                          f'(currently {length}).')
             continue
 
-        # Here, we have a valid excerpt. Find its transcription.
         num_excerpts += 1
-        trans_excerpt = pd.DataFrame(
-            trans_df.loc[trans_df['onset'].between(note_onset,
-                                                   note_onset + length)]
-        )
-        trans_excerpt['onset'] = trans_excerpt['onset'] - note_onset
-
-        degs, clean = get_excerpt_degs(gt_excerpt, trans_excerpt)
+        excerpt_degs = get_excerpt_degs(gt_excerpt, trans_excerpt)
         deg_counts += degs
-        clean_count += clean
+        if np.sum(excerpt_degs) == 0:
+            clean_count += 1
 
     # Divide number of errors by the number of possible excerpts
-    proportions = deg_counts / num_excerpts
+    proportions = deg_counts / (num_excerpts - clean_count)
     clean = clean_count / num_excerpts
     return proportions, clean
 
