@@ -192,100 +192,6 @@ def get_note_degs(gt_note, trans_note):
 
 
 
-def get_excerpt_degs_recursive(gt_excerpt, trans_excerpt, known=dict()):
-    """
-    Get the count of each degradation given a ground truth excerpt and a
-    transcribed excerpt.
-
-    Parameters
-    ----------
-    gt_excerpt : pd.DataFrame
-        The ground truth data frame.
-
-    trans_excerpt : pd.DataFrame
-        The corresponding transcribed dataframe.
-        
-    known : dict(tuple(tuple, tuple) -> np.array(int))
-        For top-down dynamic programming, a tuple of the remaining gt
-        row indices and the remaining transcription row indices, mapped
-        to a tuple of precalculated deg_counts.
-
-    Returns
-    -------
-    deg_counts : np.array(float)
-        The count of each degradation in this transcription, for the set
-        of degradations which lead to the smallest total number of
-        degradations. If multiple sets of degradations lead to the
-        ground truth in the same total number of degradations, the mean
-        of those counts is returned. Indices are in order of
-        mdtk.degradations.DEGRADATIONS.
-    """
-    # Base case 1: gt is empty
-    if len(gt_excerpt) == 0:
-        deg_counts = np.zeros(len(DEGRADATIONS))
-        deg_counts[list(DEGRADATIONS).index('add_note')] += len(trans_excerpt)
-        return deg_counts
-
-    # Base case 2: transcription is empty
-    if len(trans_excerpt) == 0:
-        deg_counts = np.zeros(len(DEGRADATIONS))
-        deg_counts[list(DEGRADATIONS).index('remove_note')] += len(gt_excerpt)
-        return deg_counts
-
-    # Dynamic programming short-circuit step
-    key = (tuple(gt_excerpt.index.values),
-           tuple(trans_excerpt.index.values))
-    # This try except is faster than checking in and then returning
-    try:
-        return known[key]
-    except:
-        pass
-
-    # Recursive step - for every pair of notes
-    # TODO: idea:
-    # First, precalculate all note-to-note diffs, then graph search
-    # between them somehow
-    min_count = np.inf
-    num_min = 0
-    deg_counts = np.zeros(len(DEGRADATIONS))
-    for gt_idx, gt_note in gt_excerpt.iterrows():
-        for trans_idx, trans_note in trans_excerpt.iterrows():
-            gt_excerpt_new = gt_excerpt.drop(gt_idx)
-            trans_excerpt_new = trans_excerpt.drop(trans_idx)
-
-            # Caluculate degs
-            note_key = (tuple([gt_idx]), tuple([trans_idx]))
-            try:
-                deg_counts_this = known(note_key)
-            except:
-                deg_counts_this = get_note_degs(gt_note, trans_note)
-                known[note_key] = deg_counts_this
-            deg_counts_this += get_excerpt_degs_recursive(
-                gt_excerpt_new, trans_excerpt_new, known=known
-            )
-
-            # Update the minimum number of degs
-            num_degs = np.sum(deg_counts_this)
-            if num_degs < min_count:
-                min_count = num_degs
-                num_min = 1
-                deg_counts = deg_counts_this
-            elif num_degs == min_count:
-                num_min += 1
-                deg_counts += deg_counts_this
-                
-    # TODO: special checks for split and join
-
-    # Average across each path to get to the min
-    deg_counts /= num_min
-
-    # Update known dict for dynamic programming
-    known[key] = deg_counts
-    
-    return deg_counts
-
-
-
 def get_excerpt_degs(gt_excerpt, trans_excerpt):
     """
     Get the count of each degradation given a ground truth excerpt and a
@@ -302,10 +208,24 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     Returns
     -------
     degs : np.array(float)
-        The count of each degradation in this transcription, in the order
-        given by mdtk.degradations.DEGRADATIONS.
+        The estimated count of each degradation in this transcription, in the
+        order given by mdtk.degradations.DEGRADATIONS.
     """
-    return get_excerpt_degs_recursive(gt_excerpt, trans_excerpt)
+    deg_counts = np.zeros(len(DEGRADATIONS))
+    
+    # Case 1: gt is empty
+    if len(gt_excerpt) == 0:
+        deg_counts[list(DEGRADATIONS).index('add_note')] = len(trans_excerpt)
+        return deg_counts
+
+    # Case 2: transcription is empty
+    if len(trans_excerpt) == 0:
+        deg_counts[list(DEGRADATIONS).index('remove_note')] = len(gt_excerpt)
+        return deg_counts
+    
+    # TODO: Degredation estimation
+    
+    return deg_counts
 
 
 
@@ -398,6 +318,9 @@ def parse_args(args_input=None):
                                      "transcription error in order to make "
                                      "a degraded MIDI dataset with the measure"
                                      " proportion of each degration.")
+    
+    parser.add_argument("--json", help="The file to write the degradation config"
+                        " json data out to.", default="config.json")
     
     parser.add_argument("--gt", help="The directory which contains the ground "
                         "truth musical scores or piano rolls.", required=True)
