@@ -367,10 +367,10 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
         trans_excerpt = get_df_excerpt(trans_df, excerpt_start, excerpt_end)
 
         # Check for validity
-        if len(gt_excerpt) < min_notes && len(trans_excerpt) < min_notes:
+        if len(gt_excerpt) < min_notes and len(trans_excerpt) < min_notes:
             warnings.warn(f'Skipping excerpt {gt} for too few notes. '
-                          f'Time range = [{start_time}, {end_time}). '
-                          f'Try lowering the minimum note count -N '
+                          f'Time range = [{excerpt_start}, {excerpt_end}). '
+                          f'Try lowering the minimum note count --min-notes '
                           f'(currently {min_notes}), or '
                           'ignore this if it is just due to a song length '
                           'not being divisible by the --excerpt-length '
@@ -384,8 +384,11 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
             clean_count += 1
 
     # Divide number of errors by the number of possible excerpts
-    proportions = deg_counts / (num_excerpts - clean_count)
-    clean = clean_count / num_excerpts
+    if num_excerpts - clean_count == 0:
+        proportions = deg_counts
+    else:
+        proportions = deg_counts / (num_excerpts - clean_count)
+    clean = clean_count / num_excerpts if num_excerpts > 0 else 0
     return proportions, clean
 
 
@@ -447,7 +450,7 @@ if __name__ == '__main__':
     for ext in trans_ext:
         trans.extend(glob.glob(os.path.join(args.trans, '*.' + ext)))
     
-    proportion = np.zeros((len(DEGRADATIONS), 0))
+    proportion = np.zeros((0, len(DEGRADATIONS)))
     clean_prop = []
     
     for file in trans:
@@ -475,7 +478,7 @@ if __name__ == '__main__':
                                       trans_end=args.trans_end,
                                       length=args.excerpt_length,
                                       min_notes=args.min_notes)
-        proportion = np.vstack((proportions, prop))
+        proportion = np.vstack((proportion, prop))
         clean_prop.append(clean)
         
     proportion = np.mean(proportion, axis=0)
