@@ -304,14 +304,8 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     degs : np.array(float)
         The count of each degradation in this transcription, in the order
         given by mdtk.degradations.DEGRADATIONS.
-
-    clean : int
-        1 if the sum of degs is 0. 0 Otherwise.
     """
-    deg_counts = get_excerpt_degs_recursive(gt_excerpt, trans_excerpt)
-
-    clean = 1 if np.sum(deg_counts) == 0 else 0
-    return deg_counts, clean
+    return get_excerpt_degs_recursive(gt_excerpt, trans_excerpt)
 
 
 
