@@ -191,6 +191,79 @@ def get_note_degs(gt_note, trans_note):
     return deg_counts
 
 
+def get_joins(gt_df, trans_df, max_gap=100):
+    """
+    Find any notes in the ground truth which have been joined in the
+    transcription.
+    
+    Parameters
+    ----------
+    gt_df : pd.DataFrame
+        The ground truth data frame.
+        
+    trans_df : pd.DataFrame
+        The transcription data frame.
+        
+    max_gap : int
+        The maximum allowed gap between notes to be joined, in ms.
+        
+    Returns
+    -------
+    pre_joined_notes : list(list(pd.Index))
+        A list of the notes that have been joined. Each element in
+        pre_joined_notes represents a list of notes that have been joined
+        together in the given transcription.
+        
+    post_joined_notes : list(pd.Index)
+        A list of the notes (in trans_df) resulting from each join
+        in pre_joined_notes.
+    """
+    pre_joined_notes = []
+    post_joined_notes = []
+    
+    for idx, note in trans_df.iterrows():
+        # TODO Caluclate this
+        pass
+    
+    return pre_joined_notes, post_joined_notes
+
+
+
+def get_splits(gt_df, trans_df, max_gap=100):
+    """
+    Find any notes in the ground truth which have been split in the
+    transcription.
+    
+    This is equivalent to calling get_joins with gt_df and trans_df
+    swapped.
+    
+    Parameters
+    ----------
+    gt_df : pd.DataFrame
+        The ground truth data frame.
+        
+    trans_df : pd.DataFrame
+        The transcription data frame.
+        
+    max_gap : int
+        The maximum allowed gap between notes post split, in ms.
+        
+    Returns
+    -------
+    pre_split_notes : list(pd.Index)
+        A list of the notes that have been split. Each element in
+        pre_joined_notes represents a note that has been split in the
+        given transcription.
+        
+    post_split_notes : list(list(pd.Index))
+        A list of the notes (in trans_df) resulting from each split
+        in pre_split_notes.
+    """
+    post_split_notes, pre_split_notes = get_joins(trans_df, gt_df,
+                                                  max_gap=max_gap)
+    return pre_split_notes, post_split_notes
+
+
 
 def get_excerpt_degs(gt_excerpt, trans_excerpt):
     """
@@ -213,17 +286,31 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     """
     deg_counts = np.zeros(len(DEGRADATIONS))
     
-    # Case 1: gt is empty
+    # Check for joins
+    pre_joined_notes, post_joined_notes = get_joins(gt_excerpt, trans_excerpt)
+    deg_counts[list(DEGRADATIONS).index('join_notes')] = len(pre_joined_notes)
+    gt_excerpt = gt_excerpt.drop(index=[idx for join in pre_joined_notes
+                                        for idx in join])
+    trans_excerpt = trans_excerpt.drop(index=post_joined_notes)
+    
+    # Check for splits
+    pre_split_notes, post_split_notes = get_splits(gt_excerpt, trans_excerpt)
+    deg_counts[list(DEGRADATIONS).index('split_note')] = len(pre_split_notes)
+    gt_excerpt = gt_excerpt.drop(index=pre_split_notes)
+    trans_excerpt = trans_excerpt.drop(index=[idx for join in pre_joined_notes
+                                              for idx in join])
+    
+    # Gt is empty
     if len(gt_excerpt) == 0:
         deg_counts[list(DEGRADATIONS).index('add_note')] = len(trans_excerpt)
         return deg_counts
 
-    # Case 2: transcription is empty
+    # Transcription is empty
     if len(trans_excerpt) == 0:
         deg_counts[list(DEGRADATIONS).index('remove_note')] = len(gt_excerpt)
         return deg_counts
     
-    # TODO: Degredation estimation
+    # TODO: Other degredation estimation
     
     return deg_counts
 
@@ -278,8 +365,14 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
     if trans_start != 0:
         gt_df.onset -= trans_start
     
-    end_time = max((gt_df.onset + gt_df.dur).max(),
-                   (trans_df.onset + trans_df.dur).max())
+    # Calculate latest end time (if else solves nan issue)
+    if len(gt_df) == 0:
+        end_time = (trans_df.onset + trans_df.dur).max()
+    elif len(trans_df) == 0:
+        end_time = (gt_df.onset + gt_df.dur).max()
+    else:
+        end_time = max((gt_df.onset + gt_df.dur).max(),
+                       (trans_df.onset + trans_df.dur).max())
     # Take each excerpt from time 0 until the end
     for excerpt_start in range(0, end_time, length):
         excerpt_end = min(excerpt_start + length, end_time)
@@ -299,7 +392,7 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
 
         num_excerpts += 1
         excerpt_degs = get_excerpt_degs(gt_excerpt, trans_excerpt)
-        deg_counts += degs
+        deg_counts += excerpt_degs
         if np.sum(excerpt_degs) == 0:
             clean_count += 1
 
