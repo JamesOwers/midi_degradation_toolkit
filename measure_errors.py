@@ -217,15 +217,79 @@ def get_joins(gt_df, trans_df, max_gap=100):
     post_joined_notes : list(pd.Index)
         A list of the notes (in trans_df) resulting from each join
         in pre_joined_notes.
+        
+    shift_onset : list(boolean)
+        A list of bools indicating whether the onset of the corresponding
+        join has been shifted (in addition to the join).
+    
+    shift_offset : list(boolean)
+        A list of bools indicating whether the offset of the corresponding
+        join has been shifted (in addition to the join).
     """
     pre_joined_notes = []
     post_joined_notes = []
+    shift_onset = []
+    shift_offset = []
     
-    for idx, note in trans_df.iterrows():
-        # TODO Caluclate this
-        pass
+    # This both creates a copy and creates an index column which will be
+    # retained in the merge
+    gt_df = gt_df.reset_index()
+    trans_df = trans_df.reset_index()
     
-    return pre_joined_notes, post_joined_notes
+    # Pre-calculate offset time once
+    gt_df.offset = gt_df.onset + gt_df.dur
+    trans_df.offset = trans_df.onset + trans_df.dur
+    
+    # Merge notes with equal pitch -- keep all pairs
+    merged_df = trans_df.reset_index().merge(gt_df.reset_index(), on='pitch',
+                                             suffixes=('_trans', '_gt'))
+    
+    # Save only rows where notes overlap
+    merged_df = merged_df.loc[(merged_df.onset_trans < merged_df.offset_gt) &
+                              (merged_df.offset_trans > merged_df.onset_gt)]
+    
+    # TODO: Ensure overlap length is significant enough (larger than max_gap, or non-overlap is shorter than max_gap)
+    
+    # Keep only trans notes with multiple overlapping gt notes
+    merged_df = merged_df.loc[merged_df.index_trans.duplicated(keep=False)].copy()
+    
+    # Save only rows where consecutive gt notes have small enough gap
+    # (Also save last rows of each trans note)
+    valid_gap = (merged_df.onset_gt - merged_df.offset_gt.shift(1)) <= max_gap
+    last_trans_note = merged_df.index_trans != merged_df.index_trans.shift(1)
+    valid_note = valid_gap | last_trans_note
+    
+    # This line counts the number of Falses before each row
+    # This allows us to find consecutive Trues based on having the same value here
+    # Note that the last False before a True will be included in the cumsum group
+    # The second line filters the Falses out, leaving only the Trues
+    merged_df.invalid_count = (~valid_note).cumsum()
+    merged_df = merged_df.loc[valid_note].copy()
+    
+    # Now, group by trans note, and find each one's largest chunk of True
+    merged_df.largest_group_invalid_count = (
+        merged_df.groupby('index_trans')['invalid_count']
+            .transform(lambda x: x.value_counts().idxmax())
+    )
+    
+    # Select each one's largest group, if of size > 1
+    merged_df = merged_df.loc[(merged_df.invalid_count ==
+                               merged_df.largest_group_invalid_count) &
+                              (merged_df.largest_group_invalid_count > 1)] .copy()
+    
+    # Check for onset/offset shifts
+    merged_df.onset_close = ((merged_df.onset_trans - merged_df.onset_gt).abs()
+                             <= min_gap)
+    merged_df.offset_close = ((merged_df.offset_trans - merged_df.offset_gt).abs()
+                              <= min_gap)
+    
+    for trans_id, trans_note_df in merged_df.groupby('index_trans').iterrows():
+        pre_joined_notes.append(list(trans_note_df.index_gt))
+        post_joined_notes.append(trans_id)
+        shift_onset.append(not trans_note_df.iloc[0].onset_close)
+        shift_offset.append(not trans_note_df.iloc[-1].offset_close)
+    
+    return pre_joined_notes, post_joined_notes, shift_onset, shift_offset
 
 
 
@@ -258,10 +322,21 @@ def get_splits(gt_df, trans_df, max_gap=100):
     post_split_notes : list(list(pd.Index))
         A list of the notes (in trans_df) resulting from each split
         in pre_split_notes.
+        
+    shift_onset : list(boolean)
+        A list of bools indicating whether the onset of the corresponding
+        join has been shifted (in addition to the split).
+    
+    shift_offset : list(boolean)
+        A list of bools indicating whether the offset of the corresponding
+        join has been shifted (in addition to the split).
     """
-    post_split_notes, pre_split_notes = get_joins(trans_df, gt_df,
-                                                  max_gap=max_gap)
-    return pre_split_notes, post_split_notes
+    # Split is exactly reverse of a join
+    post_split_notes, pre_split_notes, shift_onset, shift_offset = (
+        get_joins(trans_df, gt_df, max_gap=max_gap)
+    )
+    
+    return pre_split_notes, post_split_notes, shift_onset, shift_offset
 
 
 
