@@ -140,55 +140,73 @@ def load_file(filename, pr_min_pitch=MIN_PITCH_DEFAULT,
 
 
 
-def get_note_degs(gt_note, trans_note):
+def get_correct_notes(gt_df, trans_df):
     """
-    Get the count of each degradation given a ground truth note and a
-    transcribed note.
+    Get lists of the correctly transcribed notes' indices.
     
     Parameters
     ----------
-    gt_note : dict
-        The ground truth note, with integer fields onset, pitch, track,
-        and dur.
-
-    trans_note : dict
-        The corresponding transcribed note, with integer fields onset,
-        pitch, track, and dur.
-
+    gt_df : pd.DataFrame
+        The ground truth data frame.
+        
+    trans_df : pd.DataFrame
+        The transcription data frame.
+    
     Returns
     -------
-    deg_counts : np.array(float)
-        The count of each degradation between the notes, for the set
-        of degradations which lead to the smallest total number of
-        degradations. If multiple sets of degradations lead to the
-        ground truth in the same total number of degradations, the mean
-        of those counts is returned. Indices are in order of
-        mdtk.degradations.DEGRADATIONS.
+    correct_gt : list(int)
+        A list of the indices of the correctly transcribed ground truth
+        notes.
+        
+    correct_trans : list(int)
+        A list of the indices of the correctly transcribed transcribed
+        notes.
     """
-    deg_counts = np.zeros(len(DEGRADATIONS))
+    correct_gt = []
+    correct_trans = []
+    
+    return correct_gt, correct_trans
 
-    # Pitch shift
-    if gt_note['pitch'] != trans_note['pitch']:
-        deg_counts[list(DEGRADATIONS).index('pitch_shift')] = 1
 
-    # Time shift
-    if abs(gt_note['dur'] - trans_note['dur']) < MIN_SHIFT_DEFAULT:
-        if abs(gt_note['onset'] - trans_note['onset']) < MIN_SHIFT_DEFAULT:
-            return deg_counts
-        deg_counts[list(DEGRADATIONS).index('time_shift')] = 1
-        return deg_counts
 
-    # Onset shift
-    if abs(gt_note['onset'] - trans_note['onset']) >= MIN_SHIFT_DEFAULT:
-        deg_counts[list(DEGRADATIONS).index('onset_shift')] = 1
-
-    # Offset shift
-    gt_offset = gt_note['onset'] + gt_note['dur']
-    trans_offset = trans_note['onset'] + trans_note['dur']
-    if abs(gt_offset - trans_offset) >= MIN_SHIFT_DEFAULT:
-        deg_counts[list(DEGRADATIONS).index('offset_shift')] = 1
-
-    return deg_counts
+def get_shifts(gt_df, trans_df):
+    """
+    Get the shift degradations (onset, offset, time, pitch) of the
+    given ground truth and transcription.
+    
+    Parameters
+    ----------
+    gt_df : pd.DataFrame
+        The ground truth data frame.
+        
+    trans_df : pd.DataFrame
+        The transcription data frame.
+    
+    Returns
+    -------
+    onset : dict(int -> int)
+        A mapping of gt_index -> trans_index of each note that has been
+        onset shifted in the transcription.
+    
+    offset : dict(int -> int)
+        A mapping of gt_index -> trans_index of each note that has been
+        offset shifted in the transcription.
+    
+    
+    time : dict(int -> int)
+        A mapping of gt_index -> trans_index of each note that has been
+        time shifted in the transcription.
+    
+    pitch : dict(int -> int)
+        A mapping of gt_index -> trans_index of each note that has been
+        pitch shifted in the transcription.
+    """
+    onset = dict()
+    offset = dict()
+    time = dict()
+    pitch = dict()
+    
+    return onset, offset, time, pitch
 
 
 def get_joins(gt_df, trans_df, max_gap=100):
@@ -368,6 +386,11 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     """
     deg_counts = np.zeros(len(DEGRADATIONS))
     
+    # Remove equal notes
+    correct_gt, correct_trans = get_correct_notes(gt_excerpt, trans_excerpt)
+    gt_excerpt = gt_excerpt.drop(index=correct_gt)
+    trans_excerpt = trans_excerpt.drop(index=correct_trans)
+    
     # Check for joins
     pre_joined_notes, post_joined_notes, shift_onset, shift_offset = (
         get_joins(gt_excerpt, trans_excerpt)
@@ -384,23 +407,28 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
         get_splits(gt_excerpt, trans_excerpt)
     )
     deg_counts[list(DEGRADATIONS).index('split_note')] = len(pre_split_notes)
-    deg_counts[list(DEGRADATIONS).index('onset_shift')] = sum(shift_onset)
-    deg_counts[list(DEGRADATIONS).index('offset_shift')] = sum(shift_offset)
+    deg_counts[list(DEGRADATIONS).index('onset_shift')] += sum(shift_onset)
+    deg_counts[list(DEGRADATIONS).index('offset_shift')] += sum(shift_offset)
     gt_excerpt = gt_excerpt.drop(index=pre_split_notes)
     trans_excerpt = trans_excerpt.drop(index=[idx for join in pre_joined_notes
                                               for idx in join])
     
-    # Gt is empty
-    if len(gt_excerpt) == 0:
-        deg_counts[list(DEGRADATIONS).index('add_note')] = len(trans_excerpt)
-        return deg_counts
-
-    # Transcription is empty
-    if len(trans_excerpt) == 0:
-        deg_counts[list(DEGRADATIONS).index('remove_note')] = len(gt_excerpt)
-        return deg_counts
+    # Shift degredation estimation (onset, offset, time, pitch)
+    onset, offset, time, pitch = get_shifts(gt_excerpt, trans_excerpt)
+    deg_counts[list(DEGRADATIONS).index('onset_shift')] += sum(len(onset))
+    deg_counts[list(DEGRADATIONS).index('offset_shift')] += sum(len(offset))
+    deg_counts[list(DEGRADATIONS).index('time_shift')] = sum(len(time))
+    deg_counts[list(DEGRADATIONS).index('pitch_shift')] = sum(len(pitch))
     
-    # TODO: Other degredation estimation
+    total_shifts = len(onset) + len(offset) + len(time) + len(pitch)
+    
+    # Remainder are all adds and removes
+    deg_counts[list(DEGRADATIONS).index('add_note')] = (
+        len(trans_excerpt) - total_shifts
+    )
+    deg_counts[list(DEGRADATIONS).index('remove_note')] = (
+        len(gt_excerpt) - total_shifts
+    )
     
     return deg_counts
 
