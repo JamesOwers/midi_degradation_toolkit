@@ -237,53 +237,60 @@ def get_joins(gt_df, trans_df, max_gap=100):
     trans_df = trans_df.reset_index()
     
     # Pre-calculate offset time once
-    gt_df.offset = gt_df.onset + gt_df.dur
-    trans_df.offset = trans_df.onset + trans_df.dur
+    gt_df['offset'] = gt_df.onset + gt_df.dur
+    trans_df['offset'] = trans_df.onset + trans_df.dur
     
     # Merge notes with equal pitch -- keep all pairs
     merged_df = trans_df.reset_index().merge(gt_df.reset_index(), on='pitch',
                                              suffixes=('_trans', '_gt'))
     
-    # Save only rows where notes overlap
-    merged_df = merged_df.loc[(merged_df.onset_trans < merged_df.offset_gt) &
-                              (merged_df.offset_trans > merged_df.onset_gt)]
-    
-    # TODO: Ensure overlap length is significant enough (larger than max_gap, or non-overlap is shorter than max_gap)
+    # Save only rows where notes overlap enough
+    # Must overlap at least half of min(max gap, gt_duration)
+    overlap_start = merged_df[['onset_trans', 'onset_gt']].max(axis=1)
+    overlap_end = merged_df[['offset_trans', 'offset_gt']].min(axis=1)
+    merged_df['overlap_length'] = overlap_end - overlap_start
+    merged_df = merged_df.loc[merged_df.overlap_length >=
+                              0.5 * merged_df.dur_gt.clip(upper=max_gap)]
     
     # Keep only trans notes with multiple overlapping gt notes
     merged_df = merged_df.loc[merged_df.index_trans.duplicated(keep=False)].copy()
     
     # Save only rows where consecutive gt notes have small enough gap
     # (Also save last rows of each trans note)
-    valid_gap = (merged_df.onset_gt - merged_df.offset_gt.shift(1)) <= max_gap
-    last_trans_note = merged_df.index_trans != merged_df.index_trans.shift(1)
+    valid_gap = (merged_df.onset_gt.shift(-1) - merged_df.offset_gt) <= max_gap
+    last_trans_note = merged_df.index_trans != merged_df.index_trans.shift(-1)
     valid_note = valid_gap | last_trans_note
     
     # This line counts the number of Falses before each row
     # This allows us to find consecutive Trues based on having the same value here
     # Note that the last False before a True will be included in the cumsum group
     # The second line filters the Falses out, leaving only the Trues
-    merged_df.invalid_count = (~valid_note).cumsum()
+    merged_df['invalid_count'] = (~valid_note).cumsum()
     merged_df = merged_df.loc[valid_note].copy()
     
     # Now, group by trans note, and find each one's largest chunk of True
-    merged_df.largest_group_invalid_count = (
+    merged_df['largest_group_invalid_count'] = (
         merged_df.groupby('index_trans')['invalid_count']
             .transform(lambda x: x.value_counts().idxmax())
+    )
+    merged_df['largest_group_size'] = (
+        merged_df.groupby('index_trans')['invalid_count']
+            .transform(lambda x: x.value_counts().max())
     )
     
     # Select each one's largest group, if of size > 1
     merged_df = merged_df.loc[(merged_df.invalid_count ==
                                merged_df.largest_group_invalid_count) &
-                              (merged_df.largest_group_invalid_count > 1)] .copy()
+                              (merged_df.largest_group_size > 1)].copy()
     
     # Check for onset/offset shifts
-    merged_df.onset_close = ((merged_df.onset_trans - merged_df.onset_gt).abs()
-                             <= min_gap)
-    merged_df.offset_close = ((merged_df.offset_trans - merged_df.offset_gt).abs()
-                              <= min_gap)
+    merged_df['onset_close'] = ((merged_df.onset_trans - merged_df.onset_gt).abs()
+                                <= max_gap)
+    merged_df['offset_close'] = ((merged_df.offset_trans - merged_df.offset_gt).abs()
+                                 <= max_gap)
     
-    for trans_id, trans_note_df in merged_df.groupby('index_trans').iterrows():
+    # Generate output lists
+    for trans_id, trans_note_df in merged_df.groupby('index_trans'):
         pre_joined_notes.append(list(trans_note_df.index_gt))
         post_joined_notes.append(trans_id)
         shift_onset.append(not trans_note_df.iloc[0].onset_close)
@@ -362,15 +369,23 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     deg_counts = np.zeros(len(DEGRADATIONS))
     
     # Check for joins
-    pre_joined_notes, post_joined_notes = get_joins(gt_excerpt, trans_excerpt)
+    pre_joined_notes, post_joined_notes, shift_onset, shift_offset = (
+        get_joins(gt_excerpt, trans_excerpt)
+    )
     deg_counts[list(DEGRADATIONS).index('join_notes')] = len(pre_joined_notes)
+    deg_counts[list(DEGRADATIONS).index('onset_shift')] = sum(shift_onset)
+    deg_counts[list(DEGRADATIONS).index('offset_shift')] = sum(shift_offset)
     gt_excerpt = gt_excerpt.drop(index=[idx for join in pre_joined_notes
                                         for idx in join])
     trans_excerpt = trans_excerpt.drop(index=post_joined_notes)
     
     # Check for splits
-    pre_split_notes, post_split_notes = get_splits(gt_excerpt, trans_excerpt)
+    pre_split_notes, post_split_notes, shift_onset, shift_offset = (
+        get_splits(gt_excerpt, trans_excerpt)
+    )
     deg_counts[list(DEGRADATIONS).index('split_note')] = len(pre_split_notes)
+    deg_counts[list(DEGRADATIONS).index('onset_shift')] = sum(shift_onset)
+    deg_counts[list(DEGRADATIONS).index('offset_shift')] = sum(shift_offset)
     gt_excerpt = gt_excerpt.drop(index=pre_split_notes)
     trans_excerpt = trans_excerpt.drop(index=[idx for join in pre_joined_notes
                                               for idx in join])
