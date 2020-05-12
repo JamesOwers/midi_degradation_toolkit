@@ -190,6 +190,12 @@ def get_correct_notes(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
         
     trans_df : pd.DataFrame
         The transcription data frame.
+        
+    max_onset_err : int
+        The maximum error for 2 onsets to be considered simultaneous.
+        
+    max_offset_err : int
+        The maximum error for 2 offsets to be considered simultaneous.
     
     Returns
     -------
@@ -225,7 +231,9 @@ def get_correct_notes(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
 
 
 
-def get_shifts(gt_df, trans_df):
+def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
+               max_offset_err=2 * MIN_SHIFT_DEFAULT,
+               max_dur_err=2 * MIN_SHIFT_DEFAULT):
     """
     Get the shift degradations (onset, offset, time, pitch) of the
     given ground truth and transcription.
@@ -237,6 +245,15 @@ def get_shifts(gt_df, trans_df):
         
     trans_df : pd.DataFrame
         The transcription data frame.
+        
+    max_onset_err : int
+        The maximum error for 2 onsets to be considered simultaneous.
+        
+    max_offset_err : int
+        The maximum error for 2 offsets to be considered simultaneous.
+        
+    max_dur_err : int
+        The maximum error for 2 durations to be considered of equal length.
     
     Returns
     -------
@@ -248,7 +265,6 @@ def get_shifts(gt_df, trans_df):
         A mapping of gt_index -> trans_index of each note that has been
         offset shifted in the transcription.
     
-    
     time : dict(int -> int)
         A mapping of gt_index -> trans_index of each note that has been
         time shifted in the transcription.
@@ -256,13 +272,103 @@ def get_shifts(gt_df, trans_df):
     pitch : dict(int -> int)
         A mapping of gt_index -> trans_index of each note that has been
         pitch shifted in the transcription.
+        
+    also_offset : list(int)
+        A list of gt_indexes of pitch shifts which were also offset shifts.
     """
     onset = dict()
     offset = dict()
     time = dict()
     pitch = dict()
+    also_offset = []
     
-    return onset, offset, time, pitch
+    # Save fully merged df
+    merged_df = merge_on_pitch(gt_df, trans_df, offset=True)
+    merged_df['onset_diff'] = (
+        (merged_df.onset_trans - merged_df.onset_gt).abs()
+    )
+    merged_df['offset_diff'] = (
+        (merged_df.offset_trans - merged_df.offset_gt).abs()
+    )
+    merged_df['dur_diff'] = (
+        (merged_df.dur_trans - merged_df.dur_gt).abs()
+    )
+    
+    # First, check for time offset shifts
+    # Onset is close enough
+    match_df = merged_df.loc[merged_df.onset_diff <= max_onset_err]
+    # Keep only match closest to correct onset
+    match_df = match_df.loc[merged_notes.groupby('index_gt')
+                            ['onset_diff'].idxmin()]
+    offset = dict(zip(match_df.index_gt, match_df.index_trans))
+    
+    # Filter offset shifts out of base dfs
+    merged_df = merged_df.drop(merged_df.index_trans.isin(match_df.index_trans)
+                               | merged_df.index_gt.isin(match_df.index_gt))
+    gt_df = gt_df.drop(index=match_df.index_gt)
+    trans_df = trans_df.drop(index=match_df.index_trans)
+    
+    # Second, check for onset shifts
+    # Offset is close enough
+    match_df = merged_df.loc[merged_df.offset_diff <= max_offset_err]
+    # Keep only match closest to correct offset
+    match_df = match_df.loc[merged_notes.groupby('index_gt')
+                            ['offset_diff'].idxmin()]
+    onset = dict(zip(match_df.index_gt, match_df.index_trans))
+    
+    # Filter onset shifts out of base dfs
+    merged_df = merged_df.drop(merged_df.index_trans.isin(match_df.index_trans)
+                               | merged_df.index_gt.isin(match_df.index_gt))
+    gt_df = gt_df.drop(index=match_df.index_gt)
+    trans_df = trans_df.drop(index=match_df.index_trans)
+    
+    # Third, check for time shifts
+    # Dur is close enough
+    match_df = merged_df.loc[merged_df.dur_diff <= max_onset_err]
+    # Shift is small enough (smaller than gt note duration)
+    match_df = match_df.loc[match_df.onset_diff <= match_df.gt_dur] 
+    # Keep only match shortest shift
+    match_df = match_df.loc[merged_notes.groupby('index_gt')
+                            ['onset_diff'].idxmin()]
+    time = dict(zip(match_df.index_gt, match_df.index_trans))
+    
+    # Filter time shifts out of base dfs (merged is unused past here)
+    gt_df = gt_df.drop(index=match_df.index_gt)
+    trans_df = trans_df.drop(index=match_df.index_trans)
+    
+    # Fourth, check for pitch shifts
+    gt_df['offset'] = gt_df.onset + gt_df.dur
+    trans_df['offset'] = trans_df.onset + trans_df.dur
+    
+    # Looping is necesary because we only get 1 gt_note per trans note,
+    # Although, each trans_note may be associated with multiple gt notes
+    # at each iteration.
+    while len(gt_df) > 0:
+        # Find onset time closest to each gt note
+        gt_df['closest_onset_idx'] = gt_df.apply(
+            lambda x: (trans_df.onset - x.onset).abs().idxmin(),
+            axis=1
+        )
+        gt_df['closest_onset'] = (
+            (trans_df.loc[gt_df.closest_onset_idx, 'onset'] -
+             gt_df.onset).abs()
+        )
+        # Here, gt_df will eventually become empty (to exit while loop)
+        gt_df = gt_df.loc[gt_df.closest_onset <= max_onset_err]
+        
+        # Sort by closest onset, and then only take first of each trans_idx
+        gt_df = gt_df.sort_values(by='closest_onset')
+        pitch_df = gt_df.drop_duplicates(subset='closest_onset_idx')
+        
+        # Add to pitch shifts and also_offset
+        pitch.update(zip(pitch_df.index, pitch_df.closest_onset_idx))
+        offset_diff = (
+            pitch_df.offset - trans_df.loc[pitch_df.closest_onset_idx]
+        )
+        also_offset.extend(pitch_df.loc[offset_diff.abs() > max_offset_err]
+                           .index)
+    
+    return onset, offset, time, pitch, also_offset
 
 
 def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
@@ -460,11 +566,13 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
                                               for idx in join])
     
     # Shift degredation estimation (onset, offset, time, pitch)
-    onset, offset, time, pitch = get_shifts(gt_excerpt, trans_excerpt)
-    deg_counts[list(DEGRADATIONS).index('onset_shift')] += sum(len(onset))
-    deg_counts[list(DEGRADATIONS).index('offset_shift')] += sum(len(offset))
-    deg_counts[list(DEGRADATIONS).index('time_shift')] = sum(len(time))
-    deg_counts[list(DEGRADATIONS).index('pitch_shift')] = sum(len(pitch))
+    onset, offset, time, pitch, also_offset = get_shifts(gt_excerpt,
+                                                         trans_excerpt)
+    deg_counts[list(DEGRADATIONS).index('onset_shift')] += len(onset)
+    deg_counts[list(DEGRADATIONS).index('offset_shift')] += (len(offset) +
+                                                             len(also_offset))
+    deg_counts[list(DEGRADATIONS).index('time_shift')] = len(time)
+    deg_counts[list(DEGRADATIONS).index('pitch_shift')] = len(pitch)
     
     total_shifts = len(onset) + len(offset) + len(time) + len(pitch)
     
