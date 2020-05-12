@@ -12,8 +12,8 @@ import warnings
 import pretty_midi
 
 from mdtk import degradations, midi, data_structures, formatters
-from mdtk.degradations import (MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT,
-                               DEGRADATIONS, MIN_SHIFT_DEFAULT)
+from mdtk.degradations import (MAX_GAP_DEFAULT, MIN_SHIFT_DEFAULT,
+                               MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT)
 from mdtk.data_structures import NOTE_DF_SORT_ORDER
 
 FILE_TYPES = ['mid', 'pkl', 'csv']
@@ -138,9 +138,48 @@ def load_file(filename, pr_min_pitch=MIN_PITCH_DEFAULT,
 
     raise NotImplementedError(f'Extension {ext} not supported.')
 
+    
+def merge_on_pitch(gt_df, trans_df, offset=True):
+    """
+    Merge the given ground truth and transcribed dfs on pitch, with
+    corresponding suffixes, and possibly offset columns.
+    
+    Parameters
+    ----------
+    gt_df : pd.DataFrame
+        The ground truth data frame.
+        
+    trans_df : pd.DataFrame
+        The transcription data frame.
+        
+    offset : boolean
+        Calculate offset columns pre-merge.
+        
+    Results
+    -------
+    merge_df : pd.DataFrame
+        The gt and trans DataFrames, merged on equal pitches, with index
+        columns added for each pre-merge, and _gt and _trans suffixes added
+        to the resulting columns. If offset is True, offset columns are
+        calculated pre-merge.
+    """
+    # This both creates a copy and creates an index column which will be
+    # retained in the merge
+    gt_df = gt_df.reset_index()
+    trans_df = trans_df.reset_index()
+    
+    # Pre-calculate offset time once
+    if offset:
+        gt_df['offset'] = gt_df.onset + gt_df.dur
+        trans_df['offset'] = trans_df.onset + trans_df.dur
+    
+    # Merge notes with equal pitch -- keep all pairs
+    return trans_df.reset_index().merge(gt_df.reset_index(), on='pitch',
+                                        suffixes=('_trans', '_gt'))
 
 
-def get_correct_notes(gt_df, trans_df):
+def get_correct_notes(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
+                      max_offset_err=2 * MIN_SHIFT_DEFAULT):
     """
     Get lists of the correctly transcribed notes' indices.
     
@@ -165,7 +204,24 @@ def get_correct_notes(gt_df, trans_df):
     correct_gt = []
     correct_trans = []
     
-    return correct_gt, correct_trans
+    # Merge on pitch
+    merged_df = merge_on_pitch(gt_df, trans_df, offset=True)
+    
+    # Keep only notes close enough at onset and offset
+    merged_df['onset_diff'] = (
+        (merged_df.onset_trans - merged_df.onset_gt).abs()
+    )
+    onset_close = merged_df.onset_diff < max_onset_err
+    offset_close = (
+        (merged_df.offset_trans - merged_df.offset_gt).abs() <= max_offset_err
+    )
+    matched_notes = merged_df.loc[onset_close & offset_close]
+    
+    # Keep only match closest to correct onset
+    matched_notes = matched_notes.loc[matched_notes.groupby('index_gt')
+                                      ['onset_diff'].idxmin()]
+    
+    return list(matched_notes.index_gt), list(matched_notes.index_trans)
 
 
 
@@ -209,7 +265,7 @@ def get_shifts(gt_df, trans_df):
     return onset, offset, time, pitch
 
 
-def get_joins(gt_df, trans_df, max_gap=100):
+def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
     """
     Find any notes in the ground truth which have been joined in the
     transcription.
@@ -249,18 +305,8 @@ def get_joins(gt_df, trans_df, max_gap=100):
     shift_onset = []
     shift_offset = []
     
-    # This both creates a copy and creates an index column which will be
-    # retained in the merge
-    gt_df = gt_df.reset_index()
-    trans_df = trans_df.reset_index()
-    
-    # Pre-calculate offset time once
-    gt_df['offset'] = gt_df.onset + gt_df.dur
-    trans_df['offset'] = trans_df.onset + trans_df.dur
-    
-    # Merge notes with equal pitch -- keep all pairs
-    merged_df = trans_df.reset_index().merge(gt_df.reset_index(), on='pitch',
-                                             suffixes=('_trans', '_gt'))
+    # Merge on pitch
+    merged_df = merge_on_pitch(gt_df, trans_df, offset=True)
     
     # Save only rows where notes overlap enough
     # Must overlap at least half of min(max gap, gt_duration)
@@ -318,7 +364,7 @@ def get_joins(gt_df, trans_df, max_gap=100):
 
 
 
-def get_splits(gt_df, trans_df, max_gap=100):
+def get_splits(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
     """
     Find any notes in the ground truth which have been split in the
     transcription.

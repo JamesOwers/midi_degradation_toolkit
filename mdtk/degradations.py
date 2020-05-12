@@ -17,6 +17,8 @@ MAX_SHIFT_DEFAULT = np.inf
 MIN_DURATION_DEFAULT = 50
 MAX_DURATION_DEFAULT = np.inf
 
+MAX_GAP_DEFAULT = 50
+
 TRIES_DEFAULT = 10
 
 TRIES_WARN_MSG = ("WARNING: Generated invalid (overlapping) degraded excerpt "
@@ -991,8 +993,8 @@ def split_note(excerpt, min_duration=MIN_DURATION_DEFAULT, num_splits=1,
 
 
 @set_random_seed
-def join_notes(excerpt, max_gap=50, max_notes=20, only_first=False,
-               tries=TRIES_DEFAULT):
+def join_notes(excerpt, max_gap=MAX_GAP_DEFAULT, max_notes=20,
+               only_first=False, tries=TRIES_DEFAULT):
     """
     Combine two notes of the same pitch and track into one.
 
