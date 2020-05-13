@@ -615,8 +615,8 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
     its transcription.
     
     This measures the expected count of each degradation given a random
-    excerpt from the ground truth. And probability that a random excerpt
-    will be clean.
+    excerpt from the ground truth (that is NOT clean). And probability
+    that a random excerpt will be clean.
     
     Parameters
     ----------
@@ -642,8 +642,8 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
     -------
     proportions : list(float)
         The expected count of each degradation present in a random excerpt
-        from the given ground truth and transcription, in the order given by
-        mdtk.degradations.DEGRADATIONS.
+        from the given ground truth (that is NOT correctly transcribed), in
+        the order given by mdtk.degradations.DEGRADATIONS.
         
     clean : float
         The estimated probability that a random excerpt from the given
@@ -762,7 +762,7 @@ if __name__ == '__main__':
     for ext in trans_ext:
         trans.extend(glob.glob(os.path.join(args.trans, '*.' + ext)))
     
-    proportion = np.zeros((0, len(DEGRADATIONS)))
+    proportion = []
     clean_prop = []
     
     for file in tqdm(trans):
@@ -789,7 +789,7 @@ if __name__ == '__main__':
                                       trans_end=args.trans_end,
                                       length=args.excerpt_length,
                                       min_notes=args.min_notes)
-        proportion = np.vstack((proportion, prop))
+        proportion.append(prop)
         clean_prop.append(clean)
         
     # We want the mean deg_count per file
