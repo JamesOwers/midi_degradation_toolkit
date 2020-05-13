@@ -298,13 +298,18 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
     # Onset is close enough
     match_df = merged_df.loc[merged_df.onset_diff <= max_onset_err]
     # Keep only match closest to correct onset
-    match_df = match_df.loc[merged_notes.groupby('index_gt')
-                            ['onset_diff'].idxmin()]
+    match_df = match_df.loc[
+        match_df.index == match_df.groupby('index_gt')['onset_diff'].idxmin()[
+            match_df.index_gt
+        ]
+    ]
     offset = dict(zip(match_df.index_gt, match_df.index_trans))
     
     # Filter offset shifts out of base dfs
-    merged_df = merged_df.drop(merged_df.index_trans.isin(match_df.index_trans)
-                               | merged_df.index_gt.isin(match_df.index_gt))
+    merged_df = merged_df.drop(
+        index=(merged_df.index_trans.isin(match_df.index_trans) |
+               merged_df.index_gt.isin(match_df.index_gt)).index
+    )
     gt_df = gt_df.drop(index=match_df.index_gt)
     trans_df = trans_df.drop(index=match_df.index_trans)
     
@@ -312,13 +317,18 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
     # Offset is close enough
     match_df = merged_df.loc[merged_df.offset_diff <= max_offset_err]
     # Keep only match closest to correct offset
-    match_df = match_df.loc[merged_notes.groupby('index_gt')
-                            ['offset_diff'].idxmin()]
+    match_df = match_df.loc[
+        match_df.index == match_df.groupby('index_gt')['offset_diff'].idxmin()[
+            match_df.index_gt
+        ]
+    ]
     onset = dict(zip(match_df.index_gt, match_df.index_trans))
     
     # Filter onset shifts out of base dfs
-    merged_df = merged_df.drop(merged_df.index_trans.isin(match_df.index_trans)
-                               | merged_df.index_gt.isin(match_df.index_gt))
+    merged_df = merged_df.drop(
+        index=(merged_df.index_trans.isin(match_df.index_trans) |
+               merged_df.index_gt.isin(match_df.index_gt)).index
+    )
     gt_df = gt_df.drop(index=match_df.index_gt)
     trans_df = trans_df.drop(index=match_df.index_trans)
     
@@ -326,10 +336,13 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
     # Dur is close enough
     match_df = merged_df.loc[merged_df.dur_diff <= max_onset_err]
     # Shift is small enough (smaller than gt note duration)
-    match_df = match_df.loc[match_df.onset_diff <= match_df.gt_dur] 
+    match_df = match_df.loc[match_df.onset_diff <= match_df.dur_gt] 
     # Keep only match shortest shift
-    match_df = match_df.loc[merged_notes.groupby('index_gt')
-                            ['onset_diff'].idxmin()]
+    match_df = match_df.loc[
+        match_df.index == match_df.groupby('index_gt')['onset_diff'].idxmin()[
+            match_df.index_gt
+        ]
+    ]
     time = dict(zip(match_df.index_gt, match_df.index_trans))
     
     # Filter time shifts out of base dfs (merged is unused past here)
@@ -363,10 +376,14 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
         # Add to pitch shifts and also_offset
         pitch.update(zip(pitch_df.index, pitch_df.closest_onset_idx))
         offset_diff = (
-            pitch_df.offset - trans_df.loc[pitch_df.closest_onset_idx]
+            pitch_df.offset - trans_df.loc[pitch_df.closest_onset_idx, 'offset']
         )
         also_offset.extend(pitch_df.loc[offset_diff.abs() > max_offset_err]
                            .index)
+        
+        # Remove matches from gt_df and trans_df
+        gt_df = gt_df.drop(index=pitch_df.index)
+        trans_df = trans_df.drop(index=pitch_df.closest_onset_idx)
     
     return onset, offset, time, pitch, also_offset
 
