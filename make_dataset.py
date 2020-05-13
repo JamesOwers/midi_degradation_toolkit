@@ -87,6 +87,10 @@ def parse_args(args_input=None):
     parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
                         help='the directory to store the preprocessed '
                         'downloaded data to.')
+    parser.add_argument('--config', default=None, help='Load a json config '
+                        'file, in the format created by measure_errors.py. '
+                        'This will override --degradations, --degradation-'
+                        'dist, and --clean-prop.')
     parser.add_argument('--formats', metavar='format', help='Create '
                         'custom versions of the acme data for easier loading '
                         'with our provided pytorch Dataset classes. Choices are'
@@ -175,6 +179,7 @@ if __name__ == '__main__':
         seed = ARGS.seed
         print(f'Setting random seed to {seed}.')
     np.random.seed(seed)
+
     # Check given degradation_kwargs
     assert (ARGS.degradation_kwargs is None or
             ARGS.degradation_kwarg_json is None), ("Don't specify both "
@@ -185,6 +190,18 @@ if __name__ == '__main__':
         degradation_kwargs = parse_degradation_kwargs(
             ARGS.degradation_kwarg_json
         )
+
+    # Load config
+    if ARGS.config is not None:
+        with open(ARGS.config, 'r') as file:
+            config = json.load(file)
+        if ARGS.verbose:
+            print('Loading from config file.')
+        if 'deg_props' in config:
+            ARGS.degradation_dist = np.array(config['deg_props'])
+            ARGS.degradations = degradations.DEGRADATIONS
+        if 'clean_prop' in config:
+            ARGS.clean_prop = config['clean_prop']
     # Warn user they specified kwargs for degradation not being used
     for deg, args in degradation_kwargs.items():
         if deg not in ARGS.degradations and len(args) > 0:
