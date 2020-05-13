@@ -8,12 +8,14 @@ import pandas as pd
 import pickle
 import numpy as np
 import warnings
+import json
 
 import pretty_midi
 
 from mdtk import degradations, midi, data_structures, formatters
 from mdtk.degradations import (MAX_GAP_DEFAULT, MIN_SHIFT_DEFAULT,
-                               MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT)
+                               MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT,
+                               DEGRADATIONS)
 from mdtk.data_structures import NOTE_DF_SORT_ORDER
 
 FILE_TYPES = ['mid', 'pkl', 'csv']
@@ -179,7 +181,7 @@ def merge_on_pitch(gt_df, trans_df, offset=True):
 
 
 def get_correct_notes(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
-                      max_offset_err=2 * MIN_SHIFT_DEFAULT):
+                      max_offset_err=MIN_SHIFT_DEFAULT):
     """
     Get lists of the correctly transcribed notes' indices.
     
@@ -232,8 +234,8 @@ def get_correct_notes(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
 
 
 def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
-               max_offset_err=2 * MIN_SHIFT_DEFAULT,
-               max_dur_err=2 * MIN_SHIFT_DEFAULT):
+               max_offset_err=MIN_SHIFT_DEFAULT,
+               max_dur_err=MIN_SHIFT_DEFAULT):
     """
     Get the shift degradations (onset, offset, time, pitch) of the
     given ground truth and transcription.
@@ -306,10 +308,10 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
     offset = dict(zip(match_df.index_gt, match_df.index_trans))
     
     # Filter offset shifts out of base dfs
-    merged_df = merged_df.drop(
-        index=(merged_df.index_trans.isin(match_df.index_trans) |
-               merged_df.index_gt.isin(match_df.index_gt)).index
-    )
+    merged_df = merged_df.loc[
+        ~(merged_df.index_trans.isin(match_df.index_trans) |
+          merged_df.index_gt.isin(match_df.index_gt))
+    ].copy()
     gt_df = gt_df.drop(index=match_df.index_gt)
     trans_df = trans_df.drop(index=match_df.index_trans)
     
@@ -325,10 +327,10 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
     onset = dict(zip(match_df.index_gt, match_df.index_trans))
     
     # Filter onset shifts out of base dfs
-    merged_df = merged_df.drop(
-        index=(merged_df.index_trans.isin(match_df.index_trans) |
-               merged_df.index_gt.isin(match_df.index_gt)).index
-    )
+    merged_df = merged_df.loc[
+        ~(merged_df.index_trans.isin(match_df.index_trans) |
+          merged_df.index_gt.isin(match_df.index_gt))
+    ].copy()
     gt_df = gt_df.drop(index=match_df.index_gt)
     trans_df = trans_df.drop(index=match_df.index_trans)
     
@@ -579,8 +581,8 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     deg_counts[list(DEGRADATIONS).index('onset_shift')] += sum(shift_onset)
     deg_counts[list(DEGRADATIONS).index('offset_shift')] += sum(shift_offset)
     gt_excerpt = gt_excerpt.drop(index=pre_split_notes)
-    trans_excerpt = trans_excerpt.drop(index=[idx for join in pre_joined_notes
-                                              for idx in join])
+    trans_excerpt = trans_excerpt.drop(index=[idx for split in post_split_notes
+                                              for idx in split])
     
     # Shift degredation estimation (onset, offset, time, pitch)
     onset, offset, time, pitch, also_offset = get_shifts(gt_excerpt,
@@ -608,8 +610,12 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
 def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
                     min_notes=10):
     """
-    Get the proportions of each degradation given a ground truth file and its
-    transcription.
+    Get the proportion of each degradation given a ground truth file and
+    its transcription.
+    
+    This measures the expected count of each degradation given a random
+    excerpt from the ground truth. And probability that a random excerpt
+    will be clean.
     
     Parameters
     ----------
@@ -634,13 +640,13 @@ def get_proportions(gt, trans, trans_start=0, trans_end=None, length=5000,
     Returns
     -------
     proportions : list(float)
-        The rough proportion of excerpts from the ground truth with each
-        degradation present in the transcription, in the order given by
+        The expected count of each degradation present in a random excerpt
+        from the given ground truth and transcription, in the order given by
         mdtk.degradations.DEGRADATIONS.
         
     clean : float
-        The rough proportion of excerpts from the ground truth whose
-        transcription is correct.
+        The estimated probability that a random excerpt from the given
+        ground truth will have no errors in the transcription.
     """
     num_excerpts = 0
     deg_counts = np.zeros(len(DEGRADATIONS))
@@ -778,7 +784,6 @@ if __name__ == '__main__':
                           'down extensions with --gt_ext.')
         gt = gt_list[0]
         
-        # TODO: Also get some parameters?
         prop, clean = get_proportions(gt, file, trans_start=args.trans_start,
                                       trans_end=args.trans_end,
                                       length=args.excerpt_length,
@@ -786,9 +791,15 @@ if __name__ == '__main__':
         proportion = np.vstack((proportion, prop))
         clean_prop.append(clean)
         
+    # We want the mean deg_count per file
     proportion = np.mean(proportion, axis=0)
     clean = np.mean(clean_prop)
     
-    # TODO: Write out to json file
+    with open(args.json, 'w', encoding='utf-8') as file:
+        json.dump(
+            {
+                'deg_props': proportion,
+                'clean_prop': clean
+            }, file, ensure_ascii=False, indent=4)
     
     
