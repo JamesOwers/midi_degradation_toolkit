@@ -11,6 +11,7 @@ import warnings
 import json
 
 import pretty_midi
+from tqdm import tqdm
 
 from mdtk import degradations, midi, data_structures, formatters
 from mdtk.degradations import (MAX_GAP_DEFAULT, MIN_SHIFT_DEFAULT,
@@ -764,7 +765,7 @@ if __name__ == '__main__':
     proportion = np.zeros((0, len(DEGRADATIONS)))
     clean_prop = []
     
-    for file in trans:
+    for file in tqdm(trans):
         basename = os.path.splitext(os.path.basename(file))[0]
         
         # Find gt file
