@@ -799,7 +799,7 @@ if __name__ == '__main__':
     with open(args.json, 'w', encoding='utf-8') as file:
         json.dump(
             {
-                'deg_props': proportion,
+                'deg_props': proportion.tolist(),
                 'clean_prop': clean
             }, file, ensure_ascii=False, indent=4)
     
