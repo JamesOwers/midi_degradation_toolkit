@@ -799,8 +799,10 @@ if __name__ == '__main__':
                                       trans_end=args.trans_end,
                                       length=args.excerpt_length,
                                       min_notes=args.min_notes)
-        proportion.append(prop)
-        clean_prop.append(clean)
+        if sum(prop) > 0:
+            proportion.append(prop)
+        if sum(prop) + sum(clean) > 0:
+            clean_prop.append(clean)
         
     # We want the mean deg_count per file
     proportion = np.mean(proportion, axis=0)
