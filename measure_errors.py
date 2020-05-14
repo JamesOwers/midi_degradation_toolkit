@@ -366,7 +366,7 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
             axis=1
         )
         gt_df['closest_onset'] = (
-            (trans_df.loc[gt_df.closest_onset_idx, 'onset'] -
+            (trans_df.loc[gt_df.closest_onset_idx, 'onset'].to_numpy() -
              gt_df.onset).abs()
         )
         # Here, gt_df will eventually become empty (to exit while loop)
