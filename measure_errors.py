@@ -224,13 +224,27 @@ def get_correct_notes(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
     offset_close = (
         (merged_df.offset_trans - merged_df.offset_gt).abs() <= max_offset_err
     )
-    matched_notes = merged_df.loc[onset_close & offset_close]
-    
-    # Keep only match closest to correct onset
-    matched_notes = matched_notes.loc[matched_notes.groupby('index_gt')
+    merged_df = merged_df.loc[onset_close & offset_close]
+
+    while len(merged_df) > 0:
+        # Keep only match closest to correct onset
+        matched_notes = merged_df.loc[merged_df.groupby('index_gt')
                                       ['onset_diff'].idxmin()]
+        
+        # Remove duplicate trans note matches
+        matched_notes = matched_notes.loc[~matched_notes.index_trans
+                                          .duplicated()]
+        
+        # Save matches
+        correct_gt.extend(list(matched_notes.index_gt))
+        correct_trans.extend(list(matched_notes.index_trans))
+        
+        # Remove saved from merged_df for next pass (in case of duplicates)
+        trans_matched = merged_df.index_trans.isin(matched_notes.index_trans)
+        gt_matched = merged_df.index_gt.isin(matched_notes.index_gt)
+        merged_df = merged_df.loc[~trans_matched & ~gt_matched]
     
-    return list(matched_notes.index_gt), list(matched_notes.index_trans)
+    return correct_gt, correct_trans
 
 
 
@@ -795,14 +809,18 @@ if __name__ == '__main__':
                           'down extensions with --gt_ext.')
         gt = gt_list[0]
         
+        tqdm.write(file)
+        
         prop, clean = get_proportions(gt, file, trans_start=args.trans_start,
                                       trans_end=args.trans_end,
                                       length=args.excerpt_length,
                                       min_notes=args.min_notes)
         if sum(prop) > 0:
             proportion.append(prop)
-        if sum(prop) + sum(clean) > 0:
+            tqdm.write(str(np.mean(proportion, axis=0)))
+        if sum(prop) + clean > 0:
             clean_prop.append(clean)
+            tqdm.write(str(np.mean(clean_prop)))
         
     # We want the mean deg_count per file
     proportion = np.mean(proportion, axis=0)
