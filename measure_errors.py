@@ -359,7 +359,7 @@ def get_shifts(gt_df, trans_df, max_onset_err=MIN_SHIFT_DEFAULT,
     # Looping is necesary because we only get 1 gt_note per trans note,
     # Although, each trans_note may be associated with multiple gt notes
     # at each iteration.
-    while len(gt_df) > 0:
+    while len(gt_df) and len(trans_df) > 0:
         # Find onset time closest to each gt note
         gt_df['closest_onset_idx'] = gt_df.apply(
             lambda x: (trans_df.onset - x.onset).abs().idxmin(),
@@ -710,6 +710,10 @@ def parse_args(args_input=None):
     
     parser.add_argument("--json", help="The file to write the degradation config"
                         " json data out to.", default="config.json")
+    parser.add_argument("-r", "--recursive", help="Search the given --gt and "
+                        "--trans directories recursively. The directory structures"
+                        " in each don't have to be identical, but corresponding "
+                        "files must still be uniquely named.", action="store_true")
     
     parser.add_argument("--gt", help="The directory which contains the ground "
                         "truth musical scores or piano rolls.", required=True)
@@ -758,9 +762,14 @@ if __name__ == '__main__':
     trans_ext = [args.trans_ext] if args.trans_ext is not None else FILE_TYPES
     gt_ext = [args.gt_ext] if args.gt_ext is not None else FILE_TYPES
     
+    if args.recursive:
+        args.trans = os.path.join(args.trans, '**')
+        args.gt = os.path.join(args.gt, '**')
+    
     trans = []
     for ext in trans_ext:
-        trans.extend(glob.glob(os.path.join(args.trans, '*.' + ext)))
+        trans.extend(glob.glob(os.path.join(args.trans, '*.' + ext),
+                               recursive=args.recursive))
     
     proportion = []
     clean_prop = []
@@ -771,7 +780,8 @@ if __name__ == '__main__':
         # Find gt file
         gt_list = []
         for ext in gt_ext:
-            gt_list.extend(glob.glob(os.path.join(args.gt, basename + '.' + ext)))
+            gt_list.extend(glob.glob(os.path.join(args.gt, basename + '.' + ext),
+                                     recursive=args.recursive))
             
         if len(gt_list) == 0:
             warnings.warn(f'No ground truth found for transcription {file}. Check'

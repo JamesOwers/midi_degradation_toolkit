@@ -196,7 +196,7 @@ if __name__ == '__main__':
         with open(ARGS.config, 'r') as file:
             config = json.load(file)
         if ARGS.verbose:
-            print('Loading from config file.')
+            print(f'Loading from config file {ARGS.config}.')
         if 'deg_props' in config:
             ARGS.degradation_dist = np.array(config['deg_props'])
             ARGS.degradations = degradations.DEGRADATIONS
