@@ -809,18 +809,14 @@ if __name__ == '__main__':
                           'down extensions with --gt_ext.')
         gt = gt_list[0]
         
-        tqdm.write(file)
-        
         prop, clean = get_proportions(gt, file, trans_start=args.trans_start,
                                       trans_end=args.trans_end,
                                       length=args.excerpt_length,
                                       min_notes=args.min_notes)
         if sum(prop) > 0:
             proportion.append(prop)
-            tqdm.write(str(np.mean(proportion, axis=0)))
         if sum(prop) + clean > 0:
             clean_prop.append(clean)
-            tqdm.write(str(np.mean(clean_prop)))
         
     # We want the mean deg_count per file
     proportion = np.mean(proportion, axis=0)

@@ -261,7 +261,7 @@ def pitch_shift(excerpt, min_pitch=MIN_PITCH_DEFAULT,
                           'distribution[zero_idx] to 0). Returning None.')
             return None
 
-    degraded = excerpt
+    degraded = excerpt.copy()
 
     # Sample a random note
     note_index = valid_notes[randint(len(valid_notes))]
@@ -397,7 +397,7 @@ def time_shift(excerpt, min_shift=MIN_SHIFT_DEFAULT,
     else:
         onset = split_range_sample([(eeo, leo), (elo, llo)])
 
-    degraded = excerpt
+    degraded = excerpt.copy()
 
     degraded.loc[index, 'onset'] = onset
 
@@ -577,7 +577,7 @@ def onset_shift(excerpt, min_shift=MIN_SHIFT_DEFAULT,
         # No alignment
         onset = split_range_sample([(elo, llo), (eso, lso)])
 
-    degraded = excerpt
+    degraded = excerpt.copy()
 
     degraded.loc[index, 'onset'] = onset
     degraded.loc[index, 'dur'] = offset[index] - onset
@@ -708,7 +708,7 @@ def offset_shift(excerpt, min_shift=MIN_SHIFT_DEFAULT,
     else:
         duration = split_range_sample([(ssd, lsd), (sld, lld)])
 
-    degraded = excerpt
+    degraded = excerpt.copy()
 
     degraded.loc[index, 'dur'] = duration
 
@@ -891,7 +891,7 @@ def add_note(excerpt, min_pitch=MIN_PITCH_DEFAULT, max_pitch=MAX_PITCH_DEFAULT,
             'dur': duration,
             'track': track}
 
-    degraded = excerpt
+    degraded = excerpt.copy()
     degraded = degraded.append(note, ignore_index=True)
 
     # Check if overlaps
@@ -979,7 +979,7 @@ def split_note(excerpt, min_duration=MIN_DURATION_DEFAULT, num_splits=1,
         onsets[i] = int(round(this_onset))
         durs[i] = int(round(next_onset)) - int(round(this_onset))
 
-    degraded = excerpt
+    degraded = excerpt.copy()
     degraded.loc[note_index]['dur'] = int(round(short_duration_float))
     new_df = pd.DataFrame({'onset': onsets,
                            'track': tracks,
@@ -1085,7 +1085,7 @@ def join_notes(excerpt, max_gap=MAX_GAP_DEFAULT, max_notes=20,
     start = valid_starts[index]
     nexts = valid_nexts[index]
 
-    degraded = excerpt
+    degraded = excerpt.copy()
 
     # Extend first note
     degraded.loc[start]['dur'] = (degraded.loc[nexts[-1]]['onset'] +
