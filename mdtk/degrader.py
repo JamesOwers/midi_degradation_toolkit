@@ -2,6 +2,7 @@
 according to some given parameters."""
 import json
 import numpy as np
+import warnings
 
 import mdtk.degradations as degs
 
@@ -10,7 +11,7 @@ class Degrader():
     on the fly."""
     
     def __init__(self, seed=None, degradations=list(degs.DEGRADATIONS.keys()),
-                 degradation_dist=[1] * len(degs.DEGRADATIONS),
+                 degradation_dist=np.ones(len(degs.DEGRADATIONS)),
                  clean_prop=1 / (len(degs.DEGRADATIONS) + 1), config=None):
         """
         Create a new degrader with the given parameters.
@@ -46,7 +47,7 @@ class Degrader():
                 
             if 'degradation_dist' in config:
                 degradation_dist = np.array(config['degradation_dist'])
-                degradations = degradations.DEGRADATIONS
+                degradations = list(degs.DEGRADATIONS.keys())
             if 'clean_prop' in config:
                 clean_prop = config['clean_prop']
                 
@@ -68,7 +69,7 @@ class Degrader():
         self.failed = np.zeros(len(degradations))
         
         
-    def degrade(note_df):
+    def degrade(self, note_df):
         """
         Degrade the given note_df.
         
@@ -88,5 +89,61 @@ class Degrader():
             and larger numbers mean the degradation
             "self.degradations[deg_label+1]" was performed.
         """
-        pass
+        if self.clean_prop > 0 and np.random.rand() <= self.clean_prop:
+            return note_df.copy(), 0
+        
+        degraded_df = None
+        this_deg_dist = self.degradation_dist.copy()
+        this_failed = self.failed.copy()
+        
+        # First, sample from failed degradations
+        while np.any(this_failed > 0):
+            # Select a degradation proportional to how many have failed
+            deg_index = np.random.choice(
+                len(self.degradations),
+                p=this_failed / np.sum(this_failed)
+            )
+            deg_fun = degs.DEGRADATIONS[self.degradations[deg_index]]
+            
+            # Try to degrade
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                degraded_df = deg_fun(note_df)
+                
+            # Check for success!
+            if degraded_df is not None:
+                self.failed[deg_index] -= 1
+                return degraded_df, deg_index + 1
+            
+            # Degradation failed -- 0 out this deg and continue
+            this_failed[deg_index] = 0
+            
+        # No degradations have remaining failures. Draw from standard dist
+        while np.any(this_deg_dist > 0):
+            # Select a degradation proportional to the distribution
+            deg_index = np.random.choice(
+                len(self.degradations),
+                p=this_deg_dist / np.sum(this_deg_dist)
+            )
+            # This deg would have already failed in the above loop.
+            # But we want to sample it and count it as another failure.
+            if self.failed[deg_index] > 0:
+                self.failed[deg_index] += 1
+                continue
+            deg_fun = degs.DEGRADATIONS[self.degradations[deg_index]]
+            
+            # Try to degrade
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                degraded_df = deg_fun(note_df)
+                
+            # Check for success!
+            if degraded_df is not None:
+                return degraded_df, deg_index + 1
+            
+            # Degradation failed -- add 1 to failure and continue
+            self.failed[deg_index] += 1
+            
+        # Here, all degradations (with dist > 0) failed
+        return note_df.copy(), 0
     

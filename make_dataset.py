@@ -199,7 +199,7 @@ if __name__ == '__main__':
             print(f'Loading from config file {ARGS.config}.')
         if 'degradation_dist' in config:
             ARGS.degradation_dist = np.array(config['degradation_dist'])
-            ARGS.degradations = degradations.DEGRADATIONS
+            ARGS.degradations = list(degradations.DEGRADATIONS.keys())
         if 'clean_prop' in config:
             ARGS.clean_prop = config['clean_prop']
     # Warn user they specified kwargs for degradation not being used
