@@ -197,9 +197,9 @@ if __name__ == '__main__':
             config = json.load(file)
         if ARGS.verbose:
             print(f'Loading from config file {ARGS.config}.')
-        if 'deg_props' in config:
-            ARGS.degradation_dist = np.array(config['deg_props'])
-            ARGS.degradations = degradations.DEGRADATIONS
+        if 'degradation_dist' in config:
+            ARGS.degradation_dist = np.array(config['degradation_dist'])
+            ARGS.degradations = list(degradations.DEGRADATIONS.keys())
         if 'clean_prop' in config:
             ARGS.clean_prop = config['clean_prop']
     # Warn user they specified kwargs for degradation not being used

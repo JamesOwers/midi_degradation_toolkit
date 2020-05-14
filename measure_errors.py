@@ -825,7 +825,7 @@ if __name__ == '__main__':
     with open(args.json, 'w') as file:
         json.dump(
             {
-                'deg_props': proportion.tolist(),
+                'degradation_dist': proportion.tolist(),
                 'clean_prop': clean
             }, file, indent=4)
     
