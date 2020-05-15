@@ -2,7 +2,7 @@
 Tools to generate datasets of Altered and Corrupted MIDI Excerpts -`ACME`
 datasets.
 
-The accompanying paper (submitted to ICASSP, available upon request)
+The accompanying paper (submitted to ISMIR)
 "Symbolic Music Correction using The MIDI Degradation Toolkit" describes the
 toolkit and its motivation in detail. For instructions to reproduce the results
 from the paper, see [`./baselines/README.md`](./baselines/README.md).
@@ -38,6 +38,8 @@ Some highlights include:
   data for use
 * [`mdtk.degradations`](./mdtk/degradations.py) - functions to alter midi data
   e.g. `pitch_shift` or `time_shift`
+* [`mdtk.degrader`](./mdtk/degrader.py) - Degrader class that can be used to
+  degrade data points randomly on the fly
 * [`mdtk.eval`](./mdtk/eval.py) - functions for evaluating model performance
   on each task, given a list of outputs and targets
 * [`mdtk.formatters`](./mdtk/formatters.py) - functions converting between
@@ -71,3 +73,10 @@ pip install .  # use pip install -e . for dev mode if you want to edit files
 
 To generate an `ACME` dataset simply install the package with instructions
 above and run `./make_dataset.py`.
+
+For usage instructions for the `measure_errors.py` script, run
+`python measure_errors.py -h` you should create a directory of transcriptions
+and a directory of ground truth files (in mid or csv format). The ground truth
+and corresponding transcription should be named the exact same thing.
+
+See `measure_errors_example.ipynb` for an example of the script's usage.
