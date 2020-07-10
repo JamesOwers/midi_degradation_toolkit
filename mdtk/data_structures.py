@@ -298,6 +298,9 @@ def fix_overlaps(df):
                     df.loc[prev_idx, 'offset'] = note.onset
                     current_offset = max(current_offset, note.offset)
                     df.loc[idx, 'offset'] = current_offset
+                else:
+                    # No overlap. Update latest offset.
+                    current_offset = note.offset
                 # Always iterate, but no need to update current_offset here,
                 # because it will definitely be < next_note.onset (because sorted).
                 prev_idx = idx
