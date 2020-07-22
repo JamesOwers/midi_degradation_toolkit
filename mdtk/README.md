@@ -1,6 +1,6 @@
 # Description
 
-The accompanying paper (submitted to ICASSP, available upon request) referenced
+The accompanying paper (submitted to ISMIR) referenced
 below is "Symbolic Music Correction using The MIDI Degradation Toolkit" and 
 describes the toolkit and its motivation in detail.
 
