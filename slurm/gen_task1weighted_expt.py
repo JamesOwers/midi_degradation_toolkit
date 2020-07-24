@@ -26,7 +26,8 @@ base_call = (
 
 nr_repeats = 3
 learning_rates = [1e-6, 1e-5, 1e-4]
-weight_decays = [1e-6, 1e-5]
+# weight_decays = [1e-6, 1e-5]
+weight_decays = [1e-4, 1e-3, 1e-2]
 hiddens = [100, 250]
 nr_expts = nr_repeats * len(learning_rates) * len(weight_decays) * len(hiddens)
 
