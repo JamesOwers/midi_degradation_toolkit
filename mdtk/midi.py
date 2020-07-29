@@ -148,3 +148,35 @@ def df_to_csv(df, csv_path):
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Enforce column order
     df[COLNAMES].to_csv(csv_path, index=None, header=False)
+
+
+def df_to_midi(df, midi_path):
+    """
+    Write the notes of a DataFrame out to a MIDI file.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing an excerpt to write out.
+
+    midi_path : string
+        The filename to write out to.
+    """
+    midi = pretty_midi.PrettyMIDI()
+    instruments = [None] * (df.track.max() + 1)
+
+    for track in df.track.unique():
+        instrument = pretty_midi.Instrument(track)
+        instruments[track] = instrument
+        pretty_midi.instruments.append(instrument)
+
+    # Compute start and end time in seconds as pretty_midi expects
+    df.loc[:, 'start'] = df.onset / 100
+    df.loc[:, 'end'] = df.start + df.dur / 100
+
+    for _, note in df.iterrows():
+        note = pretty_midi.Note(velocity=100, pitch=note.pitch, start=note.start, end=note.end)
+        instruments[note.track].notes.append(note)
+
+    df.drop(columns=['start', 'end'], axis=1, inplace=True)
+    midi.write(midi_path)
