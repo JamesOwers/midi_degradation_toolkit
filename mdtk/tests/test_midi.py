@@ -326,3 +326,73 @@ def test_df_to_midi():
             os.remove(filename)
         except:
             pass
+
+
+def test_csv_to_midi():
+    df = pd.DataFrame({
+        'onset': 0,
+        'track': [0, 0, 1],
+        'pitch': [10, 20, 30],
+        'dur': 1000
+    })
+    midi.df_to_csv(df, 'test.csv')
+
+    # Test basic writing
+    midi.csv_to_midi('test.csv', 'test.mid')
+    assert midi.midi_to_df('test.mid').equals(df), (
+        "Writing df to MIDI and reading changes df."
+    )
+
+    # Test that writing should overwrite existing notes
+    df.pitch += 10
+    midi.df_to_csv(df, 'test.csv')
+    midi.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid')
+    assert midi.midi_to_df('test2.mid').equals(df), (
+        "Writing df to MIDI with existing MIDI does not overwrite notes."
+    )
+
+    # Test that writing skips non-overwritten notes
+    midi.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid',
+                     excerpt_start=1000)
+    expected = pd.DataFrame({
+        'onset': [0, 0, 0, 1000, 1000, 1000],
+        'track': [0, 0, 1, 0, 0, 1],
+        'pitch': [10, 20, 30, 20, 30, 40],
+        'dur': 1000
+    })
+    assert midi.midi_to_df('test2.mid').equals(expected), (
+        "Writing to MIDI doesn't copy notes before excerpt_start"
+    )
+
+    # Test that writing skips non-overwritten notes past end
+    midi.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
+                    excerpt_length=1000)
+    expected = pd.DataFrame({
+        'onset': [0, 0, 0, 1000, 1000, 1000],
+        'track': [0, 0, 1, 0, 0, 1],
+        'pitch': [20, 30, 40, 20, 30, 40],
+        'dur': 1000
+    })
+    assert midi.midi_to_df('test.mid').equals(expected), (
+        "Writing to MIDI doesn't copy notes after excerpt_length"
+    )
+
+    df.track = 2
+    midi.df_to_csv(df, 'test.csv')
+    midi.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
+                     excerpt_length=1000)
+    expected = pd.DataFrame({
+        'onset': [0, 0, 0, 1000, 1000, 1000],
+        'track': [2, 2, 2, 0, 0, 1],
+        'pitch': [20, 30, 40, 20, 30, 40],
+        'dur': 1000
+    })
+    assert midi.midi_to_df('test.mid').equals(expected), (
+        "Writing to MIDI with extra track breaks"
+    )
+
+    for filename in ['test.mid', 'test2.mid', 'test.csv']:
+        try:
+            os.remove(filename)
+        except:
+            pass

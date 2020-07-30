@@ -150,6 +150,41 @@ def df_to_csv(df, csv_path):
     df[COLNAMES].to_csv(csv_path, index=None, header=False)
 
 
+def csv_to_midi(csv_path, midi_path, existing_midi_path=None, excerpt_start=0,
+               excerpt_length=float('Inf')):
+    """
+    Write the notes of a csv out to a MIDI file.
+
+    Parameters
+    ----------
+    csv_path : pd.DataFrame
+        The path of a csv file containing an excerpt to write out.
+
+    midi_path : string
+        The filename to write out to.
+
+    existing_midi_path : string
+        The path to an existing MIDI file. If given, non-note events will be
+        copied from this file to the newly created MIDI file, and the csv's
+        tracks will reference the existing MIDI file's instruments in the order
+        given by the existing MIDI file's instrument list.
+
+    excerpt_start : int
+        The time (in ms) to align csv's time 0 with in the new MIDI file. This
+        value cannot be negative. If existing_midi_path is given, any notes
+        whose onset is before this time are copied into the new MIDI file.
+
+    excerpt_length : int
+        Used only if existing_midi_path is given, this represents the length
+        of the excerpt in ms. Any notes from the existing MIDI file whose
+        onset is after excerpt_start + excerpt_length are copied into the new
+        MIDI file.
+    """
+    df_to_midi(pd.read_csv(csv_path, names=COLNAMES), midi_path,
+               existing_midi_path=existing_midi_path,
+               excerpt_start=excerpt_start, excerpt_length=excerpt_length)
+
+
 def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
                excerpt_length=float('Inf')):
     """
@@ -176,8 +211,9 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
 
     excerpt_length : int
         Used only if existing_midi_path is given, this represents the length
-        of the excerpt in ms. Any notes whose onset is after excerpt_start +
-        excerpt_length are copied into the new MIDI file.
+        of the excerpt in ms. Any notes from the existing MIDI file whose
+        onset is after excerpt_start + excerpt_length are copied into the new
+        MIDI file.
     """
     assert excerpt_start >= 0, "excerpt_start must not be negative"
     excerpt_start_secs = excerpt_start / 1000
