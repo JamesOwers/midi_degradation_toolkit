@@ -180,7 +180,7 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
         excerpt_length are copied into the new MIDI file.
     """
     assert excerpt_start >= 0, "excerpt_start must not be negative"
-    excerpt_start_secs = excerpt_start / 100
+    excerpt_start_secs = excerpt_start / 1000
 
     midi = pretty_midi.PrettyMIDI()
     instruments = [None] * (df.track.max() + 1)
@@ -188,7 +188,7 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
     # Copy data from existing MIDI file
     if existing_midi_path is not None:
         existing_midi = pretty_midi.PrettyMIDI(existing_midi_path)
-        excerpt_end_secs = excerpt_start_secs + excerpt_length / 100
+        excerpt_end_secs = excerpt_start_secs + excerpt_length / 1000
 
         # Copy time, key, and lyric events
         midi.key_signature_changes = existing_midi.key_signature_changes
@@ -208,7 +208,7 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
 
             # Copy all valid notes
             instruments[i].notes = [
-                note for note in instrument if (
+                note for note in instrument.notes if (
                     note.start < excerpt_start_secs or
                     note.start >= excerpt_end_secs
                 )
@@ -229,14 +229,14 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
     ]
 
     # Compute start and end time of notes in seconds as pretty_midi expects
-    df.loc[:, 'start'] = df.onset / 100 + excerpt_start_secs
-    df.loc[:, 'end'] = df.start + df.dur / 100
+    df.loc[:, 'start'] = df.onset / 1000 + excerpt_start_secs
+    df.loc[:, 'end'] = df.start + df.dur / 1000
 
     # Add df notes to midi object
-    for _, note in df.iterrows():
+    for note in df.itertuples():
         midi_note = pretty_midi.Note(velocity=100, pitch=note.pitch,
                                      start=note.start, end=note.end)
-        instruments[note.track].notes.append(midi_note)
+        instruments[int(note.track)].notes.append(midi_note)
 
     df.drop(columns=['start', 'end'], axis=1, inplace=True)
     midi.write(midi_path)

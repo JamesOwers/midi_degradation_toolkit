@@ -31,19 +31,19 @@ def test_df_to_csv():
                   'track': 2,
                   'pitch': 56,
                   'dur': 1})
-    
+
     df = pd.DataFrame(notes)
-    
+
     csv_name = TEST_CACHE_PATH + os.path.sep + 'test.csv'
     try:
         os.remove(csv_name)
     except:
         pass
-    
+
     midi.df_to_csv(df, csv_name)
-    
+
     assert os.path.exists(csv_name), ('No csv created.')
-    
+
     # Check that notes were written correctly
     with open(csv_name, 'r') as file:
         for i, line in enumerate(file):
@@ -62,12 +62,12 @@ def test_df_to_csv():
             assert int(split[3]) == notes[i]['dur'], ("Duration of "
                    f"note {i} ({notes[i]}) not equal to csv's written "
                    f"duration of {int(split[3])}")
-            
-            
-            
+
+
+
 def test_midi_to_df():
     df = midi.midi_to_df(TEST_MID)
-    
+
     # This relies on pretty_midi being correct
     m = pretty_midi.PrettyMIDI(TEST_MID)
     midi_notes = []
@@ -78,9 +78,9 @@ def test_midi_to_df():
                                'pitch': note.pitch,
                                'dur': int(round(note.end * 1000) -
                                           round(note.start * 1000))})
-    
+
     df_notes = df.to_dict('records')
-    
+
     # Test sorting
     for prev_note, next_note in zip(df_notes[:-1], df_notes[1:]):
         assert (prev_note['onset'] < next_note['onset'] or
@@ -94,31 +94,31 @@ def test_midi_to_df():
                  prev_note['pitch'] == next_note['pitch'] and
                  prev_note['dur'] < next_note['dur'])), ("DataFrame sorting " +
                 f"incorrect. {prev_note} is before {next_note}")
-                
+
     # Test that all notes df notes are in the MIDI
     for df_note in df_notes:
         assert df_note in midi_notes, (f"DataFrame note {df_note} not in " +
                                        "list of MIDI notes from pretty_midi " +
                                        "(or was duplicated).")
         midi_notes.remove(df_note)
-        
+
     # Test that all MIDI notes were in the df
     assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
                                   f"not found in the DataFrame: {midi_notes}")
-    
-    
-    
+
+
+
 def test_midi_to_csv():
     # This method is just calls to midi_to_df and df_to_csv
     csv_path = TEST_CACHE_PATH + os.path.sep + 'test.csv'
-    
+
     try:
         os.remove(csv_path)
     except:
         pass
-    
+
     midi.midi_to_csv(TEST_MID, csv_path)
-    
+
     # This relies on pretty_midi being correct
     m = pretty_midi.PrettyMIDI(TEST_MID)
     midi_notes = []
@@ -129,7 +129,7 @@ def test_midi_to_csv():
                                'pitch': note.pitch,
                                'dur': int(round(note.end * 1000) -
                                           round(note.start * 1000))})
-            
+
     # Check that notes were written correctly
     with open(csv_path, 'r') as file:
         for i, line in enumerate(file):
@@ -142,42 +142,42 @@ def test_midi_to_csv():
                                         "of MIDI notes from pretty_midi " +
                                         "(or was duplicated).")
             midi_notes.remove(note)
-            
+
     # Test that all MIDI notes were in the df
     assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
                                   f"not found in the DataFrame: {midi_notes}")
-    
+
     # Check writing without any directory
     midi.midi_to_csv(TEST_MID, 'test.csv')
     try:
         os.remove('test.csv')
     except:
         pass
-    
-    
+
+
 def test_midi_dir_to_csv():
     midi_dir = os.path.dirname(TEST_MID)
     csv_dir = TEST_CACHE_PATH
     csv_paths = [csv_dir + os.path.sep + 'test.csv',
                  csv_dir + os.path.sep + 'test2.csv',
                  csv_dir + os.path.sep + 'alb_se2.csv']
-    
+
     for csv_path in csv_paths:
         try:
             os.remove(csv_path)
         except:
             pass
-    
+
     midi2_path = os.path.dirname(TEST_MID) + os.path.sep + 'test2.mid'
     shutil.copyfile(TEST_MID, midi2_path)
-    
+
     midi.midi_dir_to_csv(midi_dir, csv_dir)
-    
+
     os.remove(midi2_path)
-    
+
     for csv_path in csv_paths:
         assert os.path.exists(csv_path), f"{csv_path} was not created."
-    
+
     # This relies on pretty_midi being correct
     m = pretty_midi.PrettyMIDI(TEST_MID)
     midi_notes = []
@@ -190,7 +190,7 @@ def test_midi_dir_to_csv():
                                'dur': int(round(note.end * 1000) -
                                           round(note.start * 1000))})
             midi_notes2.append(midi_notes[-1])
-            
+
     # Check that notes were written correctly
     for csv_path, notes in zip(csv_paths, [midi_notes, midi_notes2]):
         with open(csv_path, 'r') as file:
@@ -204,9 +204,78 @@ def test_midi_dir_to_csv():
                                        "of MIDI notes from pretty_midi " +
                                        "(or was duplicated).")
                 notes.remove(note)
-            
+
     # Test that all MIDI notes were in the df
     for notes in [midi_notes, midi_notes2]:
         assert len(notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
                                  f"not found in the DataFrame: {notes}")
-    
+
+
+def test_df_to_midi():
+    df = pd.DataFrame({
+        'onset': 0,
+        'track': [0, 0, 1],
+        'pitch': [10, 20, 30],
+        'dur': 1000
+    })
+
+    # Test basic writing
+    midi.df_to_midi(df, 'test.mid')
+    assert midi.midi_to_df('test.mid').equals(df), (
+        "Writing df to MIDI and reading changes df."
+    )
+
+    # Test that writing should overwrite existing notes
+    df.pitch += 10
+    df_res = midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid')
+    assert midi.midi_to_df('test2.mid').equals(df), (
+        "Writing df to MIDI with existing MIDI does not overwrite notes."
+    )
+
+    # Test that writing skips non-overwritten notes
+    midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid',
+                    excerpt_start=1000)
+    expected = pd.DataFrame({
+        'onset': [0, 0, 0, 1000, 1000, 1000],
+        'track': [0, 0, 1, 0, 0, 1],
+        'pitch': [10, 20, 30, 20, 30, 40],
+        'dur': 1000
+    })
+    assert midi.midi_to_df('test2.mid').equals(expected), (
+        "Writing to MIDI doesn't copy notes before excerpt_start"
+    )
+
+    # Test that writing skips non-overwritten notes past end
+    midi.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
+                    excerpt_length=1000)
+    expected = pd.DataFrame({
+        'onset': [0, 0, 0, 1000, 1000, 1000],
+        'track': [0, 0, 1, 0, 0, 1],
+        'pitch': [20, 30, 40, 20, 30, 40],
+        'dur': 1000
+    })
+    assert midi.midi_to_df('test.mid').equals(expected), (
+        "Writing to MIDI doesn't copy notes after excerpt_length"
+    )
+
+    df.track = 2
+    midi.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
+                    excerpt_length=1000)
+    expected = pd.DataFrame({
+        'onset': [0, 0, 0, 1000, 1000, 1000],
+        'track': [2, 2, 2, 0, 0, 1],
+        'pitch': [20, 30, 40, 20, 30, 40],
+        'dur': 1000
+    })
+    print(midi.midi_to_df('test.mid'))
+    assert midi.midi_to_df('test.mid').equals(expected), (
+        "Writing to MIDI with extra track breaks"
+    )
+
+    # TODO: Does not check lyrics, time, or key sigs
+
+    for filename in ['test.mid', 'test2.mid']:
+        try:
+            os.remove(filename)
+        except:
+            pass
