@@ -150,7 +150,8 @@ def df_to_csv(df, csv_path):
     df[COLNAMES].to_csv(csv_path, index=None, header=False)
 
 
-def df_to_midi(df, midi_path):
+def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
+               excerpt_length=float('Inf')):
     """
     Write the notes of a DataFrame out to a MIDI file.
 
@@ -161,22 +162,81 @@ def df_to_midi(df, midi_path):
 
     midi_path : string
         The filename to write out to.
+
+    existing_midi_path : string
+        The path to an existing MIDI file. If given, non-note events will be
+        copied from this file to the newly created MIDI file, and the df's
+        tracks will reference the existing MIDI file's instruments in the order
+        given by the existing MIDI file's instrument list.
+
+    excerpt_start : int
+        The time (in ms) to align df's time 0 with in the new MIDI file. This
+        value cannot be negative. If existing_midi_path is given, any notes
+        whose onset is before this time are copied into the new MIDI file.
+
+    excerpt_length : int
+        Used only if existing_midi_path is given, this represents the length
+        of the excerpt in ms. Any notes whose onset is after excerpt_start +
+        excerpt_length are copied into the new MIDI file.
     """
+    assert excerpt_start >= 0, "excerpt_start must not be negative"
+    excerpt_start_secs = excerpt_start / 100
+
     midi = pretty_midi.PrettyMIDI()
     instruments = [None] * (df.track.max() + 1)
 
+    # Copy data from existing MIDI file
+    if existing_midi_path is not None:
+        existing_midi = pretty_midi.PrettyMIDI(existing_midi_path)
+        excerpt_end_secs = excerpt_start_secs + excerpt_length / 100
+
+        # Copy time, key, and lyric events
+        midi.key_signature_changes = existing_midi.key_signature_changes
+        midi.time_signature_changes = existing_midi.time_signature_changes
+        midi.lyrics = existing_midi.lyrics
+
+        # Write to instrument tracks in order parsed by pretty_midi
+        for i, instrument in enumerate(existing_midi.instruments):
+            instruments[i] = pretty_midi.Instrument(
+                instrument.program, is_drum=instrument.is_drum,
+                name=instrument.name
+            )
+
+            # Copy all non-note events
+            instruments[i].pitch_bends = instrument.pitch_bends
+            instruments[i].control_changes = instrument.control_changes
+
+            # Copy all valid notes
+            instruments[i].notes = [
+                note for note in instrument if (
+                    note.start < excerpt_start_secs or
+                    note.start >= excerpt_end_secs
+                )
+            ]
+
+    # Create tracks for those not covered by the existing MIDI file
     for track in df.track.unique():
+        if instruments[track] is not None:
+            continue
+
+        # Naively assume MIDI program number is df.track
         instrument = pretty_midi.Instrument(track)
         instruments[track] = instrument
-        pretty_midi.instruments.append(instrument)
 
-    # Compute start and end time in seconds as pretty_midi expects
-    df.loc[:, 'start'] = df.onset / 100
+    # Add all instruments to the midi object
+    midi.instruments = [
+        instrument for instrument in instruments if instrument is not None
+    ]
+
+    # Compute start and end time of notes in seconds as pretty_midi expects
+    df.loc[:, 'start'] = df.onset / 100 + excerpt_start_secs
     df.loc[:, 'end'] = df.start + df.dur / 100
 
+    # Add df notes to midi object
     for _, note in df.iterrows():
-        note = pretty_midi.Note(velocity=100, pitch=note.pitch, start=note.start, end=note.end)
-        instruments[note.track].notes.append(note)
+        midi_note = pretty_midi.Note(velocity=100, pitch=note.pitch,
+                                     start=note.start, end=note.end)
+        instruments[note.track].notes.append(midi_note)
 
     df.drop(columns=['start', 'end'], axis=1, inplace=True)
     midi.write(midi_path)
