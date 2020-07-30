@@ -227,7 +227,7 @@ def test_df_to_midi():
 
     # Test that writing should overwrite existing notes
     df.pitch += 10
-    df_res = midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid')
+    midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid')
     assert midi.midi_to_df('test2.mid').equals(df), (
         "Writing df to MIDI with existing MIDI does not overwrite notes."
     )
@@ -267,12 +267,59 @@ def test_df_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    print(midi.midi_to_df('test.mid'))
     assert midi.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI with extra track breaks"
     )
 
-    # TODO: Does not check lyrics, time, or key sigs
+    # Check all non-note events
+    midi_obj = pretty_midi.PrettyMIDI('test.mid')
+    midi_obj.instruments[0].name = 'test'
+    midi_obj.instruments[0].program = 100
+    midi_obj.instruments[0].is_drum = True
+    midi_obj.instruments[0].pitch_bends.append(pretty_midi.PitchBend(10, 0))
+    midi_obj.instruments[0].control_changes.append(
+        pretty_midi.ControlChange(10, 10, 0)
+    )
+    midi_obj.lyrics.append(pretty_midi.Lyric("test", 0))
+    midi_obj.time_signature_changes.append(pretty_midi.TimeSignature(2, 4, 1))
+    midi_obj.key_signature_changes.append(pretty_midi.KeySignature(5, 1))
+    midi_obj.write('test.mid')
+
+    midi.df_to_midi(expected, 'test2.mid', existing_midi_path='test.mid')
+    assert midi.midi_to_df('test2.mid').equals(expected)
+
+    # Check non-note events and data here
+    new_midi = pretty_midi.PrettyMIDI('test2.mid')
+
+    for instrument, new_instrument in zip(midi_obj.instruments,
+                                          new_midi.instruments):
+        assert instrument.name == new_instrument.name
+        assert instrument.program == new_instrument.program
+        assert instrument.is_drum == new_instrument.is_drum
+        for pb, new_pb in zip(instrument.pitch_bends,
+                              new_instrument.pitch_bends):
+            assert pb.pitch == new_pb.pitch
+            assert pb.time == new_pb.time
+        for cc, new_cc in zip(instrument.control_changes,
+                              new_instrument.control_changes):
+            assert cc.number == new_cc.number
+            assert cc.value == new_cc.value
+            assert cc.time == new_cc.time
+
+    for ks, new_ks in zip(midi_obj.key_signature_changes,
+                          new_midi.key_signature_changes):
+        assert ks.key_number == new_ks.key_number
+        assert ks.time == new_ks.time
+
+    for lyric, new_lyric in zip(midi_obj.lyrics, new_midi.lyrics):
+        assert lyric.text == new_lyric.text
+        assert lyric.time == new_lyric.time
+
+    for ts, new_ts in zip(midi_obj.time_signature_changes,
+                          new_midi.time_signature_changes):
+        assert ts.numerator == new_ts.numerator
+        assert ts.denominator == new_ts.denominator
+        assert ts.time == new_ts.time
 
     for filename in ['test.mid', 'test2.mid']:
         try:
