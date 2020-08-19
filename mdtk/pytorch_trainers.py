@@ -1,5 +1,6 @@
 import sys
 import warnings
+from collections import defaultdict
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -203,6 +204,9 @@ class ErrorDetectionTrainer(BaseTrainer):
         total_positive_labels = 0
         total_true_pos = 0
         
+        total_correct_per_deg = defaultdict(lambda: 0)
+        total_element_per_deg = defaultdict(lambda: 0)
+        
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
                               desc=f"{str_code} epoch {epoch}",
@@ -227,20 +231,21 @@ class ErrorDetectionTrainer(BaseTrainer):
                 self.optimizer.step()
 
             # values for logging
-            correct = model_output.argmax(dim=-1).eq(labels).sum().item()
-            true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
+            predictions = model_output.argmax(dim=-1)
+            correct = predictions.eq(labels).sum().item()
+            true_pos = (predictions & labels).sum().item()
             total_loss += loss.item() * labels.nelement() 
                                      # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
                                      # batches and then dividing by the number
                                      # of batches does not give you the true
-                                     # mean loss (though it is at least an
+                                     # mean loss (though it is at ldeast an
                                      # unbiased estimate...)
                                      # Using total rather than sum to account
                                      # For the last batch being a different size
             total_correct += correct
             total_element += labels.nelement()
-            total_positive += model_output.argmax(dim=-1).sum().item()
+            total_positive += predictions.sum().item()
             total_positive_labels += labels.sum().item()
             total_true_pos += true_pos
 
@@ -252,6 +257,37 @@ class ErrorDetectionTrainer(BaseTrainer):
                 "avg_acc": total_correct / total_element * 100
             }
             
+#             # I'm only calculating avg acc per deg_type if evaluating so as not to
+#             # affect training speed
+#             if evaluate:
+#                 avg_acc_per_deg = {}
+#                 degradation_type_labels = data[self.formatter['task_labels'][0]]
+#                 for deg_label_value in degradation_type_labels.unique():
+#                     idx = degradation_type_labels == deg_label_value
+#                     deg_labels = labels[idx]
+#                     deg_predictions = predictions[idx]
+#                     deg_correct = deg_predictions.eq(deg_labels).sum().item()
+#                     total_correct_per_deg[deg_label_value] += deg_correct
+#                     total_element_per_deg[deg_label_value] += deg_labels.nelement()
+#                     avg_acc_per_deg[deg_label_value] = (
+#                         total_correct_per_deg[deg_label_value] /
+#                         total_element_per_deg[deg_label_value]
+#                     )
+#                 log_info["avg_acc_per_deg"] = avg_acc_per_deg
+
+            if evaluate:
+                # labels are 0, 1 for task1, rather than the deg type
+                degradation_type_labels = data[self.formatter['task_labels'][0]]
+                for label, pred, deg_label in zip(
+                    labels.cpu(),
+                    predictions.cpu().data.numpy(),
+                    degradation_type_labels.cpu().data.numpy(),
+                ):
+                    deg_label
+                    total_element_per_deg[deg_label] += 1
+                    if label == pred:
+                        total_correct_per_deg[deg_label] += 1
+               
             if self.batch_log_freq is not None:
                 if ii % self.batch_log_freq == 0:
                     print(','.join([str(log_info[kk]) for kk in self.log_cols]),
@@ -282,6 +318,12 @@ class ErrorDetectionTrainer(BaseTrainer):
             print(f"P, R, F-measure: {p}, {r}, {f}")
             print(f"Reverse P, R, F-measure: {rev_p}, {rev_r}, {rev_f}")
             print(f"Avg loss: {total_loss / total_element}")
+            log_info['avg_acc_per_deg'] = np.array(
+                [
+                    total_correct_per_deg[deg]/total_element_per_deg[deg]
+                    for deg in sorted(total_element_per_deg.keys())
+                ]
+            )
             
         return log_info
             
@@ -355,6 +397,9 @@ class ErrorClassificationTrainer(BaseTrainer):
         total_element = 0
         confusion_mat = None
         
+        total_correct_per_deg = defaultdict(lambda: 0)
+        total_element_per_deg = defaultdict(lambda: 0)
+        
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
                               desc=f"{str_code} epoch {epoch}",
@@ -379,7 +424,8 @@ class ErrorClassificationTrainer(BaseTrainer):
                 self.optimizer.step()
 
             # values for logging
-            correct = model_output.argmax(dim=-1).eq(labels).sum().item()
+            predictions = model_output.argmax(dim=-1)
+            correct = predictions.eq(labels).sum().item()
             total_loss += loss.item() * labels.nelement() 
                                      # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
@@ -400,6 +446,17 @@ class ErrorClassificationTrainer(BaseTrainer):
                 for label, output in zip(labels.cpu(),
                                          model_output.cpu().data.numpy()):
                     confusion_mat[label, np.argmax(output)] += 1
+                
+                degradation_type_labels = data[self.formatter['task_labels'][0]]
+                for label, pred, deg_label in zip(
+                    labels.cpu(),
+                    predictions.cpu().data.numpy(),
+                    degradation_type_labels.cpu().data.numpy(),
+                ):
+                    deg_label
+                    total_element_per_deg[deg_label] += 1
+                    if label == pred:
+                        total_correct_per_deg[deg_label] += 1
 
             log_info = {
                 "epoch": epoch,
@@ -429,7 +486,13 @@ class ErrorClassificationTrainer(BaseTrainer):
             print(f"Accuracy: {total_correct / total_element * 100}")
             print(f"Avg loss: {total_loss / total_element}")
             print(f"Confusion matrix (as [label, output]):\n{confusion_mat}")
-        
+            # Not required since in confusion matrix - here for verification / same accross classes
+            log_info['avg_acc_per_deg'] = np.array(
+                [
+                    total_correct_per_deg[deg]/total_element_per_deg[deg]
+                    for deg in sorted(total_element_per_deg.keys())
+                ]
+            )
         return log_info
             
 #        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
@@ -503,6 +566,12 @@ class ErrorLocationTrainer(BaseTrainer):
         total_positive = 0
         total_positive_labels = 0
         total_true_pos = 0
+        
+        total_positive_per_deg = defaultdict(lambda: 0)
+        total_positive_labels_per_deg = defaultdict(lambda: 0)
+        total_true_pos_per_deg = defaultdict(lambda: 0)
+        total_correct_per_deg = defaultdict(lambda: 0)
+        total_element_per_deg = defaultdict(lambda: 0)
 
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
@@ -519,7 +588,9 @@ class ErrorLocationTrainer(BaseTrainer):
             labels = (data[self.formatter['task_labels'][2]]).long().to(self.device)
             labels = labels.reshape(labels.shape[0] * labels.shape[1])
             model_output = self.model.forward(input_data)
-            model_output = model_output.reshape((model_output.shape[0] * model_output.shape[1], -1))
+            model_output = model_output.reshape(
+                (model_output.shape[0] * model_output.shape[1], -1)
+            )
             loss = self.criterion(model_output, labels)
             
             # backward pass and optimization only in train
@@ -529,8 +600,9 @@ class ErrorLocationTrainer(BaseTrainer):
                 self.optimizer.step()
 
             # values for logging
-            correct = model_output.argmax(dim=-1).eq(labels).sum().item()
-            true_pos = (model_output.argmax(dim=-1) & labels).sum().item()
+            predictions = model_output.argmax(dim=-1)
+            correct = predictions.eq(labels).sum().item()
+            true_pos = (predictions & labels).sum().item()
             total_loss += loss.item() * labels.nelement() 
                                      # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
@@ -542,7 +614,7 @@ class ErrorLocationTrainer(BaseTrainer):
                                      # For the last batch being a different size
             total_correct += correct
             total_element += labels.nelement()
-            total_positive += model_output.argmax(dim=-1).sum().item()
+            total_positive += predictions.sum().item()
             total_positive_labels += labels.sum().item()
             total_true_pos += true_pos
 
@@ -553,6 +625,31 @@ class ErrorLocationTrainer(BaseTrainer):
                 "avg_loss": total_loss / total_element,
                 "avg_acc": total_correct / total_element * 100
             }
+            
+            if evaluate:
+                # we are considering each time point seperately, so we must repeat
+                # the deg_type labels for the length of the sequences
+                seq_len = data[self.formatter['task_labels'][2]].shape[1]
+                degradation_type_labels = np.repeat(
+                    data[self.formatter['task_labels'][0]],
+                    seq_len,
+                )
+                
+                for label, pred, deg_label in zip(
+                    labels.cpu().data.numpy(),
+                    predictions.cpu().data.numpy(),
+                    degradation_type_labels.cpu().data.numpy(),
+                ):
+                    total_element_per_deg[deg_label] += 1
+                    if label == pred:
+                        total_correct_per_deg[deg_label] += 1
+                    
+                    if pred == 1:
+                        total_positive_per_deg[deg_label] += 1
+                    if label == 1:
+                        total_positive_labels_per_deg[deg_label] += 1
+                    if pred & label:
+                        total_true_pos_per_deg[deg_label] += 1
             
             if self.batch_log_freq is not None:
                 if ii % self.batch_log_freq == 0:
@@ -577,7 +674,29 @@ class ErrorLocationTrainer(BaseTrainer):
             log_info['r'] = r
             log_info['f'] = f
             print(f"P, R, F-measure: {p}, {r}, {f}")
+            
+            p_per_deg = []
+            r_per_deg = []
+            f_per_deg = []
+            for deg in sorted(total_element_per_deg.keys()):
+                tp = total_true_pos_per_deg[deg]
+                fn = total_positive_labels_per_deg[deg] - tp
+                fp = total_positive_per_deg[deg] - tp
+                p, r, f = get_f1(tp, fp, fn)
+                p_per_deg += [p]
+                r_per_deg += [r]
+                f_per_deg += [f]
+            log_info['p_per_deg'] = np.array(p_per_deg)
+            log_info['r_per_deg'] = np.array(r_per_deg)
+            log_info['f_per_deg'] = np.array(f_per_deg)
+            
             print(f"Avg loss: {total_loss / total_element}")
+            log_info['avg_acc_per_deg'] = np.array(
+                [
+                    total_correct_per_deg[deg]/total_element_per_deg[deg]
+                    for deg in sorted(total_element_per_deg.keys())
+                ]
+            )
         
         return log_info
             
@@ -651,7 +770,10 @@ class ErrorCorrectionTrainer(BaseTrainer):
         total_element = 0
         total_help = 0
         total_fm = 0
-        total_data_points = 0
+        total_data_points = 0        
+        
+        total_correct_per_deg = defaultdict(lambda: 0)
+        total_element_per_deg = defaultdict(lambda: 0)
 
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(enumerate(data_loader),
@@ -677,7 +799,8 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 self.optimizer.step()
 
             # values for logging
-            correct = model_output.round().eq(labels).sum().item()
+            predictions = model_output.round()
+            correct = predictions.eq(labels).sum().item()
             total_loss += loss.item() * labels.nelement() 
                                      # N.B. if loss is using reduction='mean'
                                      # summing the average losses over the
@@ -719,6 +842,7 @@ class ErrorCorrectionTrainer(BaseTrainer):
                     h, f = helpfulness(model_out_df, deg_df, clean_df)
                     total_help += h
                     total_fm += f
+                
             
             if self.batch_log_freq is not None:
                 if ii % self.batch_log_freq == 0:
