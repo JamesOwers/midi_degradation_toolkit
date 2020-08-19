@@ -5,7 +5,7 @@ code_dir = os.path.expanduser('~/git/midi_degradation_toolkit')
 task_nr = 4
 fmt = 'pianoroll'
 high_level_expt_name = f'task{task_nr}'
-out_dir = f'{code_dir}/output/{high_level_expt_name}'
+out_dir = f'{code_dir}/output_2/{high_level_expt_name}'
 if not os.path.exists(out_dir):
     os.makedirs(out_dir)
 in_dir = '/disk/scratch/s0816700/data/acme'
@@ -24,16 +24,14 @@ base_call = (
 )
 
 nr_repeats = 3
-# learning_rates = [1e-6, 1e-5, 1e-4]
-learning_rates = [1e-7]
-# weight_decays = [1e-6, 1e-5]
-weight_decays = [1e-4, 1e-3, 1e-2]
+learning_rates = [1e-7, 1e-6, 1e-5, 1e-4, 1e-3]
+weight_decays = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
 hiddens = [100, 250]
 layers = [[128, 64, 32], [250, 250], [250]]
 nr_expts = nr_repeats * len(learning_rates) * len(weight_decays) * len(hiddens) * len(layers)
 
-nr_servers = 10
-avg_expt_time = 60  # mins
+nr_servers = 30
+avg_expt_time = 120  # mins
 print(f'Total experiments = {nr_expts}')
 print(f'Estimated time = {(nr_expts / nr_servers * avg_expt_time)/60} hrs')
 
