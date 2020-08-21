@@ -38,7 +38,7 @@ def plot_log_file(log_file, trn_kwargs=None, vld_kwargs=None):
 
 
 def plot_task_losses(output_dir, task_name, settings,
-                     setting_names, save_plots=False):
+                     setting_names, save_plots=False, show_plots=True):
     idx_cols = ['task_name', 'expt_name'] + setting_names + ['repeat']
     val_cols = ['min_trn_loss',  'min_vld_loss',
                 'min_trn_acc', 'min_vld_acc']
@@ -51,6 +51,7 @@ def plot_task_losses(output_dir, task_name, settings,
     alphas = [.3, .5, .7]
     for setting in settings:
         setting_fig = plt.figure()
+        # TODO: this shouldn't be hardcoded 3
         for repeat in range(3):
             expt_name = f'{task_name}__{"_".join(setting)}_{repeat}'
             log_file = f'{output_dir}/{task_name}/{expt_name}.log'
@@ -64,7 +65,6 @@ def plot_task_losses(output_dir, task_name, settings,
                     vld_kwargs=dict(label=f'valid {repeat}',
                                     color='C1', alpha=alphas[repeat])
                 )
-                    
             except pd.errors.EmptyDataError:
                 print(f'{expt_name}.log found but empty')
                 continue
@@ -79,7 +79,7 @@ def plot_task_losses(output_dir, task_name, settings,
             plt.figure(summary_fig.number)
             plt.plot(vld_df['epoch'], vld_df['avg_loss'],
                      color='C1', alpha=.2)
-        
+            
         plt.figure(setting_fig.number) 
         if save_plots:
             plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.png',
@@ -87,15 +87,19 @@ def plot_task_losses(output_dir, task_name, settings,
             plt.savefig(f'{save_plots}/{task_name}__{"_".join(setting)}.pdf',
                         dpi=300)
         plt.title(f'{task_name}__{"_".join(setting)}')
-        setting_fig.show()
-    
+        if show_plots:
+            plt.show()
+        plt.close()
+        
     plt.figure(summary_fig.number)
     if save_plots:
         plt.savefig(f'{save_plots}/{task_name}__all_loss_summary.png',
                     dpi=300)
         plt.savefig(f'{save_plots}/{task_name}__all_loss_summary.pdf',
                     dpi=300)
-    summary_fig.show()
+    if show_plots:
+        plt.show()
+    plt.close()
     return res
 
 
@@ -136,10 +140,54 @@ def plot_confusion(confusion_mat, save_plots=False, ax=None):
     plt.setp(ax.get_xticklabels(), rotation=45, ha="left",
              rotation_mode="anchor")
     for i in range(len(degs)):
+        array_range = np.max(confusion_mat) - np.min(confusion_mat)
+        color_cutoff = np.min(confusion_mat) + array_range / 2
         for j in range(len(degs)):
-            text = ax.text(j, i, "%.2f" % confusion_mat[i, j],
-                           ha="center", va="center", color="black" if confusion_mat[i,j] < 0.35 else "white",
-                           fontname='serif')
+            text = ax.text(
+                j, i, "%.2f" % confusion_mat[i, j],
+                ha="center", va="center", 
+                color="black" if confusion_mat[i,j] < color_cutoff else "white",
+                fontname='serif'
+            )
+    plt.ylim(8.5, -0.5)
+    plt.tight_layout()
+    if save_plots:
+        plt.savefig(f'{save_plots}.png',
+                    dpi=300)
+        plt.savefig(f'{save_plots}.pdf',
+                    dpi=300)
+
+
+def plot_1d_array_per_deg(array, save_plots=False, ax=None):
+    if ax is None:
+        ax = plt.gca()
+    degs = ['none', 'pitch_shift', 'time_shift', 'onset_shift',
+            'offset_shift', 'remove_note', 'add_note', 'split_note',
+            'join_notes']
+    im = ax.imshow(
+        array.reshape((-1, 1)),
+        cmap='Oranges',
+        interpolation='nearest',
+    )
+    
+    # We want to show all ticks...
+    ax.xaxis.tick_top()
+    ax.set_yticks(np.arange(len(degs)))
+    # ... and label them with the respective list entries
+    ax.set_yticklabels(degs, fontname='serif')
+    for ii in range(len(degs)):
+        array_range = np.max(array) - np.min(array)
+        color_cutoff = np.min(array) + array_range / 2
+        if array[ii] < np.median(array):
+            color = "black"
+        else:
+            color = "white"
+        text = ax.text(
+            0, ii, f"{array[ii]:.2f}",
+            ha="center", va="center",
+            color=color,
+            fontname='serif'
+        )
     plt.ylim(8.5, -0.5)
     plt.tight_layout()
     if save_plots:
@@ -243,11 +291,8 @@ def main(args):
         settings = get_settings(output_dir, task_name)
         results[task_name] = plot_task_losses(
             output_dir, task_name, settings, setting_name,
-            save_plots=f'{save_plots}'
+            save_plots=f'{save_plots}', show_plots=args.show_plots
         )
-        if args.show_plots:
-            plt.show()
-        plt.close('all')
     
     
     for task_name, setting_name in zip(task_names, setting_names):
@@ -340,7 +385,7 @@ def main(args):
         )
         if 'confusion_mat' in df.columns:
             confusion[task_name] = df['confusion_mat']
-            for split in ['train', 'valid', 'test']:
+            for split in splits:
                 confusion_mat = df.loc[split, 'confusion_mat']
                 plt.figure(figsize=(5, 5))
                 plot_confusion(
@@ -351,6 +396,23 @@ def main(args):
                     plt.show()
                 plt.close('all')
             df.drop('confusion_mat', axis=1, inplace=True)
+        for colname in ["p_per_deg", "r_per_deg", "f_per_deg", "avg_acc_per_deg"]:
+            if colname in df.columns:
+                array = df[colname]
+                for split in splits:
+                    array = df.loc[split, colname]
+                    plt.figure(figsize=(5, 5))
+                    plot_1d_array_per_deg(
+                        array,
+                        save_plots=f"{save_plots}/{task_name}__{split}_{colname}"
+                    )
+                    plt.xticks(
+                        [0], [colname], rotation=45, fontname='serif', ha="left"
+                    )
+                    if args.show_plots:
+                        plt.show()
+                    plt.close('all')
+                df.drop(colname, axis=1, inplace=True)
         df = (
             df
                 .apply(pd.to_numeric)  # they are strings, convert to int or float
