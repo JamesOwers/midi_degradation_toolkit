@@ -6,7 +6,7 @@ import numpy as np
 import os
 import warnings
 
-from mdtk.data_structures import NOTE_DF_SORT_ORDER
+from mdtk.df_utils import NOTE_DF_SORT_ORDER
 from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
 
 # Convenience function...
@@ -36,7 +36,7 @@ class CommandVocab(object):
     def __init__(self, min_pitch=MIN_PITCH_DEFAULT,
                  max_pitch=MAX_PITCH_DEFAULT,
                  time_increment=40,
-                 max_time_shift=4000, 
+                 max_time_shift=4000,
                  specials=["<pad>", "<unk>", "<eos>", "<sos>"]):
         self.pad_index = 0
         self.unk_index = 1
@@ -49,10 +49,10 @@ class CommandVocab(object):
             [f't{ii}' for ii in range(time_increment, max_time_shift+1,
                                       time_increment)])  # time_shift
         self.stoi = {tok: ii for ii, tok in enumerate(self.itos)}
-    
+
     def __len__(self):
         return len(self.itos)
-        
+
 
 def create_corpus_csvs(acme_dir, format_dict):
     """
@@ -116,9 +116,9 @@ def df_to_pianoroll_str(df, time_increment=40):
     """
     Convert a given pandas DataFrame into a packed piano-roll representation:
     Each string will look like:
-    
+
     "notes1_onsets1/notes2_onsets2/..."
-    
+
     where notes and onsets are space-separated strings of pitches. notes
     contains those pitches which are present at each frame, and onsets
     contains those pitches which have and onset at a given frame.
@@ -244,7 +244,7 @@ def double_pianoroll_to_df(pianoroll, min_pitch=MIN_PITCH_DEFAULT,
     df : pd.DataFrame
         A dataframe equal to the given pianoroll.
     """
-    
+
     if max_pitch != pianoroll.shape[1] / 2 + min_pitch - 1:
         warnings.warn("max_pitch doesn't match pianoroll shape and min_pitch. "
                       "Setting max_pitch to "
@@ -335,7 +335,7 @@ def df_to_command_str(df, min_pitch=MIN_PITCH_DEFAULT, max_pitch=MAX_PITCH_DEFAU
 
     max_time_shift : int
         The maximum shift length, in milliseconds. Must be divisible by
-        time_increment. 
+        time_increment.
 
     Returns
     -------
@@ -387,7 +387,7 @@ def command_str_to_df(cmd_str):
     -------
     df : pd.DataFrame
         The pandas DataFrame representing the note data
-    """    
+    """
     commands = cmd_str.split()
     note_on_pitch = []
     note_on_time = []
@@ -415,7 +415,7 @@ def command_str_to_df(cmd_str):
         dur = off - onset
         track = 0
         df.loc[ii] = [onset, track, pitch, dur]
-    
+
     return df
 
 

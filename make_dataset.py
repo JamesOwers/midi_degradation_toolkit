@@ -12,7 +12,7 @@ from glob import glob
 import numpy as np
 from tqdm import tqdm
 
-from mdtk import degradations, downloaders, data_structures, midi
+from mdtk import degradations, downloaders, midi
 from mdtk.filesystem_utils import make_directory, copy_file
 from mdtk.formatters import create_corpus_csvs, FORMATTERS
 
@@ -234,8 +234,8 @@ if __name__ == '__main__':
                 f"all provided formats {ARGS.formats} must be in the "
                 "list of available formats {list(FORMATTERS.keys())}")
         formats = ARGS.formats
-    
-    
+
+
     # Clear input and output dirs =============================================
     if not ARGS.stale_data:
         if os.path.exists(ARGS.input_dir):
@@ -374,19 +374,10 @@ if __name__ == '__main__':
         print('No data selected. Choose a dataset with --datasets, or use '
               'local data with --local-csv-dirs or --local-midi-dirs')
         sys.exit(0)
-    read_note_csv_kwargs = dict(
-        onset=0,
-        pitch=2,
-        dur=3,
-        track=1,
-        sort=False,
-        header=None,
-        overlap_check=True,
-        flatten_tracks=True
-    )
-    compositions = [data_structures.Composition(
-                        csv_path=csv_path,
-                        read_note_csv_kwargs=read_note_csv_kwargs)
+
+    # List of (note_df, csv_path) tuples
+    compositions = [(midi.csv_to_df(csv_path, flatten_tracks=True,
+                                    remove_overlaps=True), csv_path)
                     for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
     np.random.shuffle(compositions) # This is important for join_notes
 
@@ -425,7 +416,7 @@ if __name__ == '__main__':
     split_names = np.array(split_names)[non_zero]
     split_props = np.array(split_props)[non_zero]
     nr_splits = len(split_names)
-    
+
     # Write out deg_choices to degradation_ids.csv
     with open(
             os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
@@ -439,10 +430,11 @@ if __name__ == '__main__':
     # the goal distribution. We do the same for splits.
     deg_counts = np.zeros(nr_degs)
     split_counts = np.zeros(nr_splits)
-      
+
     meta_file.write('altered_csv_path,degraded,degradation_id,'
                     'clean_csv_path,split\n')
-    for i, comp in enumerate(tqdm(compositions, desc="Making target data")):
+    for i, (note_df, csv_path) in enumerate(tqdm(compositions,
+                                                 desc="Making target data")):
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
         if np.sum(deg_counts) == 0: # First iteration, set to uniform
@@ -454,13 +446,13 @@ if __name__ == '__main__':
 
         # Grab an excerpt from this composition
         excerpt = None
-        if len(comp.note_df) >= ARGS.min_notes:
+        if len(note_df) >= ARGS.min_notes:
             for _ in range(10):
-                note_index = np.random.choice(list(comp.note_df.index.values)
+                note_index = np.random.choice(list(note_df.index.values)
                                               [:-ARGS.min_notes])
-                note_onset = comp.note_df.loc[note_index]['onset']
+                note_onset = note_df.loc[note_index]['onset']
                 excerpt = pd.DataFrame(
-                    comp.note_df.loc[comp.note_df['onset'].between(
+                    note_df.loc[note_df['onset'].between(
                         note_onset, note_onset + ARGS.excerpt_length)])
                 excerpt['onset'] = excerpt['onset'] - note_onset
                 excerpt = excerpt.reset_index(drop=True)
@@ -474,7 +466,7 @@ if __name__ == '__main__':
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
             warnings.warn("Unable to find valid excerpt from composition"
-                          f" {comp.csv_path}. Lengthen --excerpt-length or "
+                          f" {csv_path}. Lengthen --excerpt-length or "
                           "lower --min-notes. Skipping.", UserWarning)
             continue
 
@@ -498,8 +490,8 @@ if __name__ == '__main__':
         )[-1]
 
         # Make default labels for no degradation
-        fn = os.path.basename(comp.csv_path)
-        dataset = os.path.basename(os.path.dirname(comp.csv_path))
+        fn = os.path.basename(csv_path)
+        dataset = os.path.basename(os.path.dirname(csv_path))
         clean_path = os.path.join('clean', dataset, fn)
         altered_path = clean_path
         deg_binary = 0
@@ -544,7 +536,7 @@ if __name__ == '__main__':
                             f'{clean_path},{split_name}\n')
         else:
             warnings.warn("Unable to degrade chosen excerpt from "
-                          f"{comp.csv_path} and no clean excerpts requested."
+                          f"{csv_path} and no clean excerpts requested."
                           " Skipping.", UserWarning)
 
     meta_file.close()
@@ -556,7 +548,7 @@ if __name__ == '__main__':
     print(f'Count of degradations:')
     for deg_name, count in zip(deg_choices, deg_counts):
         print(f'\t* {deg_name}: {int(count)}')
-    
+
     print(f'\nThe data used as input is contained in {ARGS.input_dir}')
 
     print(f'\nYou will find the generated data at {ARGS.output_dir} '
@@ -573,7 +565,7 @@ if __name__ == '__main__':
 
     print('\ndegradation_ids.csv is a mapping of degradation name to the id '
           'number used in metadata.csv')
-    
+
     for f in formats:
         print(f"\n{FORMATTERS[f]['message']}")
 
