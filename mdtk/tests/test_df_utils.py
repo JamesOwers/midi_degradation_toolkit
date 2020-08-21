@@ -3,14 +3,7 @@ import pandas as pd
 import numpy as np
 import pytest
 import re
-from mdtk.data_structures import (
-    Composition, Pianoroll, read_note_csv, fix_overlapping_notes,
-    check_overlap, check_monophonic, check_overlapping_pitch, check_note_df,
-    get_monophonic_tracks, make_monophonic, quantize_df,
-    plot_from_df, show_gridlines, plot_matrix, note_df_to_pretty_midi,
-    synthesize_from_quant_df, synthesize_from_note_df, NOTE_DF_SORT_ORDER,
-    fix_overlaps
-)
+from mdtk.df_utils import NOTE_DF_SORT_ORDER, remove_overlaps, clean_df
 
 
 # Test note DataFrames ========================================================
@@ -354,185 +347,12 @@ def test_read_note_csv():
     )
 
 
-def test_check_overlap():
-    assert check_overlap(note_df_overlapping_pitch)
-    assert check_overlap(note_df_overlapping_note)
-    assert not check_overlap(note_df_overlapping_pitch_fix)
-
-
-def test_check_overlapping_pitch():
-    assert check_overlapping_pitch(note_df_overlapping_pitch)
-    assert not check_overlapping_pitch(note_df_overlapping_pitch_fix)
-    assert not check_overlapping_pitch(note_df_overlapping_note)
-
-
-def test_check_note_df():
-    for name, df in ALL_DF.items():
-        err = ASSERTION_ERRORS[name]
-        # If df will error, check it errors and the assertion correct
-        if err is not None:
-            correctly_errored = False
-            try:
-                check_note_df(df)
-            except AssertionError as e:
-                correctly_errored = True
-                assert e.args == (err,), (f'{name} did error but the '
-                    'assertion text was incorrect')
-            assert correctly_errored, f'{name} did not error and it should'
-        elif name in WARNINGS:
-            with pytest.warns(UserWarning, match=re.escape(WARNINGS[name])):
-                check_note_df(df)
-        # Check the corrected version *does* pass
-        assert check_note_df(ALL_VALID_DF[name]), (f'Fixed version of {name} '
-            'should pass the tests but does not')
-
-
-def test_check_monophonic():
-    assert all(check_monophonic(df_all_mono))
-    assert (check_monophonic(df_some_mono, raise_error=False)
-            == [True, False, True])
-    assert (check_monophonic(df_all_poly, raise_error=False)
-            == [False, False, False])
-    assert all(check_monophonic(all_pitch_df_tracks))
-    correctly_errored = False
-    try:
-        check_monophonic(all_pitch_df_tracks_overlaps)
-    except AssertionError as e:
-        correctly_errored = True
-        assert e.args == (f"Track(s) {list(track_names)} has a note with a "
-                          "duration overlapping a subsequent note onset",)
-    assert correctly_errored
-
-
-def test_fix_overlapping_notes():
-    assert note_df_overlapping_pitch_fix.equals(
-            fix_overlapping_notes(note_df_overlapping_pitch.copy())
-        )
-    assert all(note_df_2pitch_weird_times.dtypes ==
-               fix_overlapping_notes(note_df_2pitch_weird_times.copy()).dtypes)
-
-
-def test_fix_overlaps():
-    res = fix_overlaps(note_df_complex_overlap)
+def test_remove_overlaps():
+    res = remove_overlaps(note_df_complex_overlap)
     assert note_df_complex_overlap_fixed.equals(res), (
         f"Complex overlap\n{note_df_complex_overlap}\nproduced\n{res}\n"
         f"instead of\n{note_df_complex_overlap_fixed}"
     )
-
-
-def test_get_monophonic_tracks():
-    assert get_monophonic_tracks(df_all_mono) == [0, 1, 2]
-    assert get_monophonic_tracks(df_some_mono) == [0, 2]
-    assert get_monophonic_tracks(df_all_poly) == []
-    assert (get_monophonic_tracks(all_pitch_df_tracks)
-            == list(track_names))
-    assert get_monophonic_tracks(all_pitch_df_tracks_overlaps) == []
-
-
-def test_make_monophonic():
-    assert make_monophonic(df_all_poly).equals(df_all_mono)
-
-def test_quantize_df():
-    assert note_df_2pitch_weird_times_quant.equals(
-            quantize_df(note_df_2pitch_weird_times, 12))
-    assert note_df_ms_quant.equals(
-            quantize_df(note_df_ms, 1/40))
-
-
- # Pianoroll class tests ======================================================
-def test_pianoroll_all_pitches():
-    pianoroll = Pianoroll(quant_df=all_pitch_df)
-    assert (pianoroll == np.ones((1, 2, 128, 1), dtype='uint8')).all()
-
-
-# Composition class tests =====================================================
-def test_composition_df_assertions():
-    """Essentially the same tests as test_check_note_df"""
-    assertion = False
-    try:
-        Composition(note_df=all_pitch_df_notrack)
-    except AssertionError as e:
-        if e.args == ("note_df must contain all columns in ['onset', 'track', "
-                      "'pitch', 'dur']",):
-            assertion = True
-    assert assertion
-    assertion = False
-
-    assertion = False
-    try:
-        Composition(note_df=note_df_2pitch_aligned)
-    except AssertionError as e:
-        if e.args == ("note_df must be sorted by ['onset', 'track', 'pitch', "
-                      "'dur'] and columns ordered",):
-            assertion = True
-    assert assertion
-    assertion = False
-
-    try:
-        Composition(
-            note_df=note_df_2pitch_aligned.sort_values(NOTE_DF_SORT_ORDER)
-        )
-    except AssertionError as e:
-        if e.args == ("note_df must have a RangeIndex with integer steps",):
-            assertion = True
-    assert assertion
-
-    assert Composition(
-            note_df=(
-                note_df_2pitch_aligned
-                    .sort_values(NOTE_DF_SORT_ORDER)
-                    .reset_index(drop=True)
-            )
-        )
-
-
-def test_composition_all_pitches():
-    c = Composition(note_df=all_pitch_df, quantization=1)
-    pr = np.ones_like(c.pianoroll)
-    assert (pr == c.pianoroll).all()
-
-
-
-def test_not_ending_in_silence():
-    for df in ALL_VALID_DF.values():
-        comp = Composition(note_df=df)
-        assert not (comp.pianoroll[:, 0, :, -1] == 0).all(), (f'{df}',
-                   f'{comp.plot()} {comp.pianoroll}')
-
-
-def test_nr_note_on_equals_nr_notes():
-    for df in ALL_VALID_DF.values():
-        comp = Composition(note_df=df)
-        pianoroll = comp.pianoroll
-        assert np.sum(pianoroll[:, 1, :, :]) == comp.note_df.shape[0]
-
-
-def test_all_composition_methods_and_attributes():
-    compositions = [Composition(comp)
-                    for comp in ALL_VALID_DF.values()]
-    for comp in compositions:
-        comp.csv_path
-        comp.note_df
-        comp.quantization
-        comp.quant_df
-        comp.pianoroll
-        comp.quanta_labels
-        comp.plot()
-        comp.synthesize()
-
-def test_composition_read_csv():
-    compositions = [Composition(csv_path=csv_path,
-                                read_note_csv_kwargs=ALL_CSV_KWARGS[csv_path])
-                    for csv_path in ALL_CSV]
-    for comp in compositions:
-        comp.csv_path
-        comp.note_df
-        comp.quantization
-        comp.quant_df
-        comp.pianoroll
-        comp.quanta_labels
-        comp.plot()
-        comp.synthesize()
 
 
 

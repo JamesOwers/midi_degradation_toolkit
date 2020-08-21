@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 import pretty_midi
 
-from mdtk.data_structures import NOTE_DF_SORT_ORDER, check_note_df
+from mdtk.df_utils import NOTE_DF_SORT_ORDER, clean_df
 
 
 
@@ -76,7 +76,7 @@ def midi_to_csv(midi_path, csv_path):
     df_to_csv(midi_to_df(midi_path), csv_path)
 
 
-def midi_to_df(midi_path, warn=False):
+def midi_to_df(midi_path, flatten_tracks=False, remove_overlaps=False):
     """
     Get the data from a MIDI file and load it into a pandas DataFrame.
 
@@ -84,6 +84,18 @@ def midi_to_df(midi_path, warn=False):
     ----------
     midi_path : string
         The filename of the MIDI file to parse.
+
+    flatten_tracks : boolean
+        True to set the track of every note to 0. This will happen before
+        overlaps are removed.
+
+    remove_overlaps : boolean
+        True to remove overlaps from the resulting dataframe by passing the df
+        to df_utils.remove_overlaps. This will create a situation where, for
+        every (track, pitch) pair, for any point in time which there is a
+        sustained note present in the input, there will be a sustained note
+        in the returned df. Likewise for any point with a note onset. If True,
+        the resulting df will be sorted, even if sort is False.
 
     Returns
     -------
@@ -110,15 +122,15 @@ def midi_to_df(midi_path, warn=False):
                           'pitch': note.pitch,
                           'dur': int(round(note.end * 1000) -
                                      round(note.start * 1000))})
+
     if len(notes) == 0:
         warnings.warn(f'WARNING: the midi file located at {midi_path} is '
                        'empty. Returning None.', category=UserWarning)
         return None
-    df = pd.DataFrame(notes)[COLNAMES]
-    df = df.sort_values(COLNAMES)
-    df = df.reset_index(drop=True)
-    if warn:
-        check_note_df(df)
+
+    df = clean_df(pd.DataFrame(notes), flatten_tracks=flatten_tracks,
+                  remove_overlaps=remove_overlaps)
+
     return df
 
 
@@ -148,6 +160,45 @@ def df_to_csv(df, csv_path):
         os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Enforce column order
     df[COLNAMES].to_csv(csv_path, index=None, header=False)
+
+
+def csv_to_df(csv_path, flatten_tracks=False, remove_overlaps=False):
+    """
+    Read a csv and create a standard note event DataFrame - a `note_df`.
+
+    Parameters
+    ----------
+    csv_path : str
+        The path of the csv to be imported.
+
+    flatten_tracks : boolean
+        True to set the track of every note to 0. This will happen before
+        overlaps are removed.
+
+    remove_overlaps : boolean
+        True to remove overlaps from the resulting dataframe by passing the df
+        to df_utils.remove_overlaps. This will create a situation where, for
+        every (track, pitch) pair, for any point in time which there is a
+        sustained note present in the input, there will be a sustained note
+        in the returned df. Likewise for any point with a note onset. If True,
+        the resulting df will be sorted, even if sort is False.
+
+    Returns
+    -------
+    note_df : pd.DataFrame
+        A note_df, in mdtk's standard format. With columns:
+            onset (int): onset time of a note, in ms.
+            track (int): the track of the note.
+            pitch (int): the MIDI pitch of the note.
+            dur (int): the duration of the note, in ms.
+        Sorting will be first by onset, then track, then pitch, then duration.
+    """
+    df = pd.read_csv(csv_path, names=NOTE_DF_SORT_ORDER)
+
+    df = clean_df(df, flatten_tracks=flatten_tracks,
+                  remove_overlaps=remove_overlaps)
+
+    return df
 
 
 def csv_to_midi(csv_path, midi_path, existing_midi_path=None, excerpt_start=0,
