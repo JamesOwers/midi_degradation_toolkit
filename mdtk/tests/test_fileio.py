@@ -3,7 +3,7 @@ import os
 import pretty_midi
 import shutil
 
-import mdtk.midi as midi
+import mdtk.fileio as fileio
 
 USER_HOME = os.path.expanduser('~')
 TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
@@ -14,7 +14,7 @@ ALB_MID = f"{MIDI_PATH}{os.path.sep}alb_se2.mid"
 
 
 def test_midi_rounding():
-    df = midi.midi_to_df(ALB_MID)
+    df = fileio.midi_to_df(ALB_MID)
 
 
 def test_df_to_csv():
@@ -40,7 +40,7 @@ def test_df_to_csv():
     except:
         pass
 
-    midi.df_to_csv(df, csv_name)
+    fileio.df_to_csv(df, csv_name)
 
     assert os.path.exists(csv_name), ('No csv created.')
 
@@ -66,7 +66,7 @@ def test_df_to_csv():
 
 
 def test_midi_to_df():
-    df = midi.midi_to_df(TEST_MID)
+    df = fileio.midi_to_df(TEST_MID)
 
     # This relies on pretty_midi being correct
     m = pretty_midi.PrettyMIDI(TEST_MID)
@@ -117,7 +117,7 @@ def test_midi_to_csv():
     except:
         pass
 
-    midi.midi_to_csv(TEST_MID, csv_path)
+    fileio.midi_to_csv(TEST_MID, csv_path)
 
     # This relies on pretty_midi being correct
     m = pretty_midi.PrettyMIDI(TEST_MID)
@@ -148,7 +148,7 @@ def test_midi_to_csv():
                                   f"not found in the DataFrame: {midi_notes}")
 
     # Check writing without any directory
-    midi.midi_to_csv(TEST_MID, 'test.csv')
+    fileio.midi_to_csv(TEST_MID, 'test.csv')
     try:
         os.remove('test.csv')
     except:
@@ -171,7 +171,7 @@ def test_midi_dir_to_csv():
     midi2_path = os.path.dirname(TEST_MID) + os.path.sep + 'test2.mid'
     shutil.copyfile(TEST_MID, midi2_path)
 
-    midi.midi_dir_to_csv(midi_dir, csv_dir)
+    fileio.midi_dir_to_csv(midi_dir, csv_dir)
 
     os.remove(midi2_path)
 
@@ -220,20 +220,20 @@ def test_df_to_midi():
     })
 
     # Test basic writing
-    midi.df_to_midi(df, 'test.mid')
-    assert midi.midi_to_df('test.mid').equals(df), (
+    fileio.df_to_midi(df, 'test.mid')
+    assert fileio.midi_to_df('test.mid').equals(df), (
         "Writing df to MIDI and reading changes df."
     )
 
     # Test that writing should overwrite existing notes
     df.pitch += 10
-    midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid')
-    assert midi.midi_to_df('test2.mid').equals(df), (
+    fileio.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid')
+    assert fileio.midi_to_df('test2.mid').equals(df), (
         "Writing df to MIDI with existing MIDI does not overwrite notes."
     )
 
     # Test that writing skips non-overwritten notes
-    midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid',
+    fileio.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid',
                     excerpt_start=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -241,12 +241,12 @@ def test_df_to_midi():
         'pitch': [10, 20, 30, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test2.mid').equals(expected), (
+    assert fileio.midi_to_df('test2.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes before excerpt_start"
     )
 
     # Test that writing skips non-overwritten notes past end
-    midi.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
+    fileio.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
                     excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -254,12 +254,12 @@ def test_df_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes after excerpt_length"
     )
 
     df.track = 2
-    midi.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
+    fileio.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
                     excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -267,7 +267,7 @@ def test_df_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI with extra track breaks"
     )
 
@@ -285,8 +285,8 @@ def test_df_to_midi():
     midi_obj.key_signature_changes.append(pretty_midi.KeySignature(5, 1))
     midi_obj.write('test.mid')
 
-    midi.df_to_midi(expected, 'test2.mid', existing_midi_path='test.mid')
-    assert midi.midi_to_df('test2.mid').equals(expected)
+    fileio.df_to_midi(expected, 'test2.mid', existing_midi_path='test.mid')
+    assert fileio.midi_to_df('test2.mid').equals(expected)
 
     # Check non-note events and data here
     new_midi = pretty_midi.PrettyMIDI('test2.mid')
@@ -335,24 +335,24 @@ def test_csv_to_midi():
         'pitch': [10, 20, 30],
         'dur': 1000
     })
-    midi.df_to_csv(df, 'test.csv')
+    fileio.df_to_csv(df, 'test.csv')
 
     # Test basic writing
-    midi.csv_to_midi('test.csv', 'test.mid')
-    assert midi.midi_to_df('test.mid').equals(df), (
+    fileio.csv_to_midi('test.csv', 'test.mid')
+    assert fileio.midi_to_df('test.mid').equals(df), (
         "Writing df to MIDI and reading changes df."
     )
 
     # Test that writing should overwrite existing notes
     df.pitch += 10
-    midi.df_to_csv(df, 'test.csv')
-    midi.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid')
-    assert midi.midi_to_df('test2.mid').equals(df), (
+    fileio.df_to_csv(df, 'test.csv')
+    fileio.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid')
+    assert fileio.midi_to_df('test2.mid').equals(df), (
         "Writing df to MIDI with existing MIDI does not overwrite notes."
     )
 
     # Test that writing skips non-overwritten notes
-    midi.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid',
+    fileio.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid',
                      excerpt_start=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -360,12 +360,12 @@ def test_csv_to_midi():
         'pitch': [10, 20, 30, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test2.mid').equals(expected), (
+    assert fileio.midi_to_df('test2.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes before excerpt_start"
     )
 
     # Test that writing skips non-overwritten notes past end
-    midi.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
+    fileio.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
                     excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -373,13 +373,13 @@ def test_csv_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes after excerpt_length"
     )
 
     df.track = 2
-    midi.df_to_csv(df, 'test.csv')
-    midi.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
+    fileio.df_to_csv(df, 'test.csv')
+    fileio.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
                      excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -387,7 +387,7 @@ def test_csv_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI with extra track breaks"
     )
 

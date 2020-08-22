@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import pytest
 import re
-from mdtk.df_utils import NOTE_DF_SORT_ORDER, remove_overlaps, clean_df
+from mdtk.df_utils import NOTE_DF_SORT_ORDER, remove_pitch_overlaps, clean_df
 
 
 # Test note DataFrames ========================================================
@@ -347,8 +347,8 @@ def test_read_note_csv():
     )
 
 
-def test_remove_overlaps():
-    res = remove_overlaps(note_df_complex_overlap)
+def test_remove_pitch_overlaps():
+    res = remove_pitch_overlaps(note_df_complex_overlap)
     assert note_df_complex_overlap_fixed.equals(res), (
         f"Complex overlap\n{note_df_complex_overlap}\nproduced\n{res}\n"
         f"instead of\n{note_df_complex_overlap_fixed}"

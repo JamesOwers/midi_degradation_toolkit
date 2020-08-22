@@ -12,7 +12,7 @@ from glob import glob
 import numpy as np
 from tqdm import tqdm
 
-from mdtk import degradations, downloaders, midi
+from mdtk import degradations, downloaders, fileio
 from mdtk.filesystem_utils import make_directory, copy_file
 from mdtk.formatters import create_corpus_csvs, FORMATTERS
 
@@ -361,7 +361,7 @@ if __name__ == '__main__':
 
     # Convert from midi to csv ================================================
     for name in midi_input_dirs:
-        midi.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
+        fileio.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
                              recursive=ARGS.recursive)
 
 
@@ -376,7 +376,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # List of (note_df, csv_path) tuples
-    compositions = [(midi.csv_to_df(csv_path, single_track=True,
+    compositions = [(fileio.csv_to_df(csv_path, single_track=True,
                                     non_overlapping=True), csv_path)
                     for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
     np.random.shuffle(compositions) # This is important for join_notes
@@ -518,7 +518,7 @@ if __name__ == '__main__':
 
                 # Write degraded csv
                 altered_outpath = os.path.join(ARGS.output_dir, altered_path)
-                midi.df_to_csv(degraded, altered_outpath)
+                fileio.df_to_csv(degraded, altered_outpath)
                 break
 
         # Write data
@@ -529,7 +529,7 @@ if __name__ == '__main__':
 
             # Write clean csv
             clean_outpath = os.path.join(ARGS.output_dir, clean_path)
-            midi.df_to_csv(excerpt, clean_outpath)
+            fileio.df_to_csv(excerpt, clean_outpath)
 
             # Write metadata
             meta_file.write(f'{altered_path},{deg_binary},{deg_num},'

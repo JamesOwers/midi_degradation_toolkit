@@ -1,5 +1,4 @@
-"""Code to interact with MIDI files, including parsing and converting them
-to csvs."""
+"""Code to read/write note_dfs from/to midi and csv files."""
 import os
 import warnings
 from glob import glob

@@ -13,7 +13,7 @@ import json
 import pretty_midi
 from tqdm import tqdm
 
-from mdtk import degradations, midi, formatters
+from mdtk import degradations, fileio, formatters
 from mdtk.degradations import (MAX_GAP_DEFAULT, MIN_SHIFT_DEFAULT,
                                MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT,
                                DEGRADATIONS)
@@ -103,10 +103,10 @@ def load_file(filename, pr_min_pitch=MIN_PITCH_DEFAULT,
     ext = os.path.splitext(os.path.basename(filename))[1]
 
     if ext == '.mid':
-        return midi.midi_to_df(filename)
+        return fileio.midi_to_df(filename)
 
     if ext == '.csv':
-        return midi.csv_to_df(filename)
+        return fileio.csv_to_df(filename)
 
     if ext == '.pkl':
         with open(filename, 'rb') as file:
