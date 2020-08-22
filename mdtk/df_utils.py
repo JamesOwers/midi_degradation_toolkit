@@ -37,7 +37,7 @@ def clean_df(df, single_track=False, non_overlapping=False):
         A cleaned version of the given df, as described.
     """
     if single_track:
-        df.loc[:, 'track'] = 0
+        df = df.assign(track=0) # Assign creates a copy so input is not changed
 
     if non_overlapping:
         df = remove_pitch_overlaps(df)
