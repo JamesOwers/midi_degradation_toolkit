@@ -98,8 +98,8 @@ def midi_to_csv(midi_path, csv_path, single_track=False,
         sustained note present in the input, there will be a sustained note
         in the created csv. Likewise for any point with a note onset.
     """
-    df_to_csv(midi_to_df(midi_path, single_track=False, non_overlapping=False),
-              csv_path)
+    df_to_csv(midi_to_df(midi_path, single_track=single_track,
+                         non_overlapping=non_overlapping), csv_path)
 
 
 def midi_to_df(midi_path, single_track=False, non_overlapping=False):
