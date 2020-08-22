@@ -106,7 +106,7 @@ def remove_pitch_overlaps(df):
 
     # Fix dur based on offsets and remove offset column
     df.loc[:, 'dur'] = df['offset'] - df['onset']
-    df.loc[df['dur'] != 0, ['onset', 'track', 'pitch', 'dur']]
+    df = df.loc[df['dur'] != 0, ['onset', 'track', 'pitch', 'dur']]
     df = df.reset_index(drop=True)
 
     return df
