@@ -17,7 +17,8 @@ COLNAMES = NOTE_DF_SORT_ORDER
 
 
 
-def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
+def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False,
+                    single_track=False, non_overlapping=False):
     """
     Convert an entire directory of MIDI files into csvs in another directory.
     This searches the given MIDI path for any files with the extension 'mid'.
@@ -38,6 +39,17 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
 
     recursive : boolean
         If True, search the given midi dir recursively.
+
+    single_track : boolean
+        True to set the track of every note to 0. This will happen before
+        overlaps are removed.
+
+    non_overlapping : boolean
+        True to remove overlaps from the resulting csv by passing the data
+        to df_utils.remove_pitch_overlaps. This will create a situation where,
+        for every (track, pitch) pair, for any point in time which there is a
+        sustained note present in the input, there will be a sustained note
+        in the created csv. Likewise for any point with a note onset.
     """
     if recursive:
         dir_prefix_len = len(midi_dir_path) + 1
@@ -57,10 +69,12 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False):
                 csv_dir_path,
                 os.path.basename(midi_path[:-3] + 'csv')
             )
-        midi_to_csv(midi_path, csv_path)
+        midi_to_csv(midi_path, csv_path, single_track=single_track,
+                    non_overlapping=non_overlapping)
 
 
-def midi_to_csv(midi_path, csv_path):
+def midi_to_csv(midi_path, csv_path, single_track=False,
+                non_overlapping=False):
     """
     Convert a MIDI file into a csv file.
 
@@ -72,11 +86,23 @@ def midi_to_csv(midi_path, csv_path):
     csv_path : string
         The filename of the csv to write out to. Any nested directories will be
         created by df_to_csv(df, csv_path).
+
+    single_track : boolean
+        True to set the track of every note to 0. This will happen before
+        overlaps are removed.
+
+    non_overlapping : boolean
+        True to remove overlaps from the resulting csv by passing the data
+        to df_utils.remove_pitch_overlaps. This will create a situation where,
+        for every (track, pitch) pair, for any point in time which there is a
+        sustained note present in the input, there will be a sustained note
+        in the created csv. Likewise for any point with a note onset.
     """
-    df_to_csv(midi_to_df(midi_path), csv_path)
+    df_to_csv(midi_to_df(midi_path, single_track=False, non_overlapping=False),
+              csv_path)
 
 
-def midi_to_df(midi_path, flatten_tracks=False, remove_overlaps=False):
+def midi_to_df(midi_path, single_track=False, non_overlapping=False):
     """
     Get the data from a MIDI file and load it into a pandas DataFrame.
 
@@ -85,17 +111,16 @@ def midi_to_df(midi_path, flatten_tracks=False, remove_overlaps=False):
     midi_path : string
         The filename of the MIDI file to parse.
 
-    flatten_tracks : boolean
+    single_track : boolean
         True to set the track of every note to 0. This will happen before
         overlaps are removed.
 
-    remove_overlaps : boolean
+    non_overlapping : boolean
         True to remove overlaps from the resulting dataframe by passing the df
-        to df_utils.remove_overlaps. This will create a situation where, for
-        every (track, pitch) pair, for any point in time which there is a
+        to df_utils.remove_pitch_overlaps. This will create a situation where,
+        for every (track, pitch) pair, for any point in time which there is a
         sustained note present in the input, there will be a sustained note
-        in the returned df. Likewise for any point with a note onset. If True,
-        the resulting df will be sorted, even if sort is False.
+        in the returned df. Likewise for any point with a note onset.
 
     Returns
     -------
@@ -128,41 +153,13 @@ def midi_to_df(midi_path, flatten_tracks=False, remove_overlaps=False):
                        'empty. Returning None.', category=UserWarning)
         return None
 
-    df = clean_df(pd.DataFrame(notes), flatten_tracks=flatten_tracks,
-                  remove_overlaps=remove_overlaps)
+    df = clean_df(pd.DataFrame(notes), single_track=single_track,
+                  non_overlapping=non_overlapping)
 
     return df
 
 
-def df_to_csv(df, csv_path):
-    """
-    Print the data from the given pandas DataFrame into a csv in the correct
-    format.
-
-    Parameters
-    ----------
-    df : DataFrame
-        The DataFrame to write out to a csv. It should be in the format returned
-        by midi_to_df(midi_path), with 4 columns:
-            onset: Onset time of the note, in milliseconds
-            track: The track number of the instrument the note is from.
-            pitch: The MIDI pitch number for the note.
-            dur: The duration of the note (offset - onset), in milliseconds.
-
-    csv_path : string
-        The filename of the csv to which to print the data. No header or index
-        will be printed, and the rows will be printed in the current order of the
-        DataFrame. Any nested directories will be created.
-    """
-    if df is None or len(df) == 0:
-        return None
-    if os.path.split(csv_path)[0]:
-        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    # Enforce column order
-    df[COLNAMES].to_csv(csv_path, index=None, header=False)
-
-
-def csv_to_df(csv_path, flatten_tracks=False, remove_overlaps=False):
+def csv_to_df(csv_path, single_track=False, non_overlapping=False):
     """
     Read a csv and create a standard note event DataFrame - a `note_df`.
 
@@ -171,17 +168,16 @@ def csv_to_df(csv_path, flatten_tracks=False, remove_overlaps=False):
     csv_path : str
         The path of the csv to be imported.
 
-    flatten_tracks : boolean
+    single_track : boolean
         True to set the track of every note to 0. This will happen before
         overlaps are removed.
 
-    remove_overlaps : boolean
+    non_overlapping : boolean
         True to remove overlaps from the resulting dataframe by passing the df
-        to df_utils.remove_overlaps. This will create a situation where, for
-        every (track, pitch) pair, for any point in time which there is a
+        to df_utils.remove_pitch_overlaps. This will create a situation where,
+        for every (track, pitch) pair, for any point in time which there is a
         sustained note present in the input, there will be a sustained note
-        in the returned df. Likewise for any point with a note onset. If True,
-        the resulting df will be sorted, even if sort is False.
+        in the returned df. Likewise for any point with a note onset.
 
     Returns
     -------
@@ -195,14 +191,15 @@ def csv_to_df(csv_path, flatten_tracks=False, remove_overlaps=False):
     """
     df = pd.read_csv(csv_path, names=NOTE_DF_SORT_ORDER)
 
-    df = clean_df(df, flatten_tracks=flatten_tracks,
-                  remove_overlaps=remove_overlaps)
+    df = clean_df(df, single_track=single_track,
+                  non_overlapping=non_overlapping)
 
     return df
 
 
 def csv_to_midi(csv_path, midi_path, existing_midi_path=None, excerpt_start=0,
-               excerpt_length=float('Inf')):
+                excerpt_length=float('Inf'), single_track=False,
+                non_overlapping=False):
     """
     Write the notes of a csv out to a MIDI file.
 
@@ -230,10 +227,55 @@ def csv_to_midi(csv_path, midi_path, existing_midi_path=None, excerpt_start=0,
         of the excerpt in ms. Any notes from the existing MIDI file whose
         onset is after excerpt_start + excerpt_length are copied into the new
         MIDI file.
+
+    single_track : boolean
+        True to set the track of every note to 0. This will happen before
+        overlaps are removed.
+
+    non_overlapping : boolean
+        True to remove overlaps from the resulting midi by passing the data
+        to df_utils.remove_pitch_overlaps. This will create a situation where,
+        for every (track, pitch) pair, for any point in time which there is a
+        sustained note present in the input, there will be a sustained note
+        in the created midi file. Likewise for any point with a note onset.
     """
-    df_to_midi(pd.read_csv(csv_path, names=COLNAMES), midi_path,
-               existing_midi_path=existing_midi_path,
+    df = csv_to_df(csv_path)
+
+    df = clean_df(df, single_track=single_track,
+                  non_overlapping=non_overlapping)
+
+    df_to_midi(df, midi_path, existing_midi_path=existing_midi_path,
                excerpt_start=excerpt_start, excerpt_length=excerpt_length)
+
+
+def df_to_csv(df, csv_path):
+    """
+    Print the data from the given pandas DataFrame into a csv in the correct
+    format.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The DataFrame to write out to a csv. It should be in the format returned
+        by midi_to_df(midi_path), with 4 columns:
+            onset: Onset time of the note, in milliseconds
+            track: The track number of the instrument the note is from.
+            pitch: The MIDI pitch number for the note.
+            dur: The duration of the note (offset - onset), in milliseconds.
+
+    csv_path : string
+        The filename of the csv to which to print the data. No header or index
+        will be printed, and the rows will be printed in the current order of the
+        DataFrame. Any nested directories will be created.
+    """
+    if df is None or len(df) == 0:
+        return None
+
+    if os.path.split(csv_path)[0]:
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+
+    # Enforce column order
+    df[COLNAMES].to_csv(csv_path, index=None, header=False)
 
 
 def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,

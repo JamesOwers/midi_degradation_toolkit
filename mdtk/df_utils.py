@@ -8,7 +8,7 @@ import pandas as pd
 NOTE_DF_SORT_ORDER = ['onset', 'track', 'pitch', 'dur']
 
 
-def clean_df(df, flatten_tracks=False, remove_overlaps=False):
+def clean_df(df, single_track=False, non_overlapping=False):
     """
     Clean a given note_df by (optionally) flattening the tracks of all notes
     to 0, (optionally) removing overlaps between notes, and sorting the notes
@@ -20,60 +20,59 @@ def clean_df(df, flatten_tracks=False, remove_overlaps=False):
     df : pd.DataFrame
         A note_df, with columns onset, track, pitch, and dur (all ints).
 
-    flatten_tracks : boolean
+    single_track : boolean
         True to set the track of every note to 0. This will happen before
         overlaps are removed.
 
-    remove_overlaps : boolean
+    non_overlapping : boolean
         True to remove overlaps from the resulting dataframe by passing the df
-        to remove_overlaps. This will create a situation where, for every
+        to remove_pitch_overlaps. This will create a situation where, for every
         (track, pitch) pair, for any point in time which there is a
         sustained note present in the input, there will be a sustained note
-        in the returned df. Likewise for any point with a note onset. If True,
-        the resulting df will be sorted, even if sort is False.
+        in the returned df. Likewise for any point with a note onset.
 
     Returns
     -------
     df : pd.DataFrame
         A cleaned version of the given df, as described.
     """
-    if flatten_tracks:
+    if single_track:
         df.loc[:, 'track'] = 0
 
-    df = df.sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
+    if non_overlapping:
+        df = remove_pitch_overlaps(df)
+    else:
+        # Remove_pitch_overlaps already sorts
+        df = df.sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
 
-    if remove_overlaps:
-        df = remove_overlaps(df)
-
+    # Return with correct column ordering
     return df.loc[:, NOTE_DF_SORT_ORDER]
 
 
-def remove_overlaps(df):
+def remove_pitch_overlaps(df):
     """
-    Returns a version of the given df with all overlaps removed as:
+    Returns a version of the given df with all same-pitch overlaps removed.
 
     For every (track, pitch) pair, for any point in time which there is a
     sustained note present in the input, there will be a sustained note
     in the returned df. Likewise for any point with a note onset.
 
-    This relies on the given df being sorted already.
-
     Parameters
     ----------
     df : pd.DataFrame
-        Pandas DataFrame with at least the columns onset, pitch, track, and dur,
-        sorted in that order.
+        Pandas DataFrame with at least the columns onset, pitch, track, and
+        dur.
 
     Returns
     -------
     df : pd.DataFrame
-        A non-overlapping version of the given df, as described above.
+        A non-overlapping version of the given df as described above, sorted by
+        onset, pitch, track, and then dur.
     """
     if len(df) < 2:
         return df
 
-    # Copy since we're going to be editing in place
-    df = df.copy()
+    df = df.sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
 
     # We'll work with onsets here, and fix dur at the end
     df.loc[:, 'offset'] = df['onset'] + df['dur']
@@ -107,7 +106,7 @@ def remove_overlaps(df):
 
     # Fix dur based on offsets and remove offset column
     df.loc[:, 'dur'] = df['offset'] - df['onset']
-    df = df.loc[df['dur'] != 0, ['onset', 'track', 'pitch', 'dur']]
+    df.loc[df['dur'] != 0, ['onset', 'track', 'pitch', 'dur']]
     df = df.reset_index(drop=True)
 
     return df

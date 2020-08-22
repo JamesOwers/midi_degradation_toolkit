@@ -17,7 +17,6 @@ from mdtk import degradations, midi, formatters
 from mdtk.degradations import (MAX_GAP_DEFAULT, MIN_SHIFT_DEFAULT,
                                MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT,
                                DEGRADATIONS)
-from mdtk.df_utils import NOTE_DF_SORT_ORDER
 
 FILE_TYPES = ['mid', 'pkl', 'csv']
 
@@ -107,7 +106,7 @@ def load_file(filename, pr_min_pitch=MIN_PITCH_DEFAULT,
         return midi.midi_to_df(filename)
 
     if ext == '.csv':
-        return pd.read_csv(filename, names=['onset', 'track', 'pitch', 'dur'])
+        return midi.csv_to_df(filename)
 
     if ext == '.pkl':
         with open(filename, 'rb') as file:

@@ -376,8 +376,8 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # List of (note_df, csv_path) tuples
-    compositions = [(midi.csv_to_df(csv_path, flatten_tracks=True,
-                                    remove_overlaps=True), csv_path)
+    compositions = [(midi.csv_to_df(csv_path, single_track=True,
+                                    non_overlapping=True), csv_path)
                     for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
     np.random.shuffle(compositions) # This is important for join_notes
 
