@@ -85,5 +85,3 @@ def test_remove_pitch_overlaps():
         f"Complex overlap\n{note_df_complex_overlap}\nproduced\n{res}\n"
         f"instead of\n{note_df_complex_overlap_fixed}"
     )
-
-test_clean_df()

@@ -74,8 +74,9 @@ def remove_pitch_overlaps(df):
 
     df = df.sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
 
-    # We'll work with onsets here, and fix dur at the end
-    df.loc[:, 'offset'] = df['onset'] + df['dur']
+    # We'll work with offsets here, and fix dur at the end
+    df['offset'] = df['onset'] + df['dur']
+    offset = df['offset'].copy()
 
     for track, track_df in df.groupby('track'):
         if len(track_df) < 2:
@@ -85,27 +86,15 @@ def remove_pitch_overlaps(df):
             if len(pitch_df) < 2:
                 continue
 
-            # Last of any offset in the current set of overlapping notes
-            current_offset = pitch_df.iloc[0]['offset']
-            # We will need to change the previous offset in the case of an overlap
-            prev_idx = pitch_df.index[0]
-
-            for idx, note in itertools.islice(pitch_df.iterrows(), 1, None):
-                if current_offset > note.onset:
-                    # Overlap found. Cut previous note and extend offset
-                    # Changes here are performed in the original df
-                    df.loc[prev_idx, 'offset'] = note.onset
-                    current_offset = max(current_offset, note.offset)
-                    df.loc[idx, 'offset'] = current_offset
-                else:
-                    # No overlap. Update latest offset.
-                    current_offset = note.offset
-                # Always iterate, but no need to update current_offset here,
-                # because it will definitely be < next_note.onset (because sorted).
-                prev_idx = idx
+            # Each note's offset will go to the latest offset so far,
+            # or be cut at the next note's onset
+            cum_max = pitch_df['offset'].cummax()
+            offset.loc[pitch_df.index] = cum_max.clip(
+                upper=pitch_df['onset'].shift(-1, fill_value=cum_max.iloc[-1])
+            )
 
     # Fix dur based on offsets and remove offset column
-    df.loc[:, 'dur'] = df['offset'] - df['onset']
+    df['dur'] = offset - df['onset']
     df = df.loc[df['dur'] != 0, ['onset', 'track', 'pitch', 'dur']]
     df = df.reset_index(drop=True)
 
