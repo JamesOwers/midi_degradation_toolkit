@@ -238,10 +238,8 @@ def csv_to_midi(csv_path, midi_path, existing_midi_path=None, excerpt_start=0,
         sustained note present in the input, there will be a sustained note
         in the created midi file. Likewise for any point with a note onset.
     """
-    df = csv_to_df(csv_path)
-
-    df = clean_df(df, single_track=single_track,
-                  non_overlapping=non_overlapping)
+    df = csv_to_df(csv_path, single_track=single_track,
+                   non_overlapping=non_overlapping)
 
     df_to_midi(df, midi_path, existing_midi_path=existing_midi_path,
                excerpt_start=excerpt_start, excerpt_length=excerpt_length)
