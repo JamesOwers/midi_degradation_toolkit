@@ -229,19 +229,14 @@ def parse_args(args_input=None):
     parser.add_argument('--min-notes', metavar='N', type=int, default=10,
                         help='The minimum number of notes required for an '
                         'excerpt to be valid.')
-    parser.add_argument('--degradation-kwargs', metavar='json_string',
-                        help='json with keyword arguments for the '
-                        'degradation functions. First provide the degradation '
-                        'name, then a double underscore, then the keyword '
-                        'argument name, followed by the value to use for the '
-                        'kwarg. e.g. {"pitch_shift__distribution": "poisson", '
-                        '"pitch_shift__min_pitch: 5"}',
-                        type=json.loads, default=None)
-    parser.add_argument('--degradation-kwarg-json', metavar='json_file',
-                        help='A file containing parameters as described in '
-                        '--degradation-kwargs. If this file is given, '
-                        '--degradation-kwargs is ignored.', type=json.load,
-                        default=None)
+    parser.add_argument('--degradation-kwargs', metavar='json_file_or_string',
+                        help='json file or json-formatted string with keyword '
+                        'arguments for the degradation functions. First '
+                        'provide the degradation name, then a double '
+                        'underscore, then the keyword argument name, followed '
+                        'by the value to use for the kwarg. e.g. '
+                        '`{"time_shift__align_onset": true, '
+                        '"pitch_shift__min_pitch": 5}`', default=None)
     parser.add_argument('--degradation-dist', metavar='relative_probability',
                         nargs='*', default=None, help='A list of relative '
                         'probabilities that each degradation will used. Must '
@@ -280,16 +275,19 @@ if __name__ == '__main__':
         print(f'Setting random seed to {seed}.')
     np.random.seed(seed)
 
-    # Check given degradation_kwargs
-    assert (ARGS.degradation_kwargs is None or
-            ARGS.degradation_kwarg_json is None), ("Don't specify both "
-                "--degradation-kwargs and --degradation-kwarg-json")
-    if ARGS.degradation_kwarg_json is None:
-        degradation_kwargs = parse_degradation_kwargs(ARGS.degradation_kwargs)
-    else:
-        degradation_kwargs = parse_degradation_kwargs(
-            ARGS.degradation_kwarg_json
-        )
+    # Load given degradation_kwargs
+    degradation_kwargs = {}
+    if ARGS.degradation_kwargs is not None:
+        if os.path.exists(ARGS.degradation_kwargs):
+            # If file exists, assume that is what was passed
+            with open(ARGS.degradation_kwargs, 'r') as json_file:
+                degradation_kwargs = json.load(json_file)
+        else:
+            # File doesn't exist, assume json string was passed
+            degradation_kwargs = json.loads(ARGS.degradation_kwargs)
+    degradation_kwargs = parse_degradation_kwargs(degradation_kwargs)
+    if ARGS.verbose:
+        print(f"Using degradation kwargs: {degradation_kwargs}")
 
     # Load config
     if ARGS.config is not None:
