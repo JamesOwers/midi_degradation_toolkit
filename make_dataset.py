@@ -13,7 +13,7 @@ import numpy as np
 from tqdm import tqdm
 
 from mdtk import degradations, downloaders, fileio
-from mdtk.filesystem_utils import make_directory, copy_file
+from mdtk.filesystem_utils import make_directory
 from mdtk.formatters import create_corpus_csvs, FORMATTERS
 
 def print_warn_msg_only(message, category, filename, lineno, file=None,
@@ -73,6 +73,40 @@ def parse_degradation_kwargs(kwarg_dict):
     return func_kwargs
 
 
+def clean_download_cache(dir_path=downloaders.DEFAULT_CACHE_PATH, prompt=True):
+    """
+    Delete the download cache directory and all files in it.
+
+    Parameters
+    ----------
+    dir_path : str
+        The path to the download cache base directory.
+
+    prompt : bool
+        Prompt the user before deleting.
+
+    Returns
+    -------
+    clean_ok : bool
+        True if the cache has been cleaned and deleted successfully, the cache
+        dir doesn't exist, or the user chooses not to delete it at the prompt.
+        False otherwise.
+    """
+    if not os.path.exists(dir_path):
+        print(f"Download cache ({dir_path}) is clear and deleted already.")
+        return True
+
+    if prompt:
+        response = input(f"Delete download cache ({dir_path})? [y/N]: ")
+
+    if (not prompt) or response in ['y', 'ye', 'yes']:
+        try:
+            shutil.rmtree(dir_path)
+        except:
+            print("Could not delete download cache. Please do so manually.")
+            return False
+    return True
+
 
 def parse_args(args_input=None):
     """Convenience function for parsing user supplied command line args"""
@@ -84,9 +118,6 @@ def parse_args(args_input=None):
     parser.add_argument('-o', '--output-dir', type=str, default=default_outdir,
                         help='the directory to write the dataset to.')
     default_indir = os.path.join(os.getcwd(), 'input_data')
-    parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
-                        help='the directory to store the preprocessed '
-                        'downloaded data to.')
     parser.add_argument('--config', default=None, help='Load a json config '
                         'file, in the format created by measure_errors.py. '
                         'This will override --degradations, --degradation-'
@@ -97,9 +128,6 @@ def parse_args(args_input=None):
                         f' {list(FORMATTERS.keys())}. Specify none to avoid '
                         'creation', nargs='*', default=list(FORMATTERS.keys()),
                         choices=FORMATTERS.keys())
-    parser.add_argument('--stale-data', action='store_true', help='Do not '
-                        'clear --input-dir prior to creating this dataset. '
-                        'Stale data may remain.')
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
                         'include in the dataset', default=[])
@@ -115,14 +143,7 @@ def parse_args(args_input=None):
                         'of classes in the downloaders module. By default, '
                         'will use cached downloaded data if available, see '
                         '--download-cache-dir and --clear-download-cache. To '
-                        'download no data, provide an input of "None"',
-                        )
-    parser.add_argument('--download-cache-dir', type=str,
-                        default=downloaders.DEFAULT_CACHE_PATH, help='The '
-                        'directory to use for storing intermediate downloaded '
-                        'data e.g. zip files, and prior to preprocessing.')
-    parser.add_argument('--clear-download-cache', action='store_true',
-                        help='clear downloaded data cache')
+                        'download no data, provide an input of "None"')
     parser.add_argument('--degradations', metavar='deg_name', nargs='*',
                         choices=list(degradations.DEGRADATIONS.keys()),
                         default=list(degradations.DEGRADATIONS.keys()),
@@ -164,6 +185,9 @@ def parse_args(args_input=None):
                         default=[0.8, 0.1, 0.1])
     parser.add_argument('--seed', type=int, default=None, help='The numpy seed'
                         ' to use when creating the dataset.')
+    parser.add_argument('--clean', action='store_true', help='Clear and delete'
+                        f' the download cache {downloaders.DEFAULT_CACHE_PATH}'
+                        ' (and do nothing else).')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose '
                         'printing.')
     args = parser.parse_args(args=args_input)
@@ -172,6 +196,11 @@ def parse_args(args_input=None):
 
 if __name__ == '__main__':
     ARGS = parse_args()
+
+    if ARGS.clean:
+        clean_ok = clean_download_cache(downloaders.DEFAULT_CACHE_PATH)
+        sys.exit(0 if clean_ok else 1)
+
     if ARGS.seed is None:
         seed = np.random.randint(0, 2**32)
         print(f'No random seed supplied. Setting to {seed}.')
@@ -235,20 +264,22 @@ if __name__ == '__main__':
                 "list of available formats {list(FORMATTERS.keys())}")
         formats = ARGS.formats
 
+    # These will be tuples of (alphabetized_file_path, file_path, note_df).
+    # The alphabetized path is required for backwards compatability with
+    # the random seeding of previous versions (since the input_data is
+    # ordered alphabetically before shuffling it).
+    input_data = []
+    input_kwargs = {
+        'single_track': True,
+        'non_overlapping': True
+    }
 
-    # Clear input and output dirs =============================================
-    if not ARGS.stale_data:
-        if os.path.exists(ARGS.input_dir):
-            if ARGS.verbose:
-                print(f'Clearing stale data from {ARGS.input_dir}.')
-            shutil.rmtree(ARGS.input_dir)
+
+    # Clear output dir ========================================================
     if os.path.exists(ARGS.output_dir):
         if ARGS.verbose:
             print(f'Clearing stale data from {ARGS.output_dir}.')
         shutil.rmtree(ARGS.output_dir)
-    # This avoids an error if no datasets are selected
-    if not os.path.exists(ARGS.input_dir):
-        os.makedirs(ARGS.input_dir, exist_ok=True)
     if not os.path.exists(ARGS.output_dir):
         os.makedirs(ARGS.output_dir, exist_ok=True)
 
@@ -266,25 +297,13 @@ if __name__ == '__main__':
     # Instantiated downloader classes
     downloader_dict = {
         ds_name: getattr(downloaders, ds_name)(
-                     cache_path=ARGS.download_cache_dir
+                     cache_path=downloaders.DEFAULT_CACHE_PATH
                  )
         for ds_name in ds_names
     }
-    midi_dir = os.path.join(ARGS.input_dir, 'midi')
-    csv_dir = os.path.join(ARGS.input_dir, 'csv')
-    print(f'MIDI directory: {midi_dir}')
-    print(f'CSV directory: {csv_dir}')
-    midi_input_dirs = {name: os.path.join(midi_dir, name)
-                       for name in ds_names}
-    csv_input_dirs = {name: os.path.join(csv_dir, name)
-                      for name in ds_names}
 
 
     # Set up directories ======================================================
-    for path in midi_input_dirs.values():
-        make_directory(path, verbose=ARGS.verbose)
-    for path in csv_input_dirs.values():
-        make_directory(path, verbose=ARGS.verbose)
     for out_subdir in ['clean', 'altered']:
         output_dirs = [os.path.join(ARGS.output_dir, out_subdir, name)
                        for name in ds_names]
@@ -292,94 +311,77 @@ if __name__ == '__main__':
             make_directory(path, verbose=ARGS.verbose)
 
 
-    # Download data ===========================================================
-    print('Downloading datasets, this could take a while...')
+    # Load data from downloaders ==============================================
+    print('Loading data from downloaders, this could take a while...')
     for name in downloader_dict:
         downloader = downloader_dict[name]
-        midi_output_path = midi_input_dirs[name]
-        csv_output_path = csv_input_dirs[name]
+        midi_output_path = os.path.join(downloaders.DEFAULT_CACHE_PATH, name,
+                                        'midi')
+        csv_output_path = os.path.join(downloaders.DEFAULT_CACHE_PATH, name,
+                                       'csv')
         try:
             downloader.download_csv(output_path=csv_output_path,
                                     overwrite=OVERWRITE, verbose=ARGS.verbose)
+            for filename in tqdm(glob(os.path.join(csv_output_path, '**',
+                                                   '*.csv'), recursive=True),
+                                 desc=f'Loading data from {name}'):
+                note_df = fileio.csv_to_df(filename, **input_kwargs)
+                if note_df is not None:
+                    input_data.append((filename, filename, note_df))
         except NotImplementedError:
             downloader.download_midi(output_path=midi_output_path,
                                      overwrite=OVERWRITE, verbose=ARGS.verbose)
+            for filename in tqdm(glob(os.path.join(midi_output_path, '**',
+                                                   '*.mid'), recursive=True),
+                                 desc=f'Loading data from {name}'):
+                note_df = fileio.midi_to_df(filename, **input_kwargs)
+                if note_df is not None:
+                    input_data.append((filename, filename, note_df))
 
 
-    # Copy over user midi =====================================================
-    for path in ARGS.local_midi_dirs:
-        # Bugfix for paths ending in /
-        if len(path) > 1 and path[-1] == os.path.sep:
-            path = path[:-1]
-        dirname = f'local_{os.path.basename(path)}'
-        outdir = os.path.join(ARGS.input_dir, 'midi', dirname)
-        basedir = outdir
-        os.makedirs(outdir, exist_ok=True)
-        midi_input_dirs[dirname] = outdir
-        csv_outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
-        os.makedirs(csv_outdir, exist_ok=True)
-        csv_input_dirs[dirname] = csv_outdir
-        if ARGS.recursive:
-            path = os.path.join(path, '**')
-        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
-                                  recursive=ARGS.recursive),
-                             desc=f'Loading user midi from {path}'):
+    # Load user data ==========================================================
+    for data_type in ['midi', 'csv']:
+        if data_type == 'midi':
+            local_dirs = ARGS.local_midi_dirs
+            ext = 'mid'
+            df_load_func = fileio.midi_to_df
+        else:
+            local_dirs = ARGS.local_csv_dirs
+            ext = 'csv'
+            df_load_func = fileio.csv_to_df
+
+        for path in local_dirs:
+            # Bugfix for paths ending in /
+            if len(path) > 1 and path[-1] == os.path.sep:
+                path = path[:-1]
+            dirname = f'local_{os.path.basename(path)}'
             if ARGS.recursive:
-                outdir = os.path.join(
-                    basedir,
-                    os.path.dirname(filepath)[len(path) - 2:],
-                    os.path.basename(filepath)
-                )
-            os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir)
+                path = os.path.join(path, '**')
+            for filepath in tqdm(glob(os.path.join(path, f'*.{ext}'),
+                                    recursive=ARGS.recursive),
+                                 desc=f'Loading user {data_type} from {path}'):
+                subdirname = os.path.dirname(filepath)[len(path) - 2:]
+                if subdirname:
+                    alpha_base_path = os.path.join(dirname, subdirname)
+                else:
+                    alpha_base_path = dirname
+                alphabetized_name = os.path.join(alpha_base_path,
+                                                 os.path.basename(filepath))
+
+                note_df = df_load_func(filepath, **input_kwargs)
+                if note_df is not None:
+                    input_data.append((
+                        alphabetized_name,
+                        filepath,
+                        note_df
+                    ))
 
 
-    # Copy over user csv ======================================================
-    for path in ARGS.local_csv_dirs:
-        # Bugfix for paths ending in /
-        if len(path) > 1 and path[-1] == os.path.sep:
-            path = path[:-1]
-        dirname = f'local_{os.path.basename(path)}'
-        outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
-        basedir = outdir
-        os.makedirs(outdir, exist_ok=True)
-        csv_input_dirs[dirname] = outdir
-        if ARGS.recursive:
-            path = os.path.join(path, '**')
-        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
-                                  recursive=ARGS.recursive),
-                             desc=f'Loading user csv from {path}'):
-            if ARGS.recursive:
-                outdir = os.path.join(
-                    basedir,
-                    os.path.dirname(filepath)[len(path) - 2:],
-                    os.path.basename(filepath)
-                )
-            os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir)
-
-
-    # Convert from midi to csv ================================================
-    for name in midi_input_dirs:
-        fileio.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
-                             recursive=ARGS.recursive)
-
-
-    # Create all Composition objects and write clean data to output ===========
+    # All data is loaded. Sort and shuffle. ===================================
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
-    csv_paths = sorted(glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
-                            recursive=ARGS.recursive))
-    if len(csv_paths) == 0:
-        print('No data selected. Choose a dataset with --datasets, or use '
-              'local data with --local-csv-dirs or --local-midi-dirs')
-        sys.exit(0)
-
-    # List of (note_df, csv_path) tuples
-    compositions = [(fileio.csv_to_df(csv_path, single_track=True,
-                                    non_overlapping=True), csv_path)
-                    for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
-    np.random.shuffle(compositions) # This is important for join_notes
+    input_data.sort()
+    np.random.shuffle(input_data) # This is important for join_notes
 
     meta_file = open(os.path.join(ARGS.output_dir, 'metadata.csv'), 'w')
 
@@ -433,8 +435,8 @@ if __name__ == '__main__':
 
     meta_file.write('altered_csv_path,degraded,degradation_id,'
                     'clean_csv_path,split\n')
-    for i, (note_df, csv_path) in enumerate(tqdm(compositions,
-                                                 desc="Making target data")):
+    for i, data in enumerate(tqdm(input_data, desc="Degrading data")):
+        alphabetized_name, file_path, note_df = data
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
         if np.sum(deg_counts) == 0: # First iteration, set to uniform
@@ -466,7 +468,7 @@ if __name__ == '__main__':
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
             warnings.warn("Unable to find valid excerpt from composition"
-                          f" {csv_path}. Lengthen --excerpt-length or "
+                          f" {file_path}. Lengthen --excerpt-length or "
                           "lower --min-notes. Skipping.", UserWarning)
             continue
 
@@ -490,8 +492,8 @@ if __name__ == '__main__':
         )[-1]
 
         # Make default labels for no degradation
-        fn = os.path.basename(csv_path)
-        dataset = os.path.basename(os.path.dirname(csv_path))
+        fn = os.path.basename(alphabetized_name)
+        dataset = os.path.basename(os.path.dirname(alphabetized_name))
         clean_path = os.path.join('clean', dataset, fn)
         altered_path = clean_path
         deg_binary = 0
@@ -536,7 +538,7 @@ if __name__ == '__main__':
                             f'{clean_path},{split_name}\n')
         else:
             warnings.warn("Unable to degrade chosen excerpt from "
-                          f"{csv_path} and no clean excerpts requested."
+                          f"{file_path} and no clean excerpts requested."
                           " Skipping.", UserWarning)
 
     meta_file.close()
