@@ -8,6 +8,7 @@ import warnings
 import pandas as pd
 import shutil
 from glob import glob
+from zipfile import BadZipfile
 
 import numpy as np
 from tqdm import tqdm
@@ -396,15 +397,23 @@ if __name__ == '__main__':
         output_path = os.path.join(dataset_base, 'data')
 
         try:
-            downloader.download_csv(output_path=output_path,
-                                    overwrite=OVERWRITE, verbose=ARGS.verbose)
-            ext = 'csv'
-            input_func = fileio.csv_to_df
-        except NotImplementedError:
-            downloader.download_midi(output_path=output_path,
-                                     overwrite=OVERWRITE, verbose=ARGS.verbose)
-            ext = 'mid'
-            input_func = fileio.midi_to_df
+            try:
+                downloader.download_csv(output_path=output_path,
+                                        overwrite=OVERWRITE,
+                                        verbose=ARGS.verbose)
+                ext = 'csv'
+                input_func = fileio.csv_to_df
+            except NotImplementedError:
+                downloader.download_midi(output_path=output_path,
+                                        overwrite=OVERWRITE,
+                                        verbose=ARGS.verbose)
+                ext = 'mid'
+                input_func = fileio.midi_to_df
+        except BadZipfile:
+            print("The download cache contains invalid data. Run "
+                  "`make_dataset.py --clean` to clean the cache, then try to "
+                  "re-create the ACME dataset.", file=sys.stderr)
+            sys.exit(1)
 
         for filename in tqdm(glob(os.path.join(output_path, '**', f'*.{ext}'),
                                   recursive=True),
