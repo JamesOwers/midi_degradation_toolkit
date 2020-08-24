@@ -392,31 +392,27 @@ if __name__ == '__main__':
 
         dataset_base = os.path.join(downloaders.DEFAULT_CACHE_PATH, dataset)
         dataset_base_len = len(dataset_base) + len(os.path.sep)
-        midi_output_path = os.path.join(dataset_base, 'midi')
-        csv_output_path = os.path.join(dataset_base, 'csv')
+        output_path = os.path.join(dataset_base, 'data')
 
         try:
-            downloader.download_csv(output_path=csv_output_path,
+            downloader.download_csv(output_path=output_path,
                                     overwrite=OVERWRITE, verbose=ARGS.verbose)
-            for filename in tqdm(glob(os.path.join(csv_output_path, '**',
-                                                   '*.csv'), recursive=True),
-                                 desc=f'Loading data from {dataset}'):
-
-                note_df = fileio.csv_to_df(filename, **input_kwargs)
-                if note_df is not None:
-                    rel_path = filename[dataset_base_len:]
-                    input_data.append((dataset, rel_path, filename, note_df))
-
+            ext = 'csv'
+            input_func = fileio.csv_to_df
         except NotImplementedError:
-            downloader.download_midi(output_path=midi_output_path,
+            downloader.download_midi(output_path=output_path,
                                      overwrite=OVERWRITE, verbose=ARGS.verbose)
-            for filename in tqdm(glob(os.path.join(midi_output_path, '**',
-                                                   '*.mid'), recursive=True),
-                                 desc=f'Loading data from {dataset}'):
-                note_df = fileio.midi_to_df(filename, **input_kwargs)
-                if note_df is not None:
-                    rel_path = filename[dataset_base_len:]
-                    input_data.append((dataset, rel_path, filename, note_df))
+            ext = 'mid'
+            input_func = fileio.midi_to_df
+
+        for filename in tqdm(glob(os.path.join(output_path, '**', f'*.{ext}'),
+                                  recursive=True),
+                             desc=f'Loading data from {dataset}'):
+
+            note_df = input_func(filename, **input_kwargs)
+            if note_df is not None:
+                rel_path = filename[dataset_base_len + 5:]
+                input_data.append((dataset, rel_path, filename, note_df))
 
 
     # Load user data ==========================================================
@@ -517,15 +513,15 @@ if __name__ == '__main__':
             current_deg_dist = deg_counts / np.sum(deg_counts)
             current_split_dist = split_counts / np.sum(split_counts)
 
-        # Grab an excerpt from this composition
+        # Grab an excerpt from this df
         excerpt = get_random_excerpt(note_df, min_notes=ARGS.min_notes,
                                      excerpt_length=ARGS.excerpt_length,
                                      first_onset_range=(0, 200), iterations=10)
 
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
-            warnings.warn("Unable to find valid excerpt from composition"
-                          f" {file_path}. Lengthen --excerpt-length or "
+            warnings.warn("Unable to find valid excerpt from file "
+                          f"{file_path}. Lengthen --excerpt-length or "
                           "lower --min-notes. Skipping.", UserWarning)
             continue
 
