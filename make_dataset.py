@@ -73,6 +73,76 @@ def parse_degradation_kwargs(kwarg_dict):
     return func_kwargs
 
 
+def get_random_excerpt(note_df, min_notes=10, excerpt_length=5000,
+                       first_onset_range=(0, 200), iterations=10):
+    """
+    Take a random excerpt from the given note_df, using np.random. The excerpt
+    is created as follows:
+
+    1. Pick a note at random from the input df, excluding the last `min_notes`
+       notes.
+    2. Take all notes which onset within `excerpt_length` ms of that note.
+    3. If the excerpt does not contain at least `min_notes` notes, repeat steps
+       1 and 2 until you have drawn `iterations` invalid excerpts. In that
+       case, return None.
+    4. If you have a valid excerpt, shift its notes so that the first note's
+       onset is at time 0, then add a random number within `first_onset_range`
+       to each onset.
+    5. Return the resulting excerpt.
+
+    Parameters
+    ----------
+    note_df : pd.DataFrame
+        The input note_df, from which we want a random excerpt.
+
+    min_notes : int
+        The minimum number of notes that must be contained in a valid excerpt.
+
+    excerpt_length : int
+        The length of the resulting excerpt, in ms. All notes which onset
+        within this amount of time after a randomly chosen note will be
+        included in the returned excerpt.
+
+    first_onset_range : tuple(int, int)
+        The range from which to draw a random number to add to the first note's
+        onset (in ms), rather than having the chosen excerpt begin at time 0.
+
+    iterations : int
+        How many times to try to obtain a valid excerpt before giving up and
+        returning None.
+
+    Returns
+    -------
+    excerpt : pd.DataFrame
+        A random excerpt from the given note_df. None if no valid excerpt was
+        found within `iterations` attempts.
+    """
+    if len(note_df) < min_notes:
+        return None
+
+    for _ in range(iterations):
+        note_index = np.random.choice(list(note_df.index.values)
+                                      [:-min_notes])
+        first_onset = note_df.loc[note_index]['onset']
+        excerpt = pd.DataFrame(
+            note_df.loc[note_df['onset'].between(
+                first_onset, first_onset + excerpt_length)])
+
+        # Check for validity of excerpt
+        if len(excerpt) < min_notes:
+            excerpt = None
+        else:
+            break
+
+    if excerpt is None:
+        return None
+
+    onset_shift = np.random.randint(first_onset_range[0], first_onset_range[1])
+    excerpt['onset'] += onset_shift - first_onset
+    excerpt = excerpt.reset_index(drop=True)
+    return excerpt
+
+
 def clean_download_cache(dir_path=downloaders.DEFAULT_CACHE_PATH, prompt=True):
     """
     Delete the download cache directory and all files in it.
@@ -264,24 +334,24 @@ if __name__ == '__main__':
                 "list of available formats {list(FORMATTERS.keys())}")
         formats = ARGS.formats
 
-    # These will be tuples of (alphabetized_file_path, file_path, note_df).
-    # The alphabetized path is required for backwards compatability with
-    # the random seeding of previous versions (since the input_data is
-    # ordered alphabetically before shuffling it).
+    # These will be tuples of (dataset, relative_path, full_path, note_df).
+    # dataset: The name of the dataset the note_df is drawn from. This will be
+    #          the excerpt's base directory within output/clean or
+    #          output/altered in the generated ACME dataset.
+    # relative_path: The relative path of the corresponding file, including
+    #                basename, representing the excerpts path within its
+    #                dataset base directory.
+    # full_path: The full path to the input file. Used for printing errors.
+    # note_df: The cleaned note_df read from the input file with the given
+    #          input_kwargs.
+    # This list will be sorted before shuffling, and the tuples are structured
+    # in such a way that the sorting is identical to previous versions of this
+    # script to ensure backwards compatability.
     input_data = []
     input_kwargs = {
         'single_track': True,
         'non_overlapping': True
     }
-
-
-    # Clear output dir ========================================================
-    if os.path.exists(ARGS.output_dir):
-        if ARGS.verbose:
-            print(f'Clearing stale data from {ARGS.output_dir}.')
-        shutil.rmtree(ARGS.output_dir)
-    if not os.path.exists(ARGS.output_dir):
-        os.makedirs(ARGS.output_dir, exist_ok=True)
 
 
     # Instantiate downloaders =================================================
@@ -303,40 +373,50 @@ if __name__ == '__main__':
     }
 
 
-    # Set up directories ======================================================
+    # Clear and set up output dir =============================================
+    if os.path.exists(ARGS.output_dir):
+        if ARGS.verbose:
+            print(f'Clearing stale data from {ARGS.output_dir}.')
+        shutil.rmtree(ARGS.output_dir)
     for out_subdir in ['clean', 'altered']:
         output_dirs = [os.path.join(ARGS.output_dir, out_subdir, name)
                        for name in ds_names]
         for path in output_dirs:
-            make_directory(path, verbose=ARGS.verbose)
+            os.makedirs(path, exist_ok=True)
 
 
     # Load data from downloaders ==============================================
     print('Loading data from downloaders, this could take a while...')
-    for name in downloader_dict:
-        downloader = downloader_dict[name]
-        midi_output_path = os.path.join(downloaders.DEFAULT_CACHE_PATH, name,
-                                        'midi')
-        csv_output_path = os.path.join(downloaders.DEFAULT_CACHE_PATH, name,
-                                       'csv')
+    for dataset in downloader_dict:
+        downloader = downloader_dict[dataset]
+
+        dataset_base = os.path.join(downloaders.DEFAULT_CACHE_PATH, dataset)
+        dataset_base_len = len(dataset_base) + len(os.path.sep)
+        midi_output_path = os.path.join(dataset_base, 'midi')
+        csv_output_path = os.path.join(dataset_base, 'csv')
+
         try:
             downloader.download_csv(output_path=csv_output_path,
                                     overwrite=OVERWRITE, verbose=ARGS.verbose)
             for filename in tqdm(glob(os.path.join(csv_output_path, '**',
                                                    '*.csv'), recursive=True),
-                                 desc=f'Loading data from {name}'):
+                                 desc=f'Loading data from {dataset}'):
+
                 note_df = fileio.csv_to_df(filename, **input_kwargs)
                 if note_df is not None:
-                    input_data.append((filename, filename, note_df))
+                    rel_path = filename[dataset_base_len:]
+                    input_data.append((dataset, rel_path, filename, note_df))
+
         except NotImplementedError:
             downloader.download_midi(output_path=midi_output_path,
                                      overwrite=OVERWRITE, verbose=ARGS.verbose)
             for filename in tqdm(glob(os.path.join(midi_output_path, '**',
                                                    '*.mid'), recursive=True),
-                                 desc=f'Loading data from {name}'):
+                                 desc=f'Loading data from {dataset}'):
                 note_df = fileio.midi_to_df(filename, **input_kwargs)
                 if note_df is not None:
-                    input_data.append((filename, filename, note_df))
+                    rel_path = filename[dataset_base_len:]
+                    input_data.append((dataset, rel_path, filename, note_df))
 
 
     # Load user data ==========================================================
@@ -354,27 +434,19 @@ if __name__ == '__main__':
             # Bugfix for paths ending in /
             if len(path) > 1 and path[-1] == os.path.sep:
                 path = path[:-1]
-            dirname = f'local_{os.path.basename(path)}'
+            dataset = f'local_{os.path.basename(path)}'
+            dataset_base_len = len(path) + len(os.path.sep)
+
             if ARGS.recursive:
                 path = os.path.join(path, '**')
             for filepath in tqdm(glob(os.path.join(path, f'*.{ext}'),
                                     recursive=ARGS.recursive),
                                  desc=f'Loading user {data_type} from {path}'):
-                subdirname = os.path.dirname(filepath)[len(path) - 2:]
-                if subdirname:
-                    alpha_base_path = os.path.join(dirname, subdirname)
-                else:
-                    alpha_base_path = dirname
-                alphabetized_name = os.path.join(alpha_base_path,
-                                                 os.path.basename(filepath))
 
                 note_df = df_load_func(filepath, **input_kwargs)
                 if note_df is not None:
-                    input_data.append((
-                        alphabetized_name,
-                        filepath,
-                        note_df
-                    ))
+                    rel_path = filepath[dataset_base_len:]
+                    input_data.append((dataset, rel_path, filepath, note_df))
 
 
     # All data is loaded. Sort and shuffle. ===================================
@@ -420,9 +492,8 @@ if __name__ == '__main__':
     nr_splits = len(split_names)
 
     # Write out deg_choices to degradation_ids.csv
-    with open(
-            os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
-            'w') as file:
+    with open(os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
+              'w') as file:
         file.write('id,degradation_name\n')
         for i, deg_name in enumerate(deg_choices):
             file.write(f'{i},{deg_name}\n')
@@ -436,7 +507,7 @@ if __name__ == '__main__':
     meta_file.write('altered_csv_path,degraded,degradation_id,'
                     'clean_csv_path,split\n')
     for i, data in enumerate(tqdm(input_data, desc="Degrading data")):
-        alphabetized_name, file_path, note_df = data
+        dataset, rel_path, file_path, note_df = data
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
         if np.sum(deg_counts) == 0: # First iteration, set to uniform
@@ -447,23 +518,9 @@ if __name__ == '__main__':
             current_split_dist = split_counts / np.sum(split_counts)
 
         # Grab an excerpt from this composition
-        excerpt = None
-        if len(note_df) >= ARGS.min_notes:
-            for _ in range(10):
-                note_index = np.random.choice(list(note_df.index.values)
-                                              [:-ARGS.min_notes])
-                note_onset = note_df.loc[note_index]['onset']
-                excerpt = pd.DataFrame(
-                    note_df.loc[note_df['onset'].between(
-                        note_onset, note_onset + ARGS.excerpt_length)])
-                excerpt['onset'] = excerpt['onset'] - note_onset
-                excerpt = excerpt.reset_index(drop=True)
-
-                # Check for validity of excerpt
-                if len(excerpt) < ARGS.min_notes:
-                    excerpt = None
-                else:
-                    break
+        excerpt = get_random_excerpt(note_df, min_notes=ARGS.min_notes,
+                                     excerpt_length=ARGS.excerpt_length,
+                                     first_onset_range=(0, 200), iterations=10)
 
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
@@ -471,9 +528,6 @@ if __name__ == '__main__':
                           f" {file_path}. Lengthen --excerpt-length or "
                           "lower --min-notes. Skipping.", UserWarning)
             continue
-
-        # Add some value so that not only degraded excerpts start from > 0
-        excerpt.loc[:, 'onset'] += np.random.randint(0, 200)
 
         # Try degradations in reverse order of the difference between
         # their current distribution and their desired distribution.
@@ -492,9 +546,7 @@ if __name__ == '__main__':
         )[-1]
 
         # Make default labels for no degradation
-        fn = os.path.basename(alphabetized_name)
-        dataset = os.path.basename(os.path.dirname(alphabetized_name))
-        clean_path = os.path.join('clean', dataset, fn)
+        clean_path = os.path.join('clean', dataset, rel_path)
         altered_path = clean_path
         deg_binary = 0
 
@@ -516,7 +568,7 @@ if __name__ == '__main__':
             if degraded is not None:
                 # Update labels
                 deg_binary = 1
-                altered_path = os.path.join('altered', dataset, fn)
+                altered_path = os.path.join('altered', dataset, rel_path)
 
                 # Write degraded csv
                 altered_outpath = os.path.join(ARGS.output_dir, altered_path)
@@ -550,8 +602,6 @@ if __name__ == '__main__':
     print(f'Count of degradations:')
     for deg_name, count in zip(deg_choices, deg_counts):
         print(f'\t* {deg_name}: {int(count)}')
-
-    print(f'\nThe data used as input is contained in {ARGS.input_dir}')
 
     print(f'\nYou will find the generated data at {ARGS.output_dir} '
           'with subdirectories')
