@@ -378,6 +378,7 @@ if __name__ == '__main__':
         if ARGS.verbose:
             print(f'Clearing stale data from {ARGS.output_dir}.')
         shutil.rmtree(ARGS.output_dir)
+    os.makedirs(ARGS.output_dir, exist_ok=True)
     for out_subdir in ['clean', 'altered']:
         output_dirs = [os.path.join(ARGS.output_dir, out_subdir, name)
                        for name in ds_names]
@@ -504,6 +505,7 @@ if __name__ == '__main__':
                     'clean_csv_path,split\n')
     for i, data in enumerate(tqdm(input_data, desc="Degrading data")):
         dataset, rel_path, file_path, note_df = data
+        rel_path = f'{rel_path[:-3]}csv'
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
         if np.sum(deg_counts) == 0: # First iteration, set to uniform
