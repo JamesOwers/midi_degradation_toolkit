@@ -7,14 +7,14 @@
 [pypi-image]: https://badge.fury.io/py/midi_degradation_toolkit.svg
 [pypi-url]: https://pypi.python.org/pypi/midi_degradation_toolkit -->
 
---------------------------------------------------------------------------------
 
 # mdtk - The MIDI Degradation Toolkit
 
-<!-- [![PyPI Version][pypi-image]][pypi-url] -->
 [![Build Status][build-image]][build-url]
-<!-- [![Docs Status][docs-image]][docs-url] -->
 [![Code Coverage][coverage-image]][coverage-url]
+<!-- [![PyPI Version][pypi-image]][pypi-url] -->
+<!-- [![Docs Status][docs-image]][docs-url] -->
+
 
 Tools to generate datasets of Altered and Corrupted MIDI Excerpts -`ACME`
 datasets.
