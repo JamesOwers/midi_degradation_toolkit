@@ -1,8 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-
 
 
 class Command_ErrorDetectionNet(nn.Module):
@@ -20,8 +19,16 @@ class Command_ErrorDetectionNet(nn.Module):
     the output, then Negative log likelihood calculation (this is more
     efficient and therefore I exclude a softmax layer from the model)
     """
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_size=2,
-                 dropout_prob=0.1, num_lstm_layers=1):
+
+    def __init__(
+        self,
+        vocab_size,
+        embedding_dim,
+        hidden_dim,
+        output_size=2,
+        dropout_prob=0.1,
+        num_lstm_layers=1,
+    ):
         super().__init__()
 
         self.embedding_dim = embedding_dim
@@ -29,16 +36,17 @@ class Command_ErrorDetectionNet(nn.Module):
         self.vocab_size = vocab_size
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim,
-                            num_layers=num_lstm_layers)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers=num_lstm_layers)
 
         self.hidden2out = nn.Linear(hidden_dim, output_size)
 
         self.dropout_layer = nn.Dropout(p=dropout_prob)
 
     def init_hidden(self, batch_size, device):
-        return (torch.randn(1, batch_size, self.hidden_dim, device=device),
-                torch.randn(1, batch_size, self.hidden_dim, device=device))
+        return (
+            torch.randn(1, batch_size, self.hidden_dim, device=device),
+            torch.randn(1, batch_size, self.hidden_dim, device=device),
+        )
 
     def forward(self, batch, input_lengths=None):
         if input_lengths is not None:
@@ -48,7 +56,7 @@ class Command_ErrorDetectionNet(nn.Module):
         device = batch.device
         self.hidden = self.init_hidden(batch_size, device=device)
         embeds = self.embedding(batch).permute(1, 0, 2)
-#        embeds = self.embedding(batch)
+        #        embeds = self.embedding(batch)
         outputs, (ht, ct) = self.lstm(embeds, self.hidden)
         # ht is the last hidden state of the sequences
         # ht = (1 x batch_size x hidden_dim)
@@ -61,7 +69,6 @@ class Command_ErrorDetectionNet(nn.Module):
         output = self.hidden2out(output)
 
         return output
-        
 
 
 class Command_ErrorClassificationNet(Command_ErrorDetectionNet):
@@ -72,13 +79,24 @@ class Command_ErrorClassificationNet(Command_ErrorDetectionNet):
     It's precisely the same network design as for task 1 - error detection,
     except this has a number of output classes (9 for ACME1.0).
     """
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_size=9,
-                 dropout_prob=0.1, num_lstm_layers=1):
-        super().__init__(vocab_size=vocab_size, embedding_dim=embedding_dim,
-                         hidden_dim=hidden_dim, output_size=output_size,
-                         dropout_prob=dropout_prob,
-                         num_lstm_layers=num_lstm_layers)
 
+    def __init__(
+        self,
+        vocab_size,
+        embedding_dim,
+        hidden_dim,
+        output_size=9,
+        dropout_prob=0.1,
+        num_lstm_layers=1,
+    ):
+        super().__init__(
+            vocab_size=vocab_size,
+            embedding_dim=embedding_dim,
+            hidden_dim=hidden_dim,
+            output_size=output_size,
+            dropout_prob=dropout_prob,
+            num_lstm_layers=num_lstm_layers,
+        )
 
 
 class Pianoroll_ErrorLocationNet(nn.Module):
@@ -95,14 +113,27 @@ class Pianoroll_ErrorLocationNet(nn.Module):
     
     The outputs and labels should be flattened when computing the CE Loss.
     """
-    def __init__(self, input_dim, hidden_dim, output_dim, layers=[],
-                 dropout_prob=0.1, num_lstm_layers=1):
+
+    def __init__(
+        self,
+        input_dim,
+        hidden_dim,
+        output_dim,
+        layers=[],
+        dropout_prob=0.1,
+        num_lstm_layers=1,
+    ):
         super().__init__()
-        
+
         self.hidden_dim = hidden_dim
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=num_lstm_layers,
-                            bidirectional=True, batch_first=True)
-        
+        self.lstm = nn.LSTM(
+            input_dim,
+            hidden_dim,
+            num_layers=num_lstm_layers,
+            bidirectional=True,
+            batch_first=True,
+        )
+
         current_dim = 2 * hidden_dim
         linear_list = []
         for dim in layers:
@@ -110,30 +141,30 @@ class Pianoroll_ErrorLocationNet(nn.Module):
             linear_list.append(nn.Linear(current_dim, dim))
             linear_list.append(nn.ELU())
             current_dim = dim
-        
+
         self.linears = nn.ModuleList(linear_list)
-        
+
         self.hidden2out = nn.Linear(current_dim, output_dim)
         self.dropout_layer = nn.Dropout(p=dropout_prob)
-        
+
     def init_hidden(self, batch_size, device):
-        return (torch.randn(2, batch_size, self.hidden_dim, device=device),
-                torch.randn(2, batch_size, self.hidden_dim, device=device))
-        
+        return (
+            torch.randn(2, batch_size, self.hidden_dim, device=device),
+            torch.randn(2, batch_size, self.hidden_dim, device=device),
+        )
+
     def forward(self, batch):
         batch_size = batch.shape[0]
         device = batch.device
-        output, _ = self.lstm(batch.float(),
-                              self.init_hidden(batch_size, device))
-        
+        output, _ = self.lstm(batch.float(), self.init_hidden(batch_size, device))
+
         for module in self.linears:
             output = module(output)
-        
+
         output = self.dropout_layer(output)
         output = self.hidden2out(output)
 
         return output
-
 
 
 class Pianoroll_ErrorCorrectionNet(nn.Module):
@@ -147,22 +178,38 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
     3) A 2nd Bi-LSTM to decode.
     4) Final output layers.
     """
-    def __init__(self, input_dim, hidden_dim, output_dim, layers=[],
-                 dropout_prob=0.1, num_lstm_layers=1):
+
+    def __init__(
+        self,
+        input_dim,
+        hidden_dim,
+        output_dim,
+        layers=[],
+        dropout_prob=0.1,
+        num_lstm_layers=1,
+    ):
         super().__init__()
-        
+
         self.hidden_dim = hidden_dim
-        self.encoder = nn.LSTM(input_dim, hidden_dim,
-                               num_layers=num_lstm_layers,
-                               bidirectional=True, batch_first=True)
-        
+        self.encoder = nn.LSTM(
+            input_dim,
+            hidden_dim,
+            num_layers=num_lstm_layers,
+            bidirectional=True,
+            batch_first=True,
+        )
+
         self.connector = nn.Linear(hidden_dim * 2, hidden_dim)
         self.connector_do = nn.Dropout(p=dropout_prob)
-        
-        self.decoder = nn.LSTM(hidden_dim, hidden_dim,
-                               num_layers=num_lstm_layers,
-                               bidirectional=True, batch_first=True)
-        
+
+        self.decoder = nn.LSTM(
+            hidden_dim,
+            hidden_dim,
+            num_layers=num_lstm_layers,
+            bidirectional=True,
+            batch_first=True,
+        )
+
         current_dim = 2 * hidden_dim
         linear_list = []
         for dim in layers:
@@ -170,31 +217,31 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
             linear_list.append(nn.Linear(current_dim, dim))
             linear_list.append(nn.ELU())
             current_dim = dim
-        
+
         self.linears = nn.ModuleList(linear_list)
-        
+
         self.hidden2out = nn.Linear(current_dim, output_dim)
         self.dropout_layer = nn.Dropout(p=dropout_prob)
 
     def init_hidden(self, batch_size, device):
-        return (torch.randn(2, batch_size, self.hidden_dim, device=device),
-                torch.randn(2, batch_size, self.hidden_dim, device=device))
+        return (
+            torch.randn(2, batch_size, self.hidden_dim, device=device),
+            torch.randn(2, batch_size, self.hidden_dim, device=device),
+        )
 
     def forward(self, batch, input_lengths):
         batch_size = batch.shape[0]
         device = batch.device
-        output, _ = self.encoder(batch.float(),
-                                 self.init_hidden(batch_size, device))
-        
+        output, _ = self.encoder(batch.float(), self.init_hidden(batch_size, device))
+
         output = self.connector_do(F.elu(self.connector(output)))
-        
-        output, _ = self.decoder(output,
-                                 self.init_hidden(batch_size, device))
-        
+
+        output, _ = self.decoder(output, self.init_hidden(batch_size, device))
+
         for module in self.linears:
             output = module(output)
-        
+
         output = self.dropout_layer(output)
         output = self.hidden2out(output)
-        
+
         return torch.sigmoid(output)

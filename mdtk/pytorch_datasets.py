@@ -1,27 +1,34 @@
 """classes to use in conjunction with pytorch dataloaders"""
-from torch.utils.data import Dataset
-import tqdm
-import torch
-import random
-import pandas as pd
-import numpy as np
 import os
+import random
 import warnings
 
-from mdtk.formatters import FORMATTERS
-from mdtk.degradations import MIN_PITCH_DEFAULT, MAX_PITCH_DEFAULT
+import numpy as np
+import pandas as pd
+import torch
+import tqdm
+from torch.utils.data import Dataset
 
+from mdtk.degradations import MAX_PITCH_DEFAULT, MIN_PITCH_DEFAULT
+from mdtk.formatters import FORMATTERS
 
 
 def transform_to_torchtensor(output):
     return {key: torch.tensor(value) for key, value in output.items()}
 
 
-
 # This is adapted from https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
 class CommandDataset(Dataset):
-    def __init__(self, corpus_path, vocab, seq_len, encoding="utf-8",
-                 corpus_lines=None, in_memory=True, transform=None):
+    def __init__(
+        self,
+        corpus_path,
+        vocab,
+        seq_len,
+        encoding="utf-8",
+        corpus_lines=None,
+        in_memory=True,
+        transform=None,
+    ):
         """
         Returns command-based data for ACME tasks.
 
@@ -69,7 +76,7 @@ class CommandDataset(Dataset):
         self.encoding = encoding
 
         self.transform = transform
-        self.formatter = FORMATTERS['command']
+        self.formatter = FORMATTERS["command"]
 
         with open(corpus_path, "r", encoding=encoding) as f:
             if self.corpus_lines is None and not in_memory:
@@ -77,9 +84,10 @@ class CommandDataset(Dataset):
                     self.corpus_lines += 1
 
             if in_memory:
-                self.lines = [line[:-1].split(",")
-                              for line in tqdm.tqdm(f, desc="Loading Dataset",
-                                                    total=corpus_lines)]
+                self.lines = [
+                    line[:-1].split(",")
+                    for line in tqdm.tqdm(f, desc="Loading Dataset", total=corpus_lines)
+                ]
                 self.corpus_lines = len(self.lines)
 
         if not in_memory:
@@ -99,39 +107,45 @@ class CommandDataset(Dataset):
         # Deg length and clipping
         deg_len = len(deg_cmd)
         if self.in_memory:
-            item_nr_str = f' {item}'
+            item_nr_str = f" {item}"
         else:
-            item_nr_str = ' <unknown>'
+            item_nr_str = " <unknown>"
         if deg_len > self.seq_len:
-            warnings.warn(f"Degraded command data point {item_nr_str} exceeds "
-                          f"given seq_len: {deg_len} > {self.seq_len}. "
-                          "Clipping.")
+            warnings.warn(
+                f"Degraded command data point {item_nr_str} exceeds "
+                f"given seq_len: {deg_len} > {self.seq_len}. "
+                "Clipping."
+            )
             deg_len = self.seq_len
-            deg_cmd = deg_cmd[:self.seq_len]
+            deg_cmd = deg_cmd[: self.seq_len]
         # Clean length and clipping
         clean_len = len(clean_cmd)
         if clean_len > self.seq_len:
-            warnings.warn(f"Clean command data point {item_nr_str} exceeds "
-                          f"given seq_len: {clean_len} > {self.seq_len}. "
-                          "Clipping.")
+            warnings.warn(
+                f"Clean command data point {item_nr_str} exceeds "
+                f"given seq_len: {clean_len} > {self.seq_len}. "
+                "Clipping."
+            )
             clean_len = self.seq_len
-            clean_cmd = clean_cmd[:self.seq_len]
+            clean_cmd = clean_cmd[: self.seq_len]
 
         # Command padding
-        deg_cmd += [self.vocab.pad_index for _ in 
-                    range(self.seq_len - len(deg_cmd))]
-        clean_cmd += [self.vocab.pad_index for _ in 
-                      range(self.seq_len - len(clean_cmd))]
+        deg_cmd += [self.vocab.pad_index for _ in range(self.seq_len - len(deg_cmd))]
+        clean_cmd += [
+            self.vocab.pad_index for _ in range(self.seq_len - len(clean_cmd))
+        ]
 
-        output = {self.formatter['deg_label']: deg_cmd,
-                  self.formatter['clean_label']: clean_cmd,
-                  self.formatter['task_labels'][0]: deg_num,
-                  'deg_len': deg_len,
-                  'clean_len': clean_len}
+        output = {
+            self.formatter["deg_label"]: deg_cmd,
+            self.formatter["clean_label"]: clean_cmd,
+            self.formatter["task_labels"][0]: deg_num,
+            "deg_len": deg_len,
+            "clean_len": clean_len,
+        }
 
         if self.transform is not None:
             output = self.transform(output)
-        return output 
+        return output
 
     def tokenize_sentence(self, sentence):
         tokens = sentence.split()
@@ -154,12 +168,19 @@ class CommandDataset(Dataset):
             return deg_cmd, clean_cmd, deg_num
 
 
-
 # This is adapted from https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
 class PianorollDataset(Dataset):
-    def __init__(self, corpus_path, seq_len, min_pitch=MIN_PITCH_DEFAULT,
-                 max_pitch=MAX_PITCH_DEFAULT, encoding="utf-8",
-                 corpus_lines=None, in_memory=True, transform=None):
+    def __init__(
+        self,
+        corpus_path,
+        seq_len,
+        min_pitch=MIN_PITCH_DEFAULT,
+        max_pitch=MAX_PITCH_DEFAULT,
+        encoding="utf-8",
+        corpus_lines=None,
+        in_memory=True,
+        transform=None,
+    ):
         """
         Returns piano-roll-based data for ACME tasks.
 
@@ -209,7 +230,7 @@ class PianorollDataset(Dataset):
         self.encoding = encoding
 
         self.transform = transform
-        self.formatter = FORMATTERS['pianoroll']
+        self.formatter = FORMATTERS["pianoroll"]
 
         with open(corpus_path, "r", encoding=encoding) as f:
             if self.corpus_lines is None and not in_memory:
@@ -217,9 +238,10 @@ class PianorollDataset(Dataset):
                     self.corpus_lines += 1
 
             if in_memory:
-                self.lines = [line[:-1].split(",")
-                              for line in tqdm.tqdm(f, desc="Loading Dataset",
-                                                    total=corpus_lines)]
+                self.lines = [
+                    line[:-1].split(",")
+                    for line in tqdm.tqdm(f, desc="Loading Dataset", total=corpus_lines)
+                ]
                 self.corpus_lines = len(self.lines)
 
         if not in_memory:
@@ -233,36 +255,48 @@ class PianorollDataset(Dataset):
         deg_num = int(deg_num)
         deg_len, deg_pr = self.get_full_pr(deg_pr)
         clean_len, clean_pr = self.get_full_pr(clean_pr)
-        changed_frames = np.array([int(np.any(deg != clean))
-                                   for deg, clean in zip(deg_pr, clean_pr)])
+        changed_frames = np.array(
+            [int(np.any(deg != clean)) for deg, clean in zip(deg_pr, clean_pr)]
+        )
 
-        output = {self.formatter['deg_label']: deg_pr,
-                  self.formatter['clean_label']: clean_pr,
-                  self.formatter['task_labels'][0]: deg_num,
-                  self.formatter['task_labels'][2]: changed_frames,
-                  'deg_len': deg_len,
-                  'clean_len': clean_len}
+        output = {
+            self.formatter["deg_label"]: deg_pr,
+            self.formatter["clean_label"]: clean_pr,
+            self.formatter["task_labels"][0]: deg_num,
+            self.formatter["task_labels"][2]: changed_frames,
+            "deg_len": deg_len,
+            "clean_len": clean_len,
+        }
 
         if self.transform is not None:
             output = self.transform(output)
-        return output 
+        return output
 
     def get_full_pr(self, pr):
         note_pr = np.zeros((self.seq_len, 128))
         onset_pr = np.zeros((self.seq_len, 128))
-        frames = pr.split('/')
+        frames = pr.split("/")
         if len(frames) > self.seq_len:
-            warnings.warn("Pianoroll data point exceeds given seq_len: "
-                          f"{len(frames)} > {self.seq_len}. Clipping.")
-            frames = frames[:self.seq_len]
+            warnings.warn(
+                "Pianoroll data point exceeds given seq_len: "
+                f"{len(frames)} > {self.seq_len}. Clipping."
+            )
+            frames = frames[: self.seq_len]
         for frame_num, frame in enumerate(frames):
-            note_pitches, onset_pitches = frame.split('_')
-            if note_pitches != '':
-                note_pr[frame_num, list(map(int, note_pitches.split(' ')))] = 1
-            if onset_pitches != '':
-                onset_pr[frame_num, list(map(int, onset_pitches.split(' ')))] = 1
-        return len(frames), np.hstack((note_pr[:, self.min_pitch:self.max_pitch+1],
-                                       onset_pr[:, self.min_pitch:self.max_pitch+1]))
+            note_pitches, onset_pitches = frame.split("_")
+            if note_pitches != "":
+                note_pr[frame_num, list(map(int, note_pitches.split(" ")))] = 1
+            if onset_pitches != "":
+                onset_pr[frame_num, list(map(int, onset_pitches.split(" ")))] = 1
+        return (
+            len(frames),
+            np.hstack(
+                (
+                    note_pr[:, self.min_pitch : self.max_pitch + 1],
+                    onset_pr[:, self.min_pitch : self.max_pitch + 1],
+                )
+            ),
+        )
 
     def get_corpus_line(self, item):
         if self.in_memory:

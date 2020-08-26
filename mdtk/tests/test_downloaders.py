@@ -2,14 +2,16 @@ import os
 import shutil
 import urllib
 
-from mdtk.downloaders import (PPDDSep2018Monophonic, PianoMidi,
-                              PPDDSep2018Polyphonic, make_directory)
+from mdtk.downloaders import (
+    PianoMidi,
+    PPDDSep2018Monophonic,
+    PPDDSep2018Polyphonic,
+    make_directory,
+)
 
-
-DOWNLOADERS = [PPDDSep2018Monophonic, PPDDSep2018Polyphonic,
-               PianoMidi]
-USER_HOME = os.path.expanduser('~')
-TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
+DOWNLOADERS = [PPDDSep2018Monophonic, PPDDSep2018Polyphonic, PianoMidi]
+USER_HOME = os.path.expanduser("~")
+TEST_CACHE_PATH = os.path.join(USER_HOME, ".mdtk_test_cache")
 
 
 def test_make_directory():
@@ -30,27 +32,26 @@ def test_links_exist():
 
 
 def test_PPDDSep2018Monophonic_download_midi():
-    downloader = PPDDSep2018Monophonic(cache_path=TEST_CACHE_PATH,
-                                        sizes=['small', 'medium'])
-    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name,
-                               'midi')
+    downloader = PPDDSep2018Monophonic(
+        cache_path=TEST_CACHE_PATH, sizes=["small", "medium"]
+    )
+    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name, "midi")
     downloader.download_midi(output_path)
     assert len(os.listdir(output_path)) == 1100
 
 
 def test_PPDDSep2018Polyphonic_download_midi():
-    downloader = PPDDSep2018Polyphonic(cache_path=TEST_CACHE_PATH,
-                                        sizes=['small', 'medium'])
-    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name,
-                               'midi')
+    downloader = PPDDSep2018Polyphonic(
+        cache_path=TEST_CACHE_PATH, sizes=["small", "medium"]
+    )
+    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name, "midi")
     downloader.download_midi(output_path)
     assert len(os.listdir(output_path)) == 1100
 
 
 def test_PianoMidi_download_midi():
     downloader = PianoMidi(cache_path=TEST_CACHE_PATH)
-    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name,
-                               'midi')
+    output_path = os.path.join(TEST_CACHE_PATH, downloader.dataset_name, "midi")
     downloader.download_midi(output_path)
     assert len(os.listdir(output_path)) == 328
 
@@ -65,17 +66,19 @@ def test_cleanup():
     assert os.path.exists(TEST_CACHE_PATH)
     assert len(os.listdir(TEST_CACHE_PATH)) == 0
     shutil.rmtree(TEST_CACHE_PATH)
-#    
-    
-    
-#def test_working_dir():
+
+
+#
+
+
+# def test_working_dir():
 #    cwd = os.getcwd()
 #    assert (os.path.basename(cwd) == 'melody_gen' and
 #            os.path.exists(os.path.join(cwd, 'LICENSE'))), ("Please run tests "
 #            f"from the project root directory. Currently running from {cwd}")
 
 
-#def get_random_csv_filepath(seed=None, size=None, part=None):
+# def get_random_csv_filepath(seed=None, size=None, part=None):
 #    if seed:
 #        np.random.seed(seed)
 #    if size is None:
@@ -87,7 +90,7 @@ def test_cleanup():
 #    return np.random.choice(glob(f"{csv_dir}/*.csv"))
 #
 #
-#class RandomFilepath:
+# class RandomFilepath:
 #    """Convenience class such that you can create a 'variable' which returns
 #    a random file path every time it is called e.g.
 #        random_path = RandomFilepath()
@@ -103,17 +106,17 @@ def test_cleanup():
 #        return get_random_csv_filepath()
 
 
-#random_path = RandomFilepath()
+# random_path = RandomFilepath()
 
 
-#def get_random_compositions(nr_comps=1, **kwargs):
+# def get_random_compositions(nr_comps=1, **kwargs):
 #    if nr_comps == 1:
 #        return Composition(csv_path=str(random_path), **kwargs)
 #    return [Composition(csv_path=str(random_path), **kwargs)
 #            for ii in range(nr_comps)]
 
 
-#def test_data_has_been_downloaded():
+# def test_data_has_been_downloaded():
 #    print(os.path.dirname(os.path.realpath(__file__)))
 #    sizes = ['small', 'medium', 'large']
 #    parts = ['prime', 'cont_foil', 'cont_true']
@@ -125,14 +128,14 @@ def test_cleanup():
 #                (f"Could not find data at {path}. Please consult "
 #                 "README.md.")
 
-#def test_monophonic():
+# def test_monophonic():
 #    compositions = [comp for comp in
 #                    get_random_compositions(10, monophonic=True)]
 #    for comp in compositions:
 #        assert np.sum(comp.pianoroll[:, :, 0]) == comp.pianoroll.shape[1]
 
 
-#def test_all_composition_methods_and_attributes_with_random_files():
+# def test_all_composition_methods_and_attributes_with_random_files():
 #    compositions = [comp for comp in get_random_compositions(10)]
 #    for comp in compositions:
 #        comp.csv_path

@@ -4,20 +4,21 @@ import warnings
 from glob import glob
 
 import pandas as pd
+import pretty_midi
 from tqdm import tqdm
 
-import pretty_midi
-
 from mdtk.df_utils import NOTE_DF_SORT_ORDER, clean_df
-
-
 
 COLNAMES = NOTE_DF_SORT_ORDER
 
 
-
-def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False,
-                    single_track=False, non_overlapping=False):
+def midi_dir_to_csv(
+    midi_dir_path,
+    csv_dir_path,
+    recursive=False,
+    single_track=False,
+    non_overlapping=False,
+):
     """
     Convert an entire directory of MIDI files into csvs in another directory.
     This searches the given MIDI path for any files with the extension 'mid'.
@@ -52,28 +53,32 @@ def midi_dir_to_csv(midi_dir_path, csv_dir_path, recursive=False,
     """
     if recursive:
         dir_prefix_len = len(midi_dir_path) + 1
-        midi_dir_path = os.path.join(midi_dir_path, '**')
-    for midi_path in tqdm(glob(os.path.join(midi_dir_path, '*.mid')),
-                          desc='Converting midi from '
-                          f'{os.path.basename(midi_dir_path)} to csv '
-                          f'at {os.path.basename(csv_dir_path)}: '):
+        midi_dir_path = os.path.join(midi_dir_path, "**")
+    for midi_path in tqdm(
+        glob(os.path.join(midi_dir_path, "*.mid")),
+        desc="Converting midi from "
+        f"{os.path.basename(midi_dir_path)} to csv "
+        f"at {os.path.basename(csv_dir_path)}: ",
+    ):
         if recursive:
             csv_path = os.path.join(
                 csv_dir_path,
                 os.path.dirname(midi_path[dir_prefix_len:]),
-                os.path.basename(midi_path[:-3] + 'csv')
+                os.path.basename(midi_path[:-3] + "csv"),
             )
         else:
             csv_path = os.path.join(
-                csv_dir_path,
-                os.path.basename(midi_path[:-3] + 'csv')
+                csv_dir_path, os.path.basename(midi_path[:-3] + "csv")
             )
-        midi_to_csv(midi_path, csv_path, single_track=single_track,
-                    non_overlapping=non_overlapping)
+        midi_to_csv(
+            midi_path,
+            csv_path,
+            single_track=single_track,
+            non_overlapping=non_overlapping,
+        )
 
 
-def midi_to_csv(midi_path, csv_path, single_track=False,
-                non_overlapping=False):
+def midi_to_csv(midi_path, csv_path, single_track=False, non_overlapping=False):
     """
     Convert a MIDI file into a csv file.
 
@@ -97,8 +102,12 @@ def midi_to_csv(midi_path, csv_path, single_track=False,
         sustained note present in the input, there will be a sustained note
         in the created csv. Likewise for any point with a note onset.
     """
-    df_to_csv(midi_to_df(midi_path, single_track=single_track,
-                         non_overlapping=non_overlapping), csv_path)
+    df_to_csv(
+        midi_to_df(
+            midi_path, single_track=single_track, non_overlapping=non_overlapping
+        ),
+        csv_path,
+    )
 
 
 def midi_to_df(midi_path, single_track=False, non_overlapping=False):
@@ -135,25 +144,32 @@ def midi_to_df(midi_path, single_track=False, non_overlapping=False):
     try:
         midi = pretty_midi.PrettyMIDI(midi_path)
     except:
-        warnings.warn(f'Error parsing midi file {midi_path}. Skipping.')
+        warnings.warn(f"Error parsing midi file {midi_path}. Skipping.")
         return None
 
     notes = []
     for index, instrument in enumerate(midi.instruments):
         for note in instrument.notes:
-            notes.append({'onset': int(round(note.start * 1000)),
-                          'track': index,
-                          'pitch': note.pitch,
-                          'dur': int(round(note.end * 1000) -
-                                     round(note.start * 1000))})
+            notes.append(
+                {
+                    "onset": int(round(note.start * 1000)),
+                    "track": index,
+                    "pitch": note.pitch,
+                    "dur": int(round(note.end * 1000) - round(note.start * 1000)),
+                }
+            )
 
     if len(notes) == 0:
-        warnings.warn(f'WARNING: the midi file located at {midi_path} is '
-                       'empty. Returning None.', category=UserWarning)
+        warnings.warn(
+            f"WARNING: the midi file located at {midi_path} is "
+            "empty. Returning None.",
+            category=UserWarning,
+        )
         return None
 
-    df = clean_df(pd.DataFrame(notes), single_track=single_track,
-                  non_overlapping=non_overlapping)
+    df = clean_df(
+        pd.DataFrame(notes), single_track=single_track, non_overlapping=non_overlapping
+    )
 
     return df
 
@@ -190,15 +206,20 @@ def csv_to_df(csv_path, single_track=False, non_overlapping=False):
     """
     df = pd.read_csv(csv_path, names=NOTE_DF_SORT_ORDER)
 
-    df = clean_df(df, single_track=single_track,
-                  non_overlapping=non_overlapping)
+    df = clean_df(df, single_track=single_track, non_overlapping=non_overlapping)
 
     return df
 
 
-def csv_to_midi(csv_path, midi_path, existing_midi_path=None, excerpt_start=0,
-                excerpt_length=float('Inf'), single_track=False,
-                non_overlapping=False):
+def csv_to_midi(
+    csv_path,
+    midi_path,
+    existing_midi_path=None,
+    excerpt_start=0,
+    excerpt_length=float("Inf"),
+    single_track=False,
+    non_overlapping=False,
+):
     """
     Write the notes of a csv out to a MIDI file.
 
@@ -238,11 +259,15 @@ def csv_to_midi(csv_path, midi_path, existing_midi_path=None, excerpt_start=0,
         sustained note present in the input, there will be a sustained note
         in the created midi file. Likewise for any point with a note onset.
     """
-    df = csv_to_df(csv_path, single_track=single_track,
-                   non_overlapping=non_overlapping)
+    df = csv_to_df(csv_path, single_track=single_track, non_overlapping=non_overlapping)
 
-    df_to_midi(df, midi_path, existing_midi_path=existing_midi_path,
-               excerpt_start=excerpt_start, excerpt_length=excerpt_length)
+    df_to_midi(
+        df,
+        midi_path,
+        existing_midi_path=existing_midi_path,
+        excerpt_start=excerpt_start,
+        excerpt_length=excerpt_length,
+    )
 
 
 def df_to_csv(df, csv_path):
@@ -275,8 +300,9 @@ def df_to_csv(df, csv_path):
     df[COLNAMES].to_csv(csv_path, index=None, header=False)
 
 
-def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
-               excerpt_length=float('Inf')):
+def df_to_midi(
+    df, midi_path, existing_midi_path=None, excerpt_start=0, excerpt_length=float("Inf")
+):
     """
     Write the notes of a DataFrame out to a MIDI file.
 
@@ -324,8 +350,7 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
         # Write to instrument tracks in order parsed by pretty_midi
         for i, instrument in enumerate(existing_midi.instruments):
             instruments[i] = pretty_midi.Instrument(
-                instrument.program, is_drum=instrument.is_drum,
-                name=instrument.name
+                instrument.program, is_drum=instrument.is_drum, name=instrument.name
             )
 
             # Copy all non-note events
@@ -334,10 +359,9 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
 
             # Copy all valid notes
             instruments[i].notes = [
-                note for note in instrument.notes if (
-                    note.start < excerpt_start_secs or
-                    note.start >= excerpt_end_secs
-                )
+                note
+                for note in instrument.notes
+                if (note.start < excerpt_start_secs or note.start >= excerpt_end_secs)
             ]
 
     # Create tracks for those not covered by the existing MIDI file
@@ -355,14 +379,15 @@ def df_to_midi(df, midi_path, existing_midi_path=None, excerpt_start=0,
     ]
 
     # Compute start and end time of notes in seconds as pretty_midi expects
-    df.loc[:, 'start'] = df.onset / 1000 + excerpt_start_secs
-    df.loc[:, 'end'] = df.start + df.dur / 1000
+    df.loc[:, "start"] = df.onset / 1000 + excerpt_start_secs
+    df.loc[:, "end"] = df.start + df.dur / 1000
 
     # Add df notes to midi object
     for note in df.itertuples():
-        midi_note = pretty_midi.Note(velocity=100, pitch=note.pitch,
-                                     start=note.start, end=note.end)
+        midi_note = pretty_midi.Note(
+            velocity=100, pitch=note.pitch, start=note.start, end=note.end
+        )
         instruments[int(note.track)].notes.append(midi_note)
 
-    df.drop(columns=['start', 'end'], axis=1, inplace=True)
+    df.drop(columns=["start", "end"], axis=1, inplace=True)
     midi.write(midi_path)

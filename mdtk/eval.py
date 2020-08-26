@@ -1,6 +1,6 @@
 """Module containing methods to evaluate performance on Error Correction"""
-from mir_eval.transcription import precision_recall_f1_overlap
 import numpy as np
+from mir_eval.transcription import precision_recall_f1_overlap
 
 
 def ErrorDetection(outputs, targets):
@@ -123,15 +123,17 @@ def ErrorCorrection(corrected_df, degraded_df, clean_df, time_increment=40):
         The average of the degraded_df's framewise F-measure and its notewise
         F-measure, when compared to the clean_df.
     """
-    corrected_fm = get_combined_fmeasure(corrected_df, clean_df,
-                                         time_increment=time_increment)
+    corrected_fm = get_combined_fmeasure(
+        corrected_df, clean_df, time_increment=time_increment
+    )
 
     # Quick exit on border cases
     if corrected_fm == 0 or corrected_fm == 1 or degraded_df.equals(clean_df):
         return corrected_fm, corrected_fm
 
-    degraded_fm = get_combined_fmeasure(degraded_df, clean_df,
-                                        time_increment=time_increment)
+    degraded_fm = get_combined_fmeasure(
+        degraded_df, clean_df, time_increment=time_increment
+    )
 
     if corrected_fm < degraded_fm:
         h = 0.5 * corrected_fm / degraded_fm
@@ -139,6 +141,8 @@ def ErrorCorrection(corrected_df, degraded_df, clean_df, time_increment=40):
         h = 1 - 0.5 * (1 - corrected_fm) / (1 - degraded_fm)
 
     return h, corrected_fm
+
+
 helpfulness = ErrorCorrection
 
 
@@ -189,31 +193,34 @@ def get_framewise_f_measure(df, gt_df, time_increment=40):
     f_measure : float
         The framewise f_measure of the given dataframe.
     """
-    gt_quant_df = gt_df.loc[:, ['pitch']]
-    gt_quant_df['onset'] = (gt_df['onset'] / time_increment).round().astype(int)
-    gt_quant_df['offset'] = (((gt_df['onset'] + gt_df['dur']) / time_increment)
-                             .round().astype(int)
-                             .clip(lower=gt_quant_df['onset'] + 1))
+    gt_quant_df = gt_df.loc[:, ["pitch"]]
+    gt_quant_df["onset"] = (gt_df["onset"] / time_increment).round().astype(int)
+    gt_quant_df["offset"] = (
+        ((gt_df["onset"] + gt_df["dur"]) / time_increment)
+        .round()
+        .astype(int)
+        .clip(lower=gt_quant_df["onset"] + 1)
+    )
 
-    quant_df = df.loc[:, ['pitch']]
-    quant_df['onset'] = (df['onset'] / time_increment).round().astype(int)
-    quant_df['offset'] = (((df['onset'] + df['dur']) / time_increment)
-                          .round().astype(int).clip(lower=quant_df['onset'] + 1))
+    quant_df = df.loc[:, ["pitch"]]
+    quant_df["onset"] = (df["onset"] / time_increment).round().astype(int)
+    quant_df["offset"] = (
+        ((df["onset"] + df["dur"]) / time_increment)
+        .round()
+        .astype(int)
+        .clip(lower=quant_df["onset"] + 1)
+    )
 
     # Create piano rolls
-    length = int(max(1,
-                     quant_df['offset'].max(),
-                     gt_quant_df['offset'].max()))
-    max_pitch = int(max(1,
-                        quant_df['pitch'].max(),
-                        gt_quant_df['pitch'].max()) + 1)
+    length = int(max(1, quant_df["offset"].max(), gt_quant_df["offset"].max()))
+    max_pitch = int(max(1, quant_df["pitch"].max(), gt_quant_df["pitch"].max()) + 1)
     pr = np.zeros((length, max_pitch))
     for _, note in quant_df.iterrows():
-        pr[note.onset:note.offset, note.pitch] = 1
+        pr[note.onset : note.offset, note.pitch] = 1
 
     gt_pr = np.zeros((length, max_pitch))
     for _, note in gt_quant_df.iterrows():
-        gt_pr[note.onset:note.offset, note.pitch] = 1
+        gt_pr[note.onset : note.offset, note.pitch] = 1
 
     tp = np.sum(np.logical_and(gt_pr, pr))
     fp = np.sum(pr) - tp
@@ -244,16 +251,21 @@ def get_notewise_f_measure(df, gt_df):
     f_measure : float
         The notewise f_measure of the given dataframe, using mir_eval.
     """
-    gt_pitches = np.array(gt_df['pitch'])
-    gt_times = np.vstack((gt_df['onset'], gt_df['onset'] + gt_df['dur'])).T
+    gt_pitches = np.array(gt_df["pitch"])
+    gt_times = np.vstack((gt_df["onset"], gt_df["onset"] + gt_df["dur"])).T
 
-    pitches = np.array(df['pitch'])
-    times = np.vstack((df['onset'], df['onset'] + df['dur'])).T
+    pitches = np.array(df["pitch"])
+    times = np.vstack((df["onset"], df["onset"] + df["dur"])).T
 
-    _, _, fm, _ = precision_recall_f1_overlap(gt_times, gt_pitches, times,
-                                              pitches, onset_tolerance=50,
-                                              pitch_tolerance=0,
-                                              offset_ratio=None)
+    _, _, fm, _ = precision_recall_f1_overlap(
+        gt_times,
+        gt_pitches,
+        times,
+        pitches,
+        onset_tolerance=50,
+        pitch_tolerance=0,
+        offset_ratio=None,
+    )
     return fm
 
 
