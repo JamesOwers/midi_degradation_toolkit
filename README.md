@@ -23,7 +23,7 @@ onset,track,pitch,dur
 where:
 * `onset` is the time in milliseconds when a note began,
 * `track` is the identifier for a distinct track in the midi file,
-* `pitch` is the midinote pitch number ranging from 0 (C-2) to 127 (G9) (concert 
+* `pitch` is the midinote pitch number ranging from 0 (C-2) to 127 (G9) (concert
   A4 is midinote 69), and
 * `dur` is how long the note is held in milliseconds.
 
@@ -51,7 +51,7 @@ Some highlights include:
 * [`./baselines`](./baselines) - scripts for running the baseline models
   included in the paper (available upon request)
 
-For more information about mdtk modules, see the package readme: 
+For more information about mdtk modules, see the package readme:
 [`./mdtk/README.md`](./mdtk/README.md)
 
 ## Install
@@ -70,7 +70,6 @@ pip install .  # use pip install -e . for dev mode if you want to edit files
 ```
 
 ## Quickstart
-
 To generate an `ACME` dataset simply install the package with instructions
 above and run `./make_dataset.py`.
 
@@ -80,3 +79,14 @@ and a directory of ground truth files (in mid or csv format). The ground truth
 and corresponding transcription should be named the exact same thing.
 
 See `measure_errors_example.ipynb` for an example of the script's usage.
+
+
+## Contributors
+If you would like to contribute, please install in developer mode and use the dev option
+when installing the package. Additionally, please run `pre-commit install` to
+automatically run pre-commit hooks.
+
+```bash
+pip install -e ${path_to_repo}[dev]
+pre-commit install
+```

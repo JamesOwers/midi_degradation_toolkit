@@ -1,12 +1,8 @@
-"""Utility functions and fields for dealing with note_dfs in mdtk format.
-"""
-import itertools
-
-import pandas as pd
+"""Utility functions and fields for dealing with note_dfs in mdtk format."""
 import numpy as np
+import pandas as pd
 
-
-NOTE_DF_SORT_ORDER = ['onset', 'track', 'pitch', 'dur']
+NOTE_DF_SORT_ORDER = ["onset", "track", "pitch", "dur"]
 
 
 def clean_df(df, single_track=False, non_overlapping=False):
@@ -38,7 +34,7 @@ def clean_df(df, single_track=False, non_overlapping=False):
         A cleaned version of the given df, as described.
     """
     if single_track:
-        df = df.assign(track=0) # Assign creates a copy so input is not changed
+        df = df.assign(track=0)  # Assign creates a copy so input is not changed
 
     if non_overlapping:
         df = remove_pitch_overlaps(df)
@@ -76,34 +72,39 @@ def remove_pitch_overlaps(df):
     df = df.sort_values(by=NOTE_DF_SORT_ORDER).reset_index(drop=True)
 
     # We'll work with offsets here, and fix dur at the end
-    df['offset'] = df['onset'] + df['dur']
-    offset = df['offset'].copy()
+    df["offset"] = df["onset"] + df["dur"]
+    offset = df["offset"].copy()
 
-    for track, track_df in df.groupby('track'):
+    for track, track_df in df.groupby("track"):
         if len(track_df) < 2:
             continue
 
-        for pitch, pitch_df in track_df.groupby('pitch'):
+        for pitch, pitch_df in track_df.groupby("pitch"):
             if len(pitch_df) < 2:
                 continue
 
             # Each note's offset will go to the latest offset so far,
             # or be cut at the next note's onset
-            cum_max = pitch_df['offset'].cummax()
+            cum_max = pitch_df["offset"].cummax()
             offset.loc[pitch_df.index] = cum_max.clip(
-                upper=pitch_df['onset'].shift(-1, fill_value=cum_max.iloc[-1])
+                upper=pitch_df["onset"].shift(-1, fill_value=cum_max.iloc[-1])
             )
 
     # Fix dur based on offsets and remove offset column
-    df['dur'] = offset - df['onset']
-    df = df.loc[df['dur'] != 0, ['onset', 'track', 'pitch', 'dur']]
+    df["dur"] = offset - df["onset"]
+    df = df.loc[df["dur"] != 0, ["onset", "track", "pitch", "dur"]]
     df = df.reset_index(drop=True)
 
     return df
 
 
-def get_random_excerpt(note_df, min_notes=10, excerpt_length=5000,
-                       first_onset_range=(0, 200), iterations=10):
+def get_random_excerpt(
+    note_df,
+    min_notes=10,
+    excerpt_length=5000,
+    first_onset_range=(0, 200),
+    iterations=10,
+):
     """
     Take a random excerpt from the given note_df, using np.random. The excerpt
     is created as follows:
@@ -150,12 +151,13 @@ def get_random_excerpt(note_df, min_notes=10, excerpt_length=5000,
         return None
 
     for _ in range(iterations):
-        note_index = np.random.choice(list(note_df.index.values)
-                                      [:-min_notes])
-        first_onset = note_df.loc[note_index]['onset']
+        note_index = np.random.choice(list(note_df.index.values)[:-min_notes])
+        first_onset = note_df.loc[note_index]["onset"]
         excerpt = pd.DataFrame(
-            note_df.loc[note_df['onset'].between(
-                first_onset, first_onset + excerpt_length)])
+            note_df.loc[
+                note_df["onset"].between(first_onset, first_onset + excerpt_length)
+            ]
+        )
 
         # Check for validity of excerpt
         if len(excerpt) < min_notes:
@@ -167,6 +169,6 @@ def get_random_excerpt(note_df, min_notes=10, excerpt_length=5000,
         return None
 
     onset_shift = np.random.randint(first_onset_range[0], first_onset_range[1])
-    excerpt['onset'] += onset_shift - first_onset
+    excerpt["onset"] += onset_shift - first_onset
     excerpt = excerpt.reset_index(drop=True)
     return excerpt
