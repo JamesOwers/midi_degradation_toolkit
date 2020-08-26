@@ -10,11 +10,11 @@ jobs:
 # command to install dependencies
 before_install:
   - python --version
-  - pip install codecov
 install:
   - pip install .
-# command to run tests
+# command to run tests - the required packages, pytest-runner, pytest, and pytest-cov
+# are installed as configured in setup.cfg under setup_requires and tests_require
 script:
-  - pytest
+  - python setup.py test
 after_success:
   - codecov
