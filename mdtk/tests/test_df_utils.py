@@ -2,7 +2,7 @@ import itertools
 
 import pandas as pd
 
-from mdtk.df_utils import NOTE_DF_SORT_ORDER, remove_pitch_overlaps, clean_df
+from mdtk.df_utils import *
 
 
 CLEAN_INPUT_DF = pd.DataFrame({
@@ -60,7 +60,9 @@ def test_clean_df():
             'single_track': track,
             'non_overlapping': overlap
         }
+        prior = CLEAN_INPUT_DF.copy()
         res = clean_df(CLEAN_INPUT_DF, **kwargs)
+        assert CLEAN_INPUT_DF.equals(prior), "clean_df changed input df"
         assert res.equals(CLEAN_RES_DFS[track][overlap]), (
             f"clean_df result incorrect for args: {kwargs}"
         )
@@ -80,8 +82,65 @@ def test_remove_pitch_overlaps():
         'dur': [50, 25, 125, 50, 150, 50, 100, 100]
     })
 
+    prior = note_df_complex_overlap.copy()
     res = remove_pitch_overlaps(note_df_complex_overlap)
+    assert prior.equals(note_df_complex_overlap), ("remove_pitch_overlaps "
+                                                   "changed input df")
     assert note_df_complex_overlap_fixed.equals(res), (
         f"Complex overlap\n{note_df_complex_overlap}\nproduced\n{res}\n"
         f"instead of\n{note_df_complex_overlap_fixed}"
     )
+
+
+def test_get_random_excerpt():
+    NUM_NOTES = 50
+    NOTE_DURATION = 50
+    note_df = pd.DataFrame({
+        'onset': [NOTE_DURATION * i for i in range(NUM_NOTES)],
+        'track': 0,
+        'pitch': list(range(NUM_NOTES)),
+        'dur': NOTE_DURATION
+    })
+
+    # Normal usage
+    prior = note_df.copy()
+    for _ in range(50):
+        min_notes = 10
+        excerpt_length = (NUM_NOTES - 1) * NOTE_DURATION + 1 # All notes fit
+        start = 500
+        end = 600
+        excerpt = get_random_excerpt(
+            note_df, min_notes=min_notes, excerpt_length=excerpt_length,
+            first_onset_range=(start, end), iterations=1
+        )
+        assert prior.equals(note_df), "get_random_excerpt changed input df"
+        assert len(excerpt) >= min_notes, "Too few notes in excerpt"
+        assert excerpt.iloc[-1].pitch == NUM_NOTES - 1, ("Full excerpt_length "
+                                                         "not returned")
+        excerpt_start = excerpt.iloc[0].onset
+        assert start <= excerpt_start < end
+        assert all(excerpt['onset'].to_numpy() == [
+            excerpt_start + NOTE_DURATION * i for i in range(len(excerpt))
+        ]), "All note onsets did not shift correctly"
+
+    # Not enough iterations
+    assert get_random_excerpt(
+        note_df, min_notes=min_notes, excerpt_length=excerpt_length,
+        first_onset_range=(start, end), iterations=0
+    ) is None, "Did not return None with iterations=0"
+    assert prior.equals(note_df), "get_random_excerpt changed input df"
+
+    # Too large min_notes
+    assert get_random_excerpt(
+        note_df, min_notes=NUM_NOTES + 1, excerpt_length=excerpt_length,
+        first_onset_range=(start, end), iterations=100
+    ) is None, "Did not return None with min_notes too large"
+    assert prior.equals(note_df), "get_random_excerpt changed input df"
+
+    # Too short excerpt_length
+    excerpt_length = NOTE_DURATION * (min_notes - 1) - 1
+    assert get_random_excerpt(
+        note_df, min_notes=NUM_NOTES + 1, excerpt_length=excerpt_length,
+        first_onset_range=(start, end), iterations=100
+    ) is None, "Did not return None with excerpt_length too short"
+    assert prior.equals(note_df), "get_random_excerpt changed input df"

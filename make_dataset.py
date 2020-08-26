@@ -8,12 +8,14 @@ import warnings
 import pandas as pd
 import shutil
 from glob import glob
+from zipfile import BadZipfile
 
 import numpy as np
 from tqdm import tqdm
 
 from mdtk import degradations, downloaders, fileio
-from mdtk.filesystem_utils import make_directory, copy_file
+from mdtk.df_utils import get_random_excerpt
+from mdtk.filesystem_utils import make_directory
 from mdtk.formatters import create_corpus_csvs, FORMATTERS
 
 def print_warn_msg_only(message, category, filename, lineno, file=None,
@@ -73,6 +75,40 @@ def parse_degradation_kwargs(kwarg_dict):
     return func_kwargs
 
 
+def clean_download_cache(dir_path=downloaders.DEFAULT_CACHE_PATH, prompt=True):
+    """
+    Delete the download cache directory and all files in it.
+
+    Parameters
+    ----------
+    dir_path : str
+        The path to the download cache base directory.
+
+    prompt : bool
+        Prompt the user before deleting.
+
+    Returns
+    -------
+    clean_ok : bool
+        True if the cache has been cleaned and deleted successfully, the cache
+        dir doesn't exist, or the user chooses not to delete it at the prompt.
+        False otherwise.
+    """
+    if not os.path.exists(dir_path):
+        print(f"Download cache ({dir_path}) is clear and deleted already.")
+        return True
+
+    if prompt:
+        response = input(f"Delete download cache ({dir_path})? [y/N]: ")
+
+    if (not prompt) or response in ['y', 'ye', 'yes']:
+        try:
+            shutil.rmtree(dir_path)
+        except:
+            print("Could not delete download cache. Please do so manually.")
+            return False
+    return True
+
 
 def parse_args(args_input=None):
     """Convenience function for parsing user supplied command line args"""
@@ -84,9 +120,6 @@ def parse_args(args_input=None):
     parser.add_argument('-o', '--output-dir', type=str, default=default_outdir,
                         help='the directory to write the dataset to.')
     default_indir = os.path.join(os.getcwd(), 'input_data')
-    parser.add_argument('-i', '--input-dir', type=str, default=default_indir,
-                        help='the directory to store the preprocessed '
-                        'downloaded data to.')
     parser.add_argument('--config', default=None, help='Load a json config '
                         'file, in the format created by measure_errors.py. '
                         'This will override --degradations, --degradation-'
@@ -97,9 +130,6 @@ def parse_args(args_input=None):
                         f' {list(FORMATTERS.keys())}. Specify none to avoid '
                         'creation', nargs='*', default=list(FORMATTERS.keys()),
                         choices=FORMATTERS.keys())
-    parser.add_argument('--stale-data', action='store_true', help='Do not '
-                        'clear --input-dir prior to creating this dataset. '
-                        'Stale data may remain.')
     parser.add_argument('--local-midi-dirs', metavar='midi_dir', type=str,
                         nargs='*', help='directories containing midi files to '
                         'include in the dataset', default=[])
@@ -115,14 +145,7 @@ def parse_args(args_input=None):
                         'of classes in the downloaders module. By default, '
                         'will use cached downloaded data if available, see '
                         '--download-cache-dir and --clear-download-cache. To '
-                        'download no data, provide an input of "None"',
-                        )
-    parser.add_argument('--download-cache-dir', type=str,
-                        default=downloaders.DEFAULT_CACHE_PATH, help='The '
-                        'directory to use for storing intermediate downloaded '
-                        'data e.g. zip files, and prior to preprocessing.')
-    parser.add_argument('--clear-download-cache', action='store_true',
-                        help='clear downloaded data cache')
+                        'download no data, provide an input of "None"')
     parser.add_argument('--degradations', metavar='deg_name', nargs='*',
                         choices=list(degradations.DEGRADATIONS.keys()),
                         default=list(degradations.DEGRADATIONS.keys()),
@@ -137,19 +160,14 @@ def parse_args(args_input=None):
     parser.add_argument('--min-notes', metavar='N', type=int, default=10,
                         help='The minimum number of notes required for an '
                         'excerpt to be valid.')
-    parser.add_argument('--degradation-kwargs', metavar='json_string',
-                        help='json with keyword arguments for the '
-                        'degradation functions. First provide the degradation '
-                        'name, then a double underscore, then the keyword '
-                        'argument name, followed by the value to use for the '
-                        'kwarg. e.g. {"pitch_shift__distribution": "poisson", '
-                        '"pitch_shift__min_pitch: 5"}',
-                        type=json.loads, default=None)
-    parser.add_argument('--degradation-kwarg-json', metavar='json_file',
-                        help='A file containing parameters as described in '
-                        '--degradation-kwargs. If this file is given, '
-                        '--degradation-kwargs is ignored.', type=json.load,
-                        default=None)
+    parser.add_argument('--degradation-kwargs', metavar='json_file_or_string',
+                        help='json file or json-formatted string with keyword '
+                        'arguments for the degradation functions. First '
+                        'provide the degradation name, then a double '
+                        'underscore, then the keyword argument name, followed '
+                        'by the value to use for the kwarg. e.g. '
+                        '`{"time_shift__align_onset": true, '
+                        '"pitch_shift__min_pitch": 5}`', default=None)
     parser.add_argument('--degradation-dist', metavar='relative_probability',
                         nargs='*', default=None, help='A list of relative '
                         'probabilities that each degradation will used. Must '
@@ -164,6 +182,9 @@ def parse_args(args_input=None):
                         default=[0.8, 0.1, 0.1])
     parser.add_argument('--seed', type=int, default=None, help='The numpy seed'
                         ' to use when creating the dataset.')
+    parser.add_argument('--clean', action='store_true', help='Clear and delete'
+                        f' the download cache {downloaders.DEFAULT_CACHE_PATH}'
+                        ' (and do nothing else).')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose '
                         'printing.')
     args = parser.parse_args(args=args_input)
@@ -172,6 +193,11 @@ def parse_args(args_input=None):
 
 if __name__ == '__main__':
     ARGS = parse_args()
+
+    if ARGS.clean:
+        clean_ok = clean_download_cache(downloaders.DEFAULT_CACHE_PATH)
+        sys.exit(0 if clean_ok else 1)
+
     if ARGS.seed is None:
         seed = np.random.randint(0, 2**32)
         print(f'No random seed supplied. Setting to {seed}.')
@@ -180,16 +206,19 @@ if __name__ == '__main__':
         print(f'Setting random seed to {seed}.')
     np.random.seed(seed)
 
-    # Check given degradation_kwargs
-    assert (ARGS.degradation_kwargs is None or
-            ARGS.degradation_kwarg_json is None), ("Don't specify both "
-                "--degradation-kwargs and --degradation-kwarg-json")
-    if ARGS.degradation_kwarg_json is None:
-        degradation_kwargs = parse_degradation_kwargs(ARGS.degradation_kwargs)
-    else:
-        degradation_kwargs = parse_degradation_kwargs(
-            ARGS.degradation_kwarg_json
-        )
+    # Load given degradation_kwargs
+    degradation_kwargs = {}
+    if ARGS.degradation_kwargs is not None:
+        if os.path.exists(ARGS.degradation_kwargs):
+            # If file exists, assume that is what was passed
+            with open(ARGS.degradation_kwargs, 'r') as json_file:
+                degradation_kwargs = json.load(json_file)
+        else:
+            # File doesn't exist, assume json string was passed
+            degradation_kwargs = json.loads(ARGS.degradation_kwargs)
+    degradation_kwargs = parse_degradation_kwargs(degradation_kwargs)
+    if ARGS.verbose:
+        print(f"Using degradation kwargs: {degradation_kwargs}")
 
     # Load config
     if ARGS.config is not None:
@@ -235,22 +264,24 @@ if __name__ == '__main__':
                 "list of available formats {list(FORMATTERS.keys())}")
         formats = ARGS.formats
 
-
-    # Clear input and output dirs =============================================
-    if not ARGS.stale_data:
-        if os.path.exists(ARGS.input_dir):
-            if ARGS.verbose:
-                print(f'Clearing stale data from {ARGS.input_dir}.')
-            shutil.rmtree(ARGS.input_dir)
-    if os.path.exists(ARGS.output_dir):
-        if ARGS.verbose:
-            print(f'Clearing stale data from {ARGS.output_dir}.')
-        shutil.rmtree(ARGS.output_dir)
-    # This avoids an error if no datasets are selected
-    if not os.path.exists(ARGS.input_dir):
-        os.makedirs(ARGS.input_dir, exist_ok=True)
-    if not os.path.exists(ARGS.output_dir):
-        os.makedirs(ARGS.output_dir, exist_ok=True)
+    # These will be tuples of (dataset, relative_path, full_path, note_df).
+    # dataset: The name of the dataset the note_df is drawn from. This will be
+    #          the excerpt's base directory within output/clean or
+    #          output/altered in the generated ACME dataset.
+    # relative_path: The relative path of the corresponding file, including
+    #                basename, representing the excerpts path within its
+    #                dataset base directory.
+    # full_path: The full path to the input file. Used for printing errors.
+    # note_df: The cleaned note_df read from the input file with the given
+    #          input_kwargs.
+    # This list will be sorted before shuffling, and the tuples are structured
+    # in such a way that the sorting is identical to previous versions of this
+    # script to ensure backwards compatability.
+    input_data = []
+    input_kwargs = {
+        'single_track': True,
+        'non_overlapping': True
+    }
 
 
     # Instantiate downloaders =================================================
@@ -266,120 +297,98 @@ if __name__ == '__main__':
     # Instantiated downloader classes
     downloader_dict = {
         ds_name: getattr(downloaders, ds_name)(
-                     cache_path=ARGS.download_cache_dir
+                     cache_path=downloaders.DEFAULT_CACHE_PATH
                  )
         for ds_name in ds_names
     }
-    midi_dir = os.path.join(ARGS.input_dir, 'midi')
-    csv_dir = os.path.join(ARGS.input_dir, 'csv')
-    print(f'MIDI directory: {midi_dir}')
-    print(f'CSV directory: {csv_dir}')
-    midi_input_dirs = {name: os.path.join(midi_dir, name)
-                       for name in ds_names}
-    csv_input_dirs = {name: os.path.join(csv_dir, name)
-                      for name in ds_names}
 
 
-    # Set up directories ======================================================
-    for path in midi_input_dirs.values():
-        make_directory(path, verbose=ARGS.verbose)
-    for path in csv_input_dirs.values():
-        make_directory(path, verbose=ARGS.verbose)
+    # Clear and set up output dir =============================================
+    if os.path.exists(ARGS.output_dir):
+        if ARGS.verbose:
+            print(f'Clearing stale data from {ARGS.output_dir}.')
+        shutil.rmtree(ARGS.output_dir)
+    os.makedirs(ARGS.output_dir, exist_ok=True)
     for out_subdir in ['clean', 'altered']:
         output_dirs = [os.path.join(ARGS.output_dir, out_subdir, name)
                        for name in ds_names]
         for path in output_dirs:
-            make_directory(path, verbose=ARGS.verbose)
+            os.makedirs(path, exist_ok=True)
 
 
-    # Download data ===========================================================
-    print('Downloading datasets, this could take a while...')
-    for name in downloader_dict:
-        downloader = downloader_dict[name]
-        midi_output_path = midi_input_dirs[name]
-        csv_output_path = csv_input_dirs[name]
+    # Load data from downloaders ==============================================
+    print('Loading data from downloaders, this could take a while...')
+    for dataset in downloader_dict:
+        downloader = downloader_dict[dataset]
+
+        dataset_base = os.path.join(downloaders.DEFAULT_CACHE_PATH, dataset)
+        dataset_base_len = len(dataset_base) + len(os.path.sep)
+        output_path = os.path.join(dataset_base, 'data')
+
         try:
-            downloader.download_csv(output_path=csv_output_path,
-                                    overwrite=OVERWRITE, verbose=ARGS.verbose)
-        except NotImplementedError:
-            downloader.download_midi(output_path=midi_output_path,
-                                     overwrite=OVERWRITE, verbose=ARGS.verbose)
+            try:
+                downloader.download_csv(output_path=output_path,
+                                        overwrite=OVERWRITE,
+                                        verbose=ARGS.verbose)
+                ext = 'csv'
+                input_func = fileio.csv_to_df
+            except NotImplementedError:
+                downloader.download_midi(output_path=output_path,
+                                        overwrite=OVERWRITE,
+                                        verbose=ARGS.verbose)
+                ext = 'mid'
+                input_func = fileio.midi_to_df
+        except BadZipfile:
+            print("The download cache contains invalid data. Run "
+                  "`make_dataset.py --clean` to clean the cache, then try to "
+                  "re-create the ACME dataset.", file=sys.stderr)
+            sys.exit(1)
+
+        for filename in tqdm(glob(os.path.join(output_path, '**', f'*.{ext}'),
+                                  recursive=True),
+                             desc=f'Loading data from {dataset}'):
+
+            note_df = input_func(filename, **input_kwargs)
+            if note_df is not None:
+                rel_path = filename[dataset_base_len + 5:]
+                input_data.append((dataset, rel_path, filename, note_df))
 
 
-    # Copy over user midi =====================================================
-    for path in ARGS.local_midi_dirs:
-        # Bugfix for paths ending in /
-        if len(path) > 1 and path[-1] == os.path.sep:
-            path = path[:-1]
-        dirname = f'local_{os.path.basename(path)}'
-        outdir = os.path.join(ARGS.input_dir, 'midi', dirname)
-        basedir = outdir
-        os.makedirs(outdir, exist_ok=True)
-        midi_input_dirs[dirname] = outdir
-        csv_outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
-        os.makedirs(csv_outdir, exist_ok=True)
-        csv_input_dirs[dirname] = csv_outdir
-        if ARGS.recursive:
-            path = os.path.join(path, '**')
-        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
-                                  recursive=ARGS.recursive),
-                             desc=f'Loading user midi from {path}'):
+    # Load user data ==========================================================
+    for data_type in ['midi', 'csv']:
+        if data_type == 'midi':
+            local_dirs = ARGS.local_midi_dirs
+            ext = 'mid'
+            df_load_func = fileio.midi_to_df
+        else:
+            local_dirs = ARGS.local_csv_dirs
+            ext = 'csv'
+            df_load_func = fileio.csv_to_df
+
+        for path in local_dirs:
+            # Bugfix for paths ending in /
+            if len(path) > 1 and path[-1] == os.path.sep:
+                path = path[:-1]
+            dataset = f'local_{os.path.basename(path)}'
+            dataset_base_len = len(path) + len(os.path.sep)
+
             if ARGS.recursive:
-                outdir = os.path.join(
-                    basedir,
-                    os.path.dirname(filepath)[len(path) - 2:],
-                    os.path.basename(filepath)
-                )
-            os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir)
+                path = os.path.join(path, '**')
+            for filepath in tqdm(glob(os.path.join(path, f'*.{ext}'),
+                                    recursive=ARGS.recursive),
+                                 desc=f'Loading user {data_type} from {path}'):
+
+                note_df = df_load_func(filepath, **input_kwargs)
+                if note_df is not None:
+                    rel_path = filepath[dataset_base_len:]
+                    input_data.append((dataset, rel_path, filepath, note_df))
 
 
-    # Copy over user csv ======================================================
-    for path in ARGS.local_csv_dirs:
-        # Bugfix for paths ending in /
-        if len(path) > 1 and path[-1] == os.path.sep:
-            path = path[:-1]
-        dirname = f'local_{os.path.basename(path)}'
-        outdir = os.path.join(ARGS.input_dir, 'csv', dirname)
-        basedir = outdir
-        os.makedirs(outdir, exist_ok=True)
-        csv_input_dirs[dirname] = outdir
-        if ARGS.recursive:
-            path = os.path.join(path, '**')
-        for filepath in tqdm(glob(os.path.join(path, '*.mid'),
-                                  recursive=ARGS.recursive),
-                             desc=f'Loading user csv from {path}'):
-            if ARGS.recursive:
-                outdir = os.path.join(
-                    basedir,
-                    os.path.dirname(filepath)[len(path) - 2:],
-                    os.path.basename(filepath)
-                )
-            os.makedirs(os.path.dirname(outdir), exist_ok=True)
-            copy_file(filepath, outdir)
-
-
-    # Convert from midi to csv ================================================
-    for name in midi_input_dirs:
-        fileio.midi_dir_to_csv(midi_input_dirs[name], csv_input_dirs[name],
-                             recursive=ARGS.recursive)
-
-
-    # Create all Composition objects and write clean data to output ===========
+    # All data is loaded. Sort and shuffle. ===================================
     # output to output_dir/clean/dataset_name/filename.csv
     # The reason for this is we know there will be no filename duplicates
-    csv_paths = sorted(glob(os.path.join(ARGS.input_dir, 'csv', '**', '*.csv'),
-                            recursive=ARGS.recursive))
-    if len(csv_paths) == 0:
-        print('No data selected. Choose a dataset with --datasets, or use '
-              'local data with --local-csv-dirs or --local-midi-dirs')
-        sys.exit(0)
-
-    # List of (note_df, csv_path) tuples
-    compositions = [(fileio.csv_to_df(csv_path, single_track=True,
-                                    non_overlapping=True), csv_path)
-                    for csv_path in tqdm(csv_paths, desc="Cleaning csv data")]
-    np.random.shuffle(compositions) # This is important for join_notes
+    input_data.sort()
+    np.random.shuffle(input_data) # This is important for join_notes
 
     meta_file = open(os.path.join(ARGS.output_dir, 'metadata.csv'), 'w')
 
@@ -418,9 +427,8 @@ if __name__ == '__main__':
     nr_splits = len(split_names)
 
     # Write out deg_choices to degradation_ids.csv
-    with open(
-            os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
-            'w') as file:
+    with open(os.path.join(ARGS.output_dir, 'degradation_ids.csv'),
+              'w') as file:
         file.write('id,degradation_name\n')
         for i, deg_name in enumerate(deg_choices):
             file.write(f'{i},{deg_name}\n')
@@ -433,8 +441,9 @@ if __name__ == '__main__':
 
     meta_file.write('altered_csv_path,degraded,degradation_id,'
                     'clean_csv_path,split\n')
-    for i, (note_df, csv_path) in enumerate(tqdm(compositions,
-                                                 desc="Making target data")):
+    for i, data in enumerate(tqdm(input_data, desc="Degrading data")):
+        dataset, rel_path, file_path, note_df = data
+        rel_path = f'{rel_path[:-3]}csv'
         # First, get the degradation order for this iteration.
         # Get the current distribution of degradations
         if np.sum(deg_counts) == 0: # First iteration, set to uniform
@@ -444,34 +453,17 @@ if __name__ == '__main__':
             current_deg_dist = deg_counts / np.sum(deg_counts)
             current_split_dist = split_counts / np.sum(split_counts)
 
-        # Grab an excerpt from this composition
-        excerpt = None
-        if len(note_df) >= ARGS.min_notes:
-            for _ in range(10):
-                note_index = np.random.choice(list(note_df.index.values)
-                                              [:-ARGS.min_notes])
-                note_onset = note_df.loc[note_index]['onset']
-                excerpt = pd.DataFrame(
-                    note_df.loc[note_df['onset'].between(
-                        note_onset, note_onset + ARGS.excerpt_length)])
-                excerpt['onset'] = excerpt['onset'] - note_onset
-                excerpt = excerpt.reset_index(drop=True)
-
-                # Check for validity of excerpt
-                if len(excerpt) < ARGS.min_notes:
-                    excerpt = None
-                else:
-                    break
+        # Grab an excerpt from this df
+        excerpt = get_random_excerpt(note_df, min_notes=ARGS.min_notes,
+                                     excerpt_length=ARGS.excerpt_length,
+                                     first_onset_range=(0, 200), iterations=10)
 
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
-            warnings.warn("Unable to find valid excerpt from composition"
-                          f" {csv_path}. Lengthen --excerpt-length or "
+            warnings.warn("Unable to find valid excerpt from file "
+                          f"{file_path}. Lengthen --excerpt-length or "
                           "lower --min-notes. Skipping.", UserWarning)
             continue
-
-        # Add some value so that not only degraded excerpts start from > 0
-        excerpt.loc[:, 'onset'] += np.random.randint(0, 200)
 
         # Try degradations in reverse order of the difference between
         # their current distribution and their desired distribution.
@@ -490,9 +482,7 @@ if __name__ == '__main__':
         )[-1]
 
         # Make default labels for no degradation
-        fn = os.path.basename(csv_path)
-        dataset = os.path.basename(os.path.dirname(csv_path))
-        clean_path = os.path.join('clean', dataset, fn)
+        clean_path = os.path.join('clean', dataset, rel_path)
         altered_path = clean_path
         deg_binary = 0
 
@@ -514,7 +504,7 @@ if __name__ == '__main__':
             if degraded is not None:
                 # Update labels
                 deg_binary = 1
-                altered_path = os.path.join('altered', dataset, fn)
+                altered_path = os.path.join('altered', dataset, rel_path)
 
                 # Write degraded csv
                 altered_outpath = os.path.join(ARGS.output_dir, altered_path)
@@ -536,7 +526,7 @@ if __name__ == '__main__':
                             f'{clean_path},{split_name}\n')
         else:
             warnings.warn("Unable to degrade chosen excerpt from "
-                          f"{csv_path} and no clean excerpts requested."
+                          f"{file_path} and no clean excerpts requested."
                           " Skipping.", UserWarning)
 
     meta_file.close()
@@ -548,8 +538,6 @@ if __name__ == '__main__':
     print(f'Count of degradations:')
     for deg_name, count in zip(deg_choices, deg_counts):
         print(f'\t* {deg_name}: {int(count)}')
-
-    print(f'\nThe data used as input is contained in {ARGS.input_dir}')
 
     print(f'\nYou will find the generated data at {ARGS.output_dir} '
           'with subdirectories')
