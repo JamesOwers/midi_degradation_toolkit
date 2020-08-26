@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from numpy.random import randint, choice
 
-from mdtk.data_structures import NOTE_DF_SORT_ORDER
+from mdtk.df_utils import NOTE_DF_SORT_ORDER
 
 
 MIN_PITCH_DEFAULT = 21
@@ -82,7 +82,7 @@ def overlaps(df, idx):
 def pre_process(df, sort=False):
     """
     Function which will pre-process a dataframe to be degraded.
-    
+
     Currently, that means resetting the indices to consecutive ints from 0.
     Optionally, this will sort the df (depending on the degradation).
     This function is called automatically by each degradation.
@@ -795,13 +795,13 @@ def add_note(excerpt, min_pitch=MIN_PITCH_DEFAULT, max_pitch=MAX_PITCH_DEFAULT,
         The maximum duration for the added note.
         (The offset time will never go beyond the current last offset
         in the excerpt.)
-        
+
     align_pitch : boolean
         True to force the added note to lie on the same pitch as an
         existing note (if one exists). This ignores the given min and
         max pitches. If excerpt contains only 1 note and align_time
         is True, this is always set to False.
-        
+
     align_time : boolean
         True to force the added note to have the same onset time and
         duration as an existing note (if one exists), though not

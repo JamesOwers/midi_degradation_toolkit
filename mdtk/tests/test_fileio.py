@@ -2,8 +2,11 @@ import pandas as pd
 import os
 import pretty_midi
 import shutil
+import itertools
 
-import mdtk.midi as midi
+import mdtk.fileio as fileio
+from mdtk.df_utils import clean_df
+from mdtk.tests.test_df_utils import CLEAN_INPUT_DF, CLEAN_RES_DFS
 
 USER_HOME = os.path.expanduser('~')
 TEST_CACHE_PATH = os.path.join(USER_HOME, '.mdtk_test_cache')
@@ -14,7 +17,26 @@ ALB_MID = f"{MIDI_PATH}{os.path.sep}alb_se2.mid"
 
 
 def test_midi_rounding():
-    df = midi.midi_to_df(ALB_MID)
+    df = fileio.midi_to_df(ALB_MID)
+
+
+def test_csv_to_df():
+    csv_path = os.path.join(TEST_CACHE_PATH, 'test.csv')
+    fileio.df_to_csv(CLEAN_INPUT_DF, csv_path)
+
+    # Check clean_df args
+    for (track, overlap) in itertools.product([False, True], repeat=2):
+        kwargs = {
+            'single_track': track,
+            'non_overlapping': overlap
+        }
+
+        correct = CLEAN_RES_DFS[track][overlap]
+        res = fileio.csv_to_df(csv_path, **kwargs)
+
+        assert res.equals(correct), (
+            f"csv_to_df result incorrect with args={kwargs}"
+        )
 
 
 def test_df_to_csv():
@@ -30,23 +52,23 @@ def test_df_to_csv():
     notes.append({'onset': 1,
                   'track': 2,
                   'pitch': 56,
-                  'dur': 1})
+                  'dur': 5})
 
     df = pd.DataFrame(notes)
 
-    csv_name = TEST_CACHE_PATH + os.path.sep + 'test.csv'
+    csv_name = os.path.join(TEST_CACHE_PATH, 'tmp_dir', 'test.csv')
     try:
-        os.remove(csv_name)
+        os.removedirs(csv_name)
     except:
         pass
 
-    midi.df_to_csv(df, csv_name)
+    fileio.df_to_csv(df, csv_name)
 
     assert os.path.exists(csv_name), ('No csv created.')
 
     # Check that notes were written correctly
-    with open(csv_name, 'r') as file:
-        for i, line in enumerate(file):
+    with open(csv_name, 'r') as csv_file:
+        for i, line in enumerate(csv_file):
             split = line.split(',')
             assert int(split[0]) == notes[i]['onset'], ("Onset time of "
                    f"note {i} ({notes[i]}) not equal to csv's written onset "
@@ -63,10 +85,21 @@ def test_df_to_csv():
                    f"note {i} ({notes[i]}) not equal to csv's written "
                    f"duration of {int(split[3])}")
 
+    # Check writing without any directory
+    fileio.df_to_csv(df, 'test.csv')
+    try:
+        os.remove('test.csv')
+    except:
+        pass
+
+    try:
+        os.removedirs(csv_name)
+    except:
+        pass
 
 
 def test_midi_to_df():
-    df = midi.midi_to_df(TEST_MID)
+    df = fileio.midi_to_df(TEST_MID)
 
     # This relies on pretty_midi being correct
     m = pretty_midi.PrettyMIDI(TEST_MID)
@@ -78,22 +111,9 @@ def test_midi_to_df():
                                'pitch': note.pitch,
                                'dur': int(round(note.end * 1000) -
                                           round(note.start * 1000))})
+    midi_df = pd.DataFrame(midi_notes)
 
     df_notes = df.to_dict('records')
-
-    # Test sorting
-    for prev_note, next_note in zip(df_notes[:-1], df_notes[1:]):
-        assert (prev_note['onset'] < next_note['onset'] or
-                (prev_note['onset'] == next_note['onset'] and
-                 prev_note['track'] < next_note['track']) or
-                (prev_note['onset'] == next_note['onset'] and
-                 prev_note['track'] == next_note['track'] and
-                 prev_note['pitch'] < next_note['pitch']) or
-                (prev_note['onset'] == next_note['onset'] and
-                 prev_note['track'] == next_note['track'] and
-                 prev_note['pitch'] == next_note['pitch'] and
-                 prev_note['dur'] < next_note['dur'])), ("DataFrame sorting " +
-                f"incorrect. {prev_note} is before {next_note}")
 
     # Test that all notes df notes are in the MIDI
     for df_note in df_notes:
@@ -106,6 +126,19 @@ def test_midi_to_df():
     assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
                                   f"not found in the DataFrame: {midi_notes}")
 
+    # Check clean_df (args, sorting)
+    for (track, overlap) in itertools.product([False, True], repeat=2):
+        kwargs = {
+            'single_track': track,
+            'non_overlapping': overlap
+        }
+
+        correct = clean_df(midi_df, **kwargs)
+        res = fileio.midi_to_df(TEST_MID, **kwargs)
+
+        assert res.equals(correct), (
+            f"csv_to_midi not using args correctly with args={kwargs}"
+        )
 
 
 def test_midi_to_csv():
@@ -117,7 +150,7 @@ def test_midi_to_csv():
     except:
         pass
 
-    midi.midi_to_csv(TEST_MID, csv_path)
+    fileio.midi_to_csv(TEST_MID, csv_path)
 
     # This relies on pretty_midi being correct
     m = pretty_midi.PrettyMIDI(TEST_MID)
@@ -144,11 +177,26 @@ def test_midi_to_csv():
             midi_notes.remove(note)
 
     # Test that all MIDI notes were in the df
-    assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
+    assert len(midi_notes) == 0, ("Some MIDI notes (from pretty_midi) were "
                                   f"not found in the DataFrame: {midi_notes}")
 
+    # Some less robust tests regarding single_track and non_overlapping
+    # (Robust versions will be in the *_to_df and df_to_* functions)
+    midi_path = TEST_MID
+    csv_path = 'test.csv'
+    for (track, overlap) in itertools.product([True, False], repeat=2):
+        kwargs = {
+            'single_track': track,
+            'non_overlapping': overlap
+        }
+        fileio.midi_to_csv(midi_path, csv_path, **kwargs)
+        df = fileio.csv_to_df(csv_path, **kwargs)
+        assert df.equals(fileio.midi_to_df(midi_path, **kwargs)), (
+            "midi_to_csv not using single_track and non_overlapping correctly."
+        )
+
     # Check writing without any directory
-    midi.midi_to_csv(TEST_MID, 'test.csv')
+    fileio.midi_to_csv(TEST_MID, 'test.csv')
     try:
         os.remove('test.csv')
     except:
@@ -156,11 +204,11 @@ def test_midi_to_csv():
 
 
 def test_midi_dir_to_csv():
+    basenames = ['test', 'test2', 'alb_se2']
     midi_dir = os.path.dirname(TEST_MID)
+    midi_paths = [os.path.join(midi_dir, f'{name}.mid') for name in basenames]
     csv_dir = TEST_CACHE_PATH
-    csv_paths = [csv_dir + os.path.sep + 'test.csv',
-                 csv_dir + os.path.sep + 'test2.csv',
-                 csv_dir + os.path.sep + 'alb_se2.csv']
+    csv_paths = [os.path.join(csv_dir, f'{name}.csv') for name in basenames]
 
     for csv_path in csv_paths:
         try:
@@ -171,9 +219,7 @@ def test_midi_dir_to_csv():
     midi2_path = os.path.dirname(TEST_MID) + os.path.sep + 'test2.mid'
     shutil.copyfile(TEST_MID, midi2_path)
 
-    midi.midi_dir_to_csv(midi_dir, csv_dir)
-
-    os.remove(midi2_path)
+    fileio.midi_dir_to_csv(midi_dir, csv_dir)
 
     for csv_path in csv_paths:
         assert os.path.exists(csv_path), f"{csv_path} was not created."
@@ -210,6 +256,23 @@ def test_midi_dir_to_csv():
         assert len(notes) == 0, ("Some MIDI notes (from pretty_midi) were " +
                                  f"not found in the DataFrame: {notes}")
 
+    # Some less robust tests regarding single_track and non_overlapping
+    # (Robust versions will be in the *_to_df and df_to_* functions)
+    for (track, overlap) in itertools.product([True, False], repeat=2):
+        kwargs = {
+            'single_track': track,
+            'non_overlapping': overlap
+        }
+        fileio.midi_dir_to_csv(midi_dir, csv_dir, **kwargs)
+        for midi_path, csv_path in zip(midi_paths, csv_paths):
+            df = fileio.csv_to_df(csv_path, **kwargs)
+            assert df.equals(fileio.midi_to_df(midi_path, **kwargs)), (
+                "midi_dir_to_csv not using single_track and non_overlapping "
+                "correctly."
+            )
+
+    os.remove(midi2_path)
+
 
 def test_df_to_midi():
     df = pd.DataFrame({
@@ -220,20 +283,20 @@ def test_df_to_midi():
     })
 
     # Test basic writing
-    midi.df_to_midi(df, 'test.mid')
-    assert midi.midi_to_df('test.mid').equals(df), (
+    fileio.df_to_midi(df, 'test.mid')
+    assert fileio.midi_to_df('test.mid').equals(df), (
         "Writing df to MIDI and reading changes df."
     )
 
     # Test that writing should overwrite existing notes
     df.pitch += 10
-    midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid')
-    assert midi.midi_to_df('test2.mid').equals(df), (
+    fileio.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid')
+    assert fileio.midi_to_df('test2.mid').equals(df), (
         "Writing df to MIDI with existing MIDI does not overwrite notes."
     )
 
     # Test that writing skips non-overwritten notes
-    midi.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid',
+    fileio.df_to_midi(df, 'test2.mid', existing_midi_path='test.mid',
                     excerpt_start=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -241,12 +304,12 @@ def test_df_to_midi():
         'pitch': [10, 20, 30, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test2.mid').equals(expected), (
+    assert fileio.midi_to_df('test2.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes before excerpt_start"
     )
 
     # Test that writing skips non-overwritten notes past end
-    midi.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
+    fileio.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
                     excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -254,12 +317,12 @@ def test_df_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes after excerpt_length"
     )
 
     df.track = 2
-    midi.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
+    fileio.df_to_midi(df, 'test.mid', existing_midi_path='test2.mid',
                     excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -267,7 +330,7 @@ def test_df_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI with extra track breaks"
     )
 
@@ -285,8 +348,8 @@ def test_df_to_midi():
     midi_obj.key_signature_changes.append(pretty_midi.KeySignature(5, 1))
     midi_obj.write('test.mid')
 
-    midi.df_to_midi(expected, 'test2.mid', existing_midi_path='test.mid')
-    assert midi.midi_to_df('test2.mid').equals(expected)
+    fileio.df_to_midi(expected, 'test2.mid', existing_midi_path='test.mid')
+    assert fileio.midi_to_df('test2.mid').equals(expected)
 
     # Check non-note events and data here
     new_midi = pretty_midi.PrettyMIDI('test2.mid')
@@ -335,24 +398,24 @@ def test_csv_to_midi():
         'pitch': [10, 20, 30],
         'dur': 1000
     })
-    midi.df_to_csv(df, 'test.csv')
+    fileio.df_to_csv(df, 'test.csv')
 
     # Test basic writing
-    midi.csv_to_midi('test.csv', 'test.mid')
-    assert midi.midi_to_df('test.mid').equals(df), (
+    fileio.csv_to_midi('test.csv', 'test.mid')
+    assert fileio.midi_to_df('test.mid').equals(df), (
         "Writing df to MIDI and reading changes df."
     )
 
     # Test that writing should overwrite existing notes
     df.pitch += 10
-    midi.df_to_csv(df, 'test.csv')
-    midi.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid')
-    assert midi.midi_to_df('test2.mid').equals(df), (
+    fileio.df_to_csv(df, 'test.csv')
+    fileio.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid')
+    assert fileio.midi_to_df('test2.mid').equals(df), (
         "Writing df to MIDI with existing MIDI does not overwrite notes."
     )
 
     # Test that writing skips non-overwritten notes
-    midi.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid',
+    fileio.csv_to_midi('test.csv', 'test2.mid', existing_midi_path='test.mid',
                      excerpt_start=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -360,12 +423,12 @@ def test_csv_to_midi():
         'pitch': [10, 20, 30, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test2.mid').equals(expected), (
+    assert fileio.midi_to_df('test2.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes before excerpt_start"
     )
 
     # Test that writing skips non-overwritten notes past end
-    midi.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
+    fileio.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
                     excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -373,13 +436,13 @@ def test_csv_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI doesn't copy notes after excerpt_length"
     )
 
     df.track = 2
-    midi.df_to_csv(df, 'test.csv')
-    midi.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
+    fileio.df_to_csv(df, 'test.csv')
+    fileio.csv_to_midi('test.csv', 'test.mid', existing_midi_path='test2.mid',
                      excerpt_length=1000)
     expected = pd.DataFrame({
         'onset': [0, 0, 0, 1000, 1000, 1000],
@@ -387,9 +450,31 @@ def test_csv_to_midi():
         'pitch': [20, 30, 40, 20, 30, 40],
         'dur': 1000
     })
-    assert midi.midi_to_df('test.mid').equals(expected), (
+    assert fileio.midi_to_df('test.mid').equals(expected), (
         "Writing to MIDI with extra track breaks"
     )
+
+    csv_path = 'test.csv'
+    midi_path = 'test.mid'
+    fileio.df_to_csv(CLEAN_INPUT_DF, csv_path)
+    # Some less robust tests regarding single_track and non_overlapping
+    # (Robust versions will be in the *_to_df and df_to_* functions)
+    for (track, overlap) in itertools.product([False, True], repeat=2):
+        kwargs = {
+            'single_track': track,
+            'non_overlapping': overlap
+        }
+
+        df = fileio.csv_to_df(csv_path, **kwargs)
+        fileio.df_to_midi(df, midi_path)
+        correct = fileio.midi_to_df(midi_path)
+
+        fileio.csv_to_midi(csv_path, midi_path, **kwargs)
+        res = fileio.midi_to_df(midi_path)
+
+        assert res.equals(correct), (
+            f"csv_to_midi not using args correctly with args={kwargs}"
+        )
 
     for filename in ['test.mid', 'test2.mid', 'test.csv']:
         try:
