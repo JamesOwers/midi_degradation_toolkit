@@ -1,0 +1,20 @@
+language: python
+python:
+  - "3.6"    # current default Python on Travis CI
+  - "3.7"
+  - "3.8"
+jobs:
+  allow_failures:
+    - python: "3.8-dev"  # 3.8 development branch
+    - python: "nightly"  # nightly build
+# command to install dependencies
+before_install:
+  - python --version
+install:
+  - pip install .
+# command to run tests - the required packages, pytest-runner, pytest, and pytest-cov
+# are installed as configured in setup.cfg under setup_requires and tests_require
+script:
+  - python setup.py test
+after_success:
+  - codecov
