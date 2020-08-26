@@ -10,8 +10,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-import mdtk.pytorch_models
-import mdtk.pytorch_trainers
+from mdtk import pytorch_models
+from mdtk import pytorch_trainers
+from mdtk import pytorch_datasets
 from mdtk.pytorch_datasets import transform_to_torchtensor
 from mdtk.formatters import CommandVocab, FORMATTERS, create_corpus_csvs
 from mdtk.eval import helpfulness
@@ -103,14 +104,14 @@ def main(args):
     }
     
     task_idx = args.task - 1
-    task_name = task_names[task_idx]
+    task_name = TASK_NAMES[task_idx]
     model_name = FORMATTERS[args.format]['models'][task_idx]
     if model_name is None:
         raise NotImplementedError("No model implemented to load for task "
                                   f"{task_name} with format {args.format}")
-    Dataset = getattr(mdtk.pytorch_datasets, FORMATTERS[args.format]['dataset'])
-    Trainer = task_trainers[task_idx]
-    Criterion = task_criteria[task_idx]
+    Dataset = getattr(pytorch_datasets, FORMATTERS[args.format]['dataset'])
+    Trainer = TASK_TRAINERS[task_idx]
+    Criterion = TASK_CRITERIA[task_idx]
     
     if args.format == 'command':
         vocab = CommandVocab()
@@ -167,19 +168,19 @@ def main(args):
     return split_log_info
 
 
-task_names = [
+TASK_NAMES = [
     'ErrorDetection',
     'ErrorClassification',
     'ErrorLocation',
     'ErrorCorrection'
 ]
 
-task_trainers = [
-    getattr(mdtk.pytorch_trainers, f'{task_name}Trainer')
-    for task_name in task_names
+TASK_TRAINERS = [
+    getattr(pytorch_trainers, f'{task_name}Trainer')
+    for task_name in TASK_NAMES
 ]
 
-task_criteria = [
+TASK_CRITERIA = [
     nn.CrossEntropyLoss(),
     nn.CrossEntropyLoss(),
     nn.CrossEntropyLoss(),
