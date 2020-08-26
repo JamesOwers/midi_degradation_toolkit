@@ -10,6 +10,7 @@ jobs:
 # command to install dependencies
 before_install:
   - python --version
+  - pip install codecov  # for the after_success command
 install:
   - pip install .
 # command to run tests - the required packages, pytest-runner, pytest, and pytest-cov
