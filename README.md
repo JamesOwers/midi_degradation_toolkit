@@ -103,6 +103,6 @@ when installing the package. Additionally, please run `pre-commit install` to
 automatically run pre-commit hooks.
 
 ```bash
-pip install -e ${path_to_repo}[dev]
+pip install -e "${path_to_repo}[dev]"
 pre-commit install
 ```
