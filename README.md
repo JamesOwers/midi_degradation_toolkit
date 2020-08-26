@@ -10,12 +10,10 @@
 
 # mdtk - The MIDI Degradation Toolkit
 
-<p align="center">
 [![Build Status][build-image]][build-url]
 [![Code Coverage][coverage-image]][coverage-url]
 <!-- [![PyPI Version][pypi-image]][pypi-url] -->
 <!-- [![Docs Status][docs-image]][docs-url] -->
-</p>
 
 Tools to generate datasets of Altered and Corrupted MIDI Excerpts -`ACME`
 datasets.
