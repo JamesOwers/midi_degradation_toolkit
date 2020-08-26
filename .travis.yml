@@ -9,7 +9,9 @@ python:
   - "nightly"  # nightly build
 # command to install dependencies
 install:
-  - pip install
+  - pip install .
+  - pip install .[dev]
+  - pip install .[docs]
 # command to run tests
 script:
   - pytest
