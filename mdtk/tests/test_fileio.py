@@ -18,7 +18,7 @@ ALB_MID = f"{MIDI_PATH}{os.path.sep}alb_se2.mid"
 
 
 def test_midi_rounding():
-    df = fileio.midi_to_df(ALB_MID)
+    _ = fileio.midi_to_df(ALB_MID)
 
 
 def test_csv_to_df():
@@ -46,7 +46,7 @@ def test_df_to_csv():
     csv_name = os.path.join(TEST_CACHE_PATH, "tmp_dir", "test.csv")
     try:
         os.removedirs(csv_name)
-    except:
+    except Exception:
         pass
 
     fileio.df_to_csv(df, csv_name)
@@ -84,12 +84,12 @@ def test_df_to_csv():
     fileio.df_to_csv(df, "test.csv")
     try:
         os.remove("test.csv")
-    except:
+    except Exception:
         pass
 
     try:
         os.removedirs(csv_name)
-    except:
+    except Exception:
         pass
 
 
@@ -146,7 +146,7 @@ def test_midi_to_csv():
 
     try:
         os.remove(csv_path)
-    except:
+    except Exception:
         pass
 
     fileio.midi_to_csv(TEST_MID, csv_path)
@@ -204,7 +204,7 @@ def test_midi_to_csv():
     fileio.midi_to_csv(TEST_MID, "test.csv")
     try:
         os.remove("test.csv")
-    except:
+    except Exception:
         pass
 
 
@@ -218,7 +218,7 @@ def test_midi_dir_to_csv():
     for csv_path in csv_paths:
         try:
             os.remove(csv_path)
-        except:
+        except Exception:
             pass
 
     midi2_path = os.path.dirname(TEST_MID) + os.path.sep + "test2.mid"
@@ -403,7 +403,7 @@ def test_df_to_midi():
     for filename in ["test.mid", "test2.mid"]:
         try:
             os.remove(filename)
-        except:
+        except Exception:
             pass
 
 
@@ -498,5 +498,5 @@ def test_csv_to_midi():
     for filename in ["test.mid", "test2.mid", "test.csv"]:
         try:
             os.remove(filename)
-        except:
+        except Exception:
             pass

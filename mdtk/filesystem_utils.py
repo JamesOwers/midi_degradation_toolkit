@@ -32,13 +32,13 @@ def download_file(source, dest, verbose=False, overwrite=None):
 def make_directory(path, overwrite=None, verbose=False):
     """Convenience function to create a directory and handle cases where
         it already exists.
-        
+
         Args
         ----
         path: str
             The path of the directory to create
         overwrite: boolean or None
-            If the path already exists, if overwrite is: True - delete the 
+            If the path already exists, if overwrite is: True - delete the
             existing path; False - return error; None - leave the existing
             path as it is and throw a warning
         verbose: bool

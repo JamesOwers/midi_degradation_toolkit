@@ -1,7 +1,4 @@
-"""Utility functions and fields for dealing with note_dfs in mdtk format.
-"""
-import itertools
-
+"""Utility functions and fields for dealing with note_dfs in mdtk format."""
 import numpy as np
 import pandas as pd
 

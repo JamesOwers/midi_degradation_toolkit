@@ -4,14 +4,12 @@ import os
 import sys
 import warnings
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from mdtk import pytorch_datasets, pytorch_models, pytorch_trainers
+from mdtk import pytorch_datasets, pytorch_trainers
 from mdtk.degradations import MAX_PITCH_DEFAULT, MIN_PITCH_DEFAULT
-from mdtk.eval import helpfulness
 from mdtk.formatters import FORMATTERS, CommandVocab, create_corpus_csvs
 from mdtk.pytorch_datasets import transform_to_torchtensor
 

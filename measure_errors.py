@@ -9,11 +9,9 @@ import pickle
 import warnings
 
 import numpy as np
-import pandas as pd
-import pretty_midi
 from tqdm import tqdm
 
-from mdtk import degradations, fileio, formatters
+from mdtk import fileio, formatters
 from mdtk.degradations import (
     DEGRADATIONS,
     MAX_GAP_DEFAULT,

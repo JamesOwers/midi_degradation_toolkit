@@ -14,7 +14,7 @@ from mdtk.eval import get_f1, helpfulness
 
 class BaseTrainer:
     """Provides methods to train pytorch models. Adapted from:
-    https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/trainer/pretrain.py"""
+    https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/trainer/pretrain.py"""  # noqa:E501
 
     def __init__(
         self,
@@ -355,10 +355,6 @@ class ErrorDetectionTrainer(BaseTrainer):
         return log_info
 
 
-#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
-#              total_correct * 100.0 / total_element)
-
-
 class ErrorClassificationTrainer(BaseTrainer):
     """Trains Task 2 - Error classification. The model provided is expected to be
     an mdtk.pytorch_models.ErrorClassificationNet. Expects a DataLoader using an
@@ -528,7 +524,8 @@ class ErrorClassificationTrainer(BaseTrainer):
             print(f"Accuracy: {total_correct / total_element * 100}")
             print(f"Avg loss: {total_loss / total_element}")
             print(f"Confusion matrix (as [label, output]):\n{confusion_mat}")
-            # Not required since in confusion matrix - here for verification / same accross classes
+            # Not required since in confusion matrix - here for verification / same
+            # accross classes
             log_info["avg_acc_per_deg"] = np.array(
                 [
                     total_correct_per_deg[deg] / total_element_per_deg[deg]
@@ -536,10 +533,6 @@ class ErrorClassificationTrainer(BaseTrainer):
                 ]
             )
         return log_info
-
-
-#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
-#              total_correct * 100.0 / total_element)
 
 
 class ErrorLocationTrainer(BaseTrainer):
@@ -758,10 +751,6 @@ class ErrorLocationTrainer(BaseTrainer):
         return log_info
 
 
-#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
-#              total_correct * 100.0 / total_element)
-
-
 class ErrorCorrectionTrainer(BaseTrainer):
     """Trains Task 4 - Error Correction. The model provided is expected to be
     an mdtk.pytorch_models.ErrorCorrectionNet. Expects a DataLoader using an
@@ -840,9 +829,6 @@ class ErrorCorrectionTrainer(BaseTrainer):
         total_help = 0
         total_fm = 0
         total_data_points = 0
-
-        total_correct_per_deg = defaultdict(lambda: 0)
-        total_element_per_deg = defaultdict(lambda: 0)
 
         # Setting the tqdm progress bar
         data_iter = tqdm.tqdm(
@@ -947,7 +933,3 @@ class ErrorCorrectionTrainer(BaseTrainer):
             print(f"Avg loss: {total_loss / total_element}")
 
         return log_info
-
-
-#        print("EP%d_%s, avg_loss=" % (epoch, str_code), avg_loss / len(data_iter), "total_acc=",
-#              total_correct * 100.0 / total_element)

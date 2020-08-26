@@ -35,13 +35,13 @@ def get_inverse_weights(dataset, task, formatter, transform=torch.tensor):
     ----------
     dataset : torch.Dataset
         The dataset from which we want to set weights.
-        
+
     task : int
         The task number whose weights to return.
-        
+
     formatter : dict
         A formatter dict, from formatters.py.
-        
+
     transform : func
         A function to call on the returned object. If None, the returned
         weights list is a numpy array.
@@ -359,7 +359,7 @@ if __name__ == "__main__":
         transform=transform_to_torchtensor,
     )
 
-    print(f"Creating train, valid, and test DataLoaders")
+    print("Creating train, valid, and test DataLoaders")
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -413,7 +413,7 @@ if __name__ == "__main__":
         if with_cuda:
             try:
                 weights = weights.to("cuda")
-            except:  # Cuda not available. Leave on cpu.
+            except Exception:  # Cuda not available. Leave on cpu.
                 pass
         weights = weights.float()
         Criterion = nn.CrossEntropyLoss(weight=weights)

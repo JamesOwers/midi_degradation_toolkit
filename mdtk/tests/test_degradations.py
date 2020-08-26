@@ -1105,12 +1105,9 @@ def test_add_note():
         )
 
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
-        assert (
-            diff.shape[0] == 1
-        ), "Adding a note changed an existing note, or added note is a " "duplicate." + "\n" + str(
-            BASIC_DF
-        ) + "\n" + str(
-            res
+        assert diff.shape[0] == 1, (
+            "Adding a note changed an existing note, or added note is a duplicate.\n"
+            f"{BASIC_DF}\n{res}"
         )
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
 

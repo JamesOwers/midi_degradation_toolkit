@@ -2,7 +2,7 @@ import itertools
 
 import pandas as pd
 
-from mdtk.df_utils import *
+from mdtk.df_utils import clean_df, get_random_excerpt, remove_pitch_overlaps
 
 CLEAN_INPUT_DF = pd.DataFrame(
     {

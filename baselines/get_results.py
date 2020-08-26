@@ -130,7 +130,7 @@ def plot_confusion(confusion_mat, save_plots=False, ax=None):
         "split_note",
         "join_notes",
     ]
-    im = ax.imshow(confusion_mat, cmap="Oranges", interpolation="nearest")
+    _ = ax.imshow(confusion_mat, cmap="Oranges", interpolation="nearest")
     # We want to show all ticks...
     ax.xaxis.tick_top()
     ax.set_xticks(np.arange(len(degs)))
@@ -144,7 +144,7 @@ def plot_confusion(confusion_mat, save_plots=False, ax=None):
         array_range = np.max(confusion_mat) - np.min(confusion_mat)
         color_cutoff = np.min(confusion_mat) + array_range / 2
         for j in range(len(degs)):
-            text = ax.text(
+            _ = ax.text(
                 j,
                 i,
                 "%.2f" % confusion_mat[i, j],
@@ -174,7 +174,7 @@ def plot_1d_array_per_deg(array, save_plots=False, ax=None):
         "split_note",
         "join_notes",
     ]
-    im = ax.imshow(array.reshape((-1, 1)), cmap="Oranges", interpolation="nearest",)
+    _ = ax.imshow(array.reshape((-1, 1)), cmap="Oranges", interpolation="nearest",)
 
     # We want to show all ticks...
     ax.xaxis.tick_top()
@@ -184,11 +184,11 @@ def plot_1d_array_per_deg(array, save_plots=False, ax=None):
     for ii in range(len(degs)):
         array_range = np.max(array) - np.min(array)
         color_cutoff = np.min(array) + array_range / 2
-        if array[ii] < np.median(array):
+        if array[ii] < color_cutoff:
             color = "black"
         else:
             color = "white"
-        text = ax.text(
+        _ = ax.text(
             0,
             ii,
             f"{array[ii]:.2f}",
@@ -358,8 +358,6 @@ def main(args):
             .apply("_".join, axis=1)
         )
         df.sort_values("expt_id", inplace=True)
-        # df.pivot(index='repeat', columns='expt_id', values='min_vld_loss').T.plot(linestyle=None)
-        # plt.xticks(rotation=90)
         plt.figure()
         sns.pointplot(
             x="expt_id",

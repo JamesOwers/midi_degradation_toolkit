@@ -143,7 +143,7 @@ def midi_to_df(midi_path, single_track=False, non_overlapping=False):
     """
     try:
         midi = pretty_midi.PrettyMIDI(midi_path)
-    except:
+    except Exception:
         warnings.warn(f"Error parsing midi file {midi_path}. Skipping.")
         return None
 

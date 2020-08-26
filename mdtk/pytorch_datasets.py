@@ -1,10 +1,7 @@
 """classes to use in conjunction with pytorch dataloaders"""
-import os
-import random
 import warnings
 
 import numpy as np
-import pandas as pd
 import torch
 import tqdm
 from torch.utils.data import Dataset
@@ -17,7 +14,8 @@ def transform_to_torchtensor(output):
     return {key: torch.tensor(value) for key, value in output.items()}
 
 
-# This is adapted from https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
+# This is adapted from:
+# https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
 class CommandDataset(Dataset):
     def __init__(
         self,
@@ -168,7 +166,8 @@ class CommandDataset(Dataset):
             return deg_cmd, clean_cmd, deg_num
 
 
-# This is adapted from https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
+# This is adapted from
+# https://github.com/codertimo/BERT-pytorch/blob/master/bert_pytorch/dataset/dataset.py
 class PianorollDataset(Dataset):
     def __init__(
         self,

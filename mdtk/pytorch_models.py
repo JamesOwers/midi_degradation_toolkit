@@ -14,7 +14,7 @@ class Command_ErrorDetectionNet(nn.Module):
     2)    passes this through a standard LSTM with one hidden layer
     3)    passes the final hidden state from the lstm through a dropout layer
     4)    then puts this through a linear layer and returns the output
-    
+
     You should use nn.CrossEntropyLoss which will perform both a softmax on
     the output, then Negative log likelihood calculation (this is more
     efficient and therefore I exclude a softmax layer from the model)
@@ -75,7 +75,7 @@ class Command_ErrorClassificationNet(Command_ErrorDetectionNet):
     """
     Baseline model for the Error Classification task, in which the label for
     each data point is a degradation_id (with 0 = not degraded).
-    
+
     It's precisely the same network design as for task 1 - error detection,
     except this has a number of output classes (9 for ACME1.0).
     """
@@ -104,13 +104,13 @@ class Pianoroll_ErrorLocationNet(nn.Module):
     Baseline model for the Error Location task, in which the label for
     each data point is a binary label for each frame of input, with  0 = not
     degraded and 1 = degraded.
-    
+
     The model consists of:
     1) A bidirectional LSTM.
     2) A sequence of dropout layers followed by linear layers.
     3) A final dropout layer.
     4) A final output layer of dim 2.
-    
+
     The outputs and labels should be flattened when computing the CE Loss.
     """
 
@@ -171,7 +171,7 @@ class Pianoroll_ErrorCorrectionNet(nn.Module):
     """
     Baseline model for the Error Correction task, in which the label for each
     data point is the clean data.
-    
+
     The model consists of:
     1) Bi-LSTM to embed the input.
     2) A linear connection layer.

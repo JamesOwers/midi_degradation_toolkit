@@ -105,7 +105,7 @@ if __name__ == "__main__":
     )
     print(f"Task 1 loss = {task1}")
     if deg_counts[0] < 0.5:
-        print(f"Task 1 rev F-measure = 0.0")
+        print("Task 1 rev F-measure = 0.0")
     else:
         precision = np.sum(1 - binary_labels) / len(binary_labels)
         print(f"Task 1 rev F-measure = {(1 + precision) / (2 * precision)}")
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     )
     print(f"Task 3 loss = {task3}")
     if frame_counts[0] > 0.5:
-        print(f"Task 3 F-measure = 0.0")
+        print("Task 3 F-measure = 0.0")
     else:
         precision = np.sum(frame_labels) / len(frame_labels)
         print(f"Task 3 F-measure = {(1 + precision) / (2 * precision)}")

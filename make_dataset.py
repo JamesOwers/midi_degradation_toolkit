@@ -10,12 +10,10 @@ from glob import glob
 from zipfile import BadZipfile
 
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
 
 from mdtk import degradations, downloaders, fileio
 from mdtk.df_utils import get_random_excerpt
-from mdtk.filesystem_utils import make_directory
 from mdtk.formatters import FORMATTERS, create_corpus_csvs
 
 
@@ -106,7 +104,7 @@ def clean_download_cache(dir_path=downloaders.DEFAULT_CACHE_PATH, prompt=True):
     if (not prompt) or response in ["y", "ye", "yes"]:
         try:
             shutil.rmtree(dir_path)
-        except:
+        except Exception:
             print("Could not delete download cache. Please do so manually.")
             return False
     return True
@@ -125,7 +123,6 @@ def parse_args(args_input=None):
         default=default_outdir,
         help="the directory to write the dataset to.",
     )
-    default_indir = os.path.join(os.getcwd(), "input_data")
     parser.add_argument(
         "--config",
         default=None,
@@ -431,7 +428,7 @@ if __name__ == "__main__":
 
             note_df = input_func(filename, **input_kwargs)
             if note_df is not None:
-                rel_path = filename[dataset_base_len + 5 :]
+                rel_path = filename[(dataset_base_len + 5) :]
                 input_data.append((dataset, rel_path, filename, note_df))
 
     # Load user data ==========================================================
@@ -622,7 +619,7 @@ if __name__ == "__main__":
         create_corpus_csvs(ARGS.output_dir, FORMATTERS[f])
 
     print(f'\n{10*"="} Finished! {10*"="}\n')
-    print(f"Count of degradations:")
+    print("Count of degradations:")
     for deg_name, count in zip(deg_choices, deg_counts):
         print(f"\t* {deg_name}: {int(count)}")
 
@@ -630,9 +627,9 @@ if __name__ == "__main__":
         f"\nYou will find the generated data at {ARGS.output_dir} "
         "with subdirectories"
     )
-    print(f"\t* clean - contains the extracted clean excerpts")
+    print("\t* clean - contains the extracted clean excerpts")
     print(
-        f"\t* altered - contains the excerpts altered by the degradations "
+        "\t* altered - contains the excerpts altered by the degradations "
         "described in metadata.csv"
     )
     print("\nmetadata.csv describes:")
