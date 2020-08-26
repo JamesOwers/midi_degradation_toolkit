@@ -34,11 +34,8 @@ class DataDownloader:
 
     def clear_cache(self):
         path = os.path.join(self.cache_path, self.dataset_name)
-        #        warnings.warn(f'Deleting existing directory: {path}')
-        shutil.rmtree(path)
-
-    #        self.downloaded = False
-    #        self.extracted = False
+        if os.path.exists(path):
+            shutil.rmtree(path)
 
     def download_midi(
         self, output_path, cache_path=None, overwrite=None, verbose=False
