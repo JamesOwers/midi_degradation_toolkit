@@ -1093,7 +1093,9 @@ def test_add_note():
                     align_time=True,
                 )
             continue
-
+        # TODO: coverage is complaining that this part of the test has 'no coverage'.
+        # Because of the continue statement above, there's no guarantee that the code
+        # will get here, so we should write a test that makes sure it does
         res = deg.add_note(
             BASIC_DF,
             min_pitch=min_pitch,
@@ -1103,14 +1105,12 @@ def test_add_note():
             align_pitch=True,
             align_time=True,
         )
-
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert diff.shape[0] == 1, (
             "Adding a note changed an existing note, or added note is a duplicate.\n"
             f"{BASIC_DF}\n{res}"
         )
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
-
         note = diff.iloc[0]
         assert note["pitch"] in list(
             BASIC_DF["pitch"]
