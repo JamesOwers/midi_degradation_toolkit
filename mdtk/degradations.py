@@ -932,7 +932,7 @@ def add_note(
     if align_time:
         if min_duration > excerpt["dur"].max() or max_duration < excerpt["dur"].min():
             warnings.warn(
-                "WARNING: No valid aligned duration in " "given range.",
+                "WARNING: No valid aligned duration in given range.",
                 category=UserWarning,
             )
             return None
@@ -946,7 +946,7 @@ def add_note(
             durations.between(min_dur, end_time - onset, inclusive=True)
         ].unique()
         duration = choice(dur_unique)
-    elif min_duration > end_time:
+    elif min_duration >= end_time:
         onset = 0
         duration = min_duration
     elif excerpt.shape[0] == 0:

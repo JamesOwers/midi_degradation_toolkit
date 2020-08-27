@@ -1040,8 +1040,8 @@ def test_add_note():
 
         min_pitch = i * 10
         max_pitch = (i + 1) * 10
-        min_duration = i * 10
-        max_duration = (i + 1) * 10
+        min_duration = i * 50
+        max_duration = (i + 1) * 50
 
         res = deg.add_note(
             BASIC_DF,
@@ -1066,14 +1066,22 @@ def test_add_note():
             f"Added note's duration ({note.dur}) not within range "
             f"[{min_duration}, {max_duration}]."
         )
-        assert (
-            note["onset"] >= 0
-            and note["onset"] + note["dur"]
-            <= BASIC_DF[["onset", "dur"]].sum(axis=1).max()
-        ), (
-            "Added note's onset and duration do not lie within "
-            "bounds of given dataframe."
-        )
+
+        end_time = BASIC_DF[["onset", "dur"]].sum(axis=1).max()
+        if min_duration >= end_time:
+            assert note["onset"] == 0 and note["dur"] == min_duration, (
+                "min_duration > df length, but note[['onset', 'dur']] != 0, "
+                "min_duration"
+            )
+        else:
+            assert (
+                note["onset"] >= 0
+                and note["onset"] + note["dur"]
+                <= BASIC_DF[["onset", "dur"]].sum(axis=1).max()
+            ), (
+                "Added note's onset and duration do not lie within "
+                "bounds of given dataframe."
+            )
 
         # Test align_pitch and align_time
         if (
@@ -1093,9 +1101,7 @@ def test_add_note():
                     align_time=True,
                 )
             continue
-        # TODO: coverage is complaining that this part of the test has 'no coverage'.
-        # Because of the continue statement above, there's no guarantee that the code
-        # will get here, so we should write a test that makes sure it does
+
         res = deg.add_note(
             BASIC_DF,
             min_pitch=min_pitch,
