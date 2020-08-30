@@ -75,20 +75,16 @@ def remove_pitch_overlaps(df):
     df["offset"] = df["onset"] + df["dur"]
     offset = df["offset"].copy()
 
-    for track, track_df in df.groupby("track"):
-        if len(track_df) < 2:
+    for _, pitch_df in df.groupby(["track", "pitch"]):
+        if len(pitch_df) < 2:
             continue
 
-        for pitch, pitch_df in track_df.groupby("pitch"):
-            if len(pitch_df) < 2:
-                continue
-
-            # Each note's offset will go to the latest offset so far,
-            # or be cut at the next note's onset
-            cum_max = pitch_df["offset"].cummax()
-            offset.loc[pitch_df.index] = cum_max.clip(
-                upper=pitch_df["onset"].shift(-1, fill_value=cum_max.iloc[-1])
-            )
+        # Each note's offset will go to the latest offset so far,
+        # or be cut at the next note's onset
+        cum_max = pitch_df["offset"].cummax()
+        offset.loc[pitch_df.index] = cum_max.clip(
+            upper=pitch_df["onset"].shift(-1, fill_value=cum_max.iloc[-1])
+        )
 
     # Fix dur based on offsets and remove offset column
     df["dur"] = offset - df["onset"]
