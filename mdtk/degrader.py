@@ -1,7 +1,7 @@
 """A degrader object can be used to easily degrade data points on the fly
 according to some given parameters."""
 import json
-import warnings
+import logging
 
 import numpy as np
 
@@ -96,7 +96,7 @@ class Degrader:
         deg_label : int
             The label of the degradation that was performed. 0 means none,
             and larger numbers mean the degradation
-            "self.degradations[deg_label+1]" was performed.
+            "self.degradations[deg_label-1]" was performed.
         """
         if self.clean_prop > 0 and np.random.rand() <= self.clean_prop:
             return note_df.copy(), 0
@@ -114,9 +114,9 @@ class Degrader:
             deg_fun = degs.DEGRADATIONS[self.degradations[deg_index]]
 
             # Try to degrade
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                degraded_df = deg_fun(note_df)
+            logging.disable(logging.WARNING)
+            degraded_df = deg_fun(note_df)
+            logging.disable(logging.NOTSET)
 
             # Check for success!
             if degraded_df is not None:
@@ -140,9 +140,9 @@ class Degrader:
             deg_fun = degs.DEGRADATIONS[self.degradations[deg_index]]
 
             # Try to degrade
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                degraded_df = deg_fun(note_df)
+            logging.disable(logging.WARNING)
+            degraded_df = deg_fun(note_df)
+            logging.disable(logging.NOTSET)
 
             # Check for success!
             if degraded_df is not None:
