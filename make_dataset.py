@@ -2,10 +2,10 @@
 """Script to generate Altered and Corrupted Midi Excerpt (ACME) datasets"""
 import argparse
 import json
+import logging
 import os
 import shutil
 import sys
-import warnings
 from glob import glob
 from zipfile import BadZipfile
 
@@ -15,14 +15,6 @@ from tqdm import tqdm
 from mdtk import degradations, downloaders, fileio
 from mdtk.df_utils import get_random_excerpt
 from mdtk.formatters import FORMATTERS, create_corpus_csvs
-
-
-def print_warn_msg_only(message, category, filename, lineno, file=None, line=None):
-    print(message, file=sys.stderr)
-
-
-warnings.showwarning = print_warn_msg_only
-
 
 with open(os.path.join("img", "logo.txt"), "r") as ff:
     LOGO = ff.read()
@@ -305,10 +297,8 @@ if __name__ == "__main__":
     # Warn user they specified kwargs for degradation not being used
     for deg, args in degradation_kwargs.items():
         if deg not in ARGS.degradations and len(args) > 0:
-            warnings.warn(
-                "--degradation_kwargs contains args for unused "
-                f'degradation "{deg}".',
-                UserWarning,
+            logging.warning(
+                "--degradation_kwargs contains args for unused " f'degradation "{deg}".'
             )
 
     # Exit if degradation-dist is a diff length to degradations
@@ -540,11 +530,10 @@ if __name__ == "__main__":
 
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
-            warnings.warn(
+            logging.warning(
                 "Unable to find valid excerpt from file "
                 f"{file_path}. Lengthen --excerpt-length or "
                 "lower --min-notes. Skipping.",
-                UserWarning,
             )
             continue
 
@@ -577,9 +566,9 @@ if __name__ == "__main__":
             deg_fun = degradations.DEGRADATIONS[deg_name]
             deg_fun_kwargs = degradation_kwargs[deg_name]  # degradation_kwargs
             # at top of main call
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                degraded = deg_fun(excerpt, **deg_fun_kwargs)
+            logging.disable(logging.WARNING)
+            degraded = deg_fun(excerpt, **deg_fun_kwargs)
+            logging.disable(logging.NOTSET)
 
             if degraded is not None:
                 # Update labels
@@ -606,11 +595,10 @@ if __name__ == "__main__":
                 f"{altered_path},{deg_binary},{deg_num}," f"{clean_path},{split_name}\n"
             )
         else:
-            warnings.warn(
+            logging.warning(
                 "Unable to degrade chosen excerpt from "
                 f"{file_path} and no clean excerpts requested."
                 " Skipping.",
-                UserWarning,
             )
 
     meta_file.close()

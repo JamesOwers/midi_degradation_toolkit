@@ -1,10 +1,10 @@
 """Utility functions for file manipulation"""
+import logging
 import os
 import shutil
 import sys
 import urllib.error
 import urllib.request
-import warnings
 import zipfile
 
 
@@ -15,10 +15,7 @@ def download_file(source, dest, verbose=False, overwrite=None):
     if os.path.exists(dest):
         if overwrite is None:
             if verbose:
-                warnings.warn(
-                    f"WARNING: {dest} already exists, not " "downloading",
-                    category=UserWarning,
-                )
+                logging.warning(f"WARNING: {dest} already exists, not downloading")
             return
         if not overwrite:
             raise OSError(f"{dest} already exists")
@@ -58,10 +55,9 @@ def make_directory(path, overwrite=None, verbose=False):
             mkdir(path)
         elif overwrite is None:
             if verbose:
-                warnings.warn(
+                logging.warning(
                     f"WARNING: {path} already exists, writing "
                     "files only if they do not already exist.",
-                    category=UserWarning,
                 )
         elif overwrite is False:
             raise e
@@ -80,15 +76,14 @@ def extract_zip(zip_path, out_path, overwrite=None, verbose=False):
     if os.path.exists(extracted_path):
         if overwrite is True:
             if verbose:
-                warnings.warn("Deleting existing directory: " f"{extracted_path}")
+                logging.warning("Deleting existing directory: " f"{extracted_path}")
             shutil.rmtree(extracted_path)
         elif overwrite is None:
             if verbose:
-                warnings.warn(
+                logging.warning(
                     f"{extracted_path} already exists. Assuming "
                     "this zip has already been extracted, not "
                     "extracting.",
-                    category=UserWarning,
                 )
             return extracted_path
         elif overwrite is False:

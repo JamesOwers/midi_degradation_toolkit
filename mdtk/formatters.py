@@ -1,7 +1,7 @@
 """Tools to convert from the default acme csvs and metadata.csv to specific
 formats easy for the provided pytorch DataLoaders"""
+import logging
 import os
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -266,7 +266,7 @@ def double_pianoroll_to_df(
     """
 
     if max_pitch != pianoroll.shape[1] / 2 + min_pitch - 1:
-        warnings.warn(
+        logging.warning(
             "max_pitch doesn't match pianoroll shape and min_pitch. "
             "Setting max_pitch to "
             f"{int(pianoroll.shape[1] / 2 + min_pitch - 1)}."
