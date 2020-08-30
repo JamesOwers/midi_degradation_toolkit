@@ -104,8 +104,18 @@ def pre_process(df, sort=False):
     -------
     df : pd.DataFrame
         The postprocessed dataframe.
+
+    Raises
+    ------
+    ValueError
+        If the given df does not have all of the necessary columns.
     """
-    df = df.loc[:, NOTE_DF_SORT_ORDER]
+    try:
+        df = df.loc[:, NOTE_DF_SORT_ORDER]
+    except KeyError:  # df has incorrect columns
+        raise ValueError(
+            f"Input note_df must have all of the columns: {NOTE_DF_SORT_ORDER}"
+        )
     if sort:
         df = df.sort_values(NOTE_DF_SORT_ORDER)
     df = df.reset_index(drop=True)

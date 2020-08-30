@@ -90,6 +90,11 @@ def test_pre_process():
         f"instead of \n{float_res}"
     )
 
+    # Check not correct columns raises ValueError
+    invalid_df = pd.DataFrame({"track": [0, 1], "onset": [0, 50], "pitch": [10, 20]})
+    with pytest.raises(ValueError):
+        deg.pre_process(invalid_df)
+
 
 def test_post_process():
     basic_res = pd.DataFrame(
