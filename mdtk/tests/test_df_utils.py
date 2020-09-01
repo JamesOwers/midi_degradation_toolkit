@@ -101,6 +101,9 @@ def test_remove_pitch_overlaps():
         f"instead of\n{note_df_complex_overlap_fixed}"
     )
 
+    short_df = pd.DataFrame({"onset": [0], "track": 0, "pitch": 0, "dur": 0})
+    assert short_df.equals(remove_pitch_overlaps(short_df))
+
 
 def test_get_random_excerpt():
     NUM_NOTES = 50

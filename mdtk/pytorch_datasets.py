@@ -1,5 +1,5 @@
 """classes to use in conjunction with pytorch dataloaders"""
-import warnings
+import logging
 
 import numpy as np
 import torch
@@ -109,7 +109,7 @@ class CommandDataset(Dataset):
         else:
             item_nr_str = " <unknown>"
         if deg_len > self.seq_len:
-            warnings.warn(
+            logging.warning(
                 f"Degraded command data point {item_nr_str} exceeds "
                 f"given seq_len: {deg_len} > {self.seq_len}. "
                 "Clipping."
@@ -119,7 +119,7 @@ class CommandDataset(Dataset):
         # Clean length and clipping
         clean_len = len(clean_cmd)
         if clean_len > self.seq_len:
-            warnings.warn(
+            logging.warning(
                 f"Clean command data point {item_nr_str} exceeds "
                 f"given seq_len: {clean_len} > {self.seq_len}. "
                 "Clipping."
@@ -276,7 +276,7 @@ class PianorollDataset(Dataset):
         onset_pr = np.zeros((self.seq_len, 128))
         frames = pr.split("/")
         if len(frames) > self.seq_len:
-            warnings.warn(
+            logging.warning(
                 "Pianoroll data point exceeds given seq_len: "
                 f"{len(frames)} > {self.seq_len}. Clipping."
             )

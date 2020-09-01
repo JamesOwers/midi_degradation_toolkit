@@ -2,7 +2,6 @@
 import argparse
 import os
 import sys
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -15,15 +14,6 @@ import mdtk.pytorch_trainers
 from mdtk.degradations import MAX_PITCH_DEFAULT, MIN_PITCH_DEFAULT
 from mdtk.formatters import FORMATTERS, CommandVocab, create_corpus_csvs
 from mdtk.pytorch_datasets import transform_to_torchtensor
-
-
-def print_warn_msg_only(message, category, filename, lineno, file=None, line=None):
-    print(message, file=sys.stderr)
-
-
-warnings.showwarning = print_warn_msg_only
-# TODO: This should ideally be 'once', but it doesn't work for some reason
-warnings.filterwarnings("ignore", message=".* exceeds given seq_len")
 
 
 def get_inverse_weights(dataset, task, formatter, transform=torch.tensor):
@@ -84,7 +74,7 @@ def parse_args():
         "-i",
         "--input",
         default="acme",
-        help="The " "base directory of the ACME dataset to use as input.",
+        help="The base directory of the ACME dataset to use as input.",
     )
     parser.add_argument(
         "-o",
@@ -119,7 +109,7 @@ def parse_args():
         "--task",
         required=True,
         choices=range(1, 5),
-        help="The " "task number to train a model for.",
+        help="The task number to train a model for.",
         type=int,
     )
 
@@ -156,7 +146,7 @@ def parse_args():
         type=int,
         default=[],
         nargs="*",
-        help="Size of linear (post-LSTM) layers. " "(--format pianoroll only)",
+        help="Size of linear (post-LSTM) layers. (--format pianoroll only)",
     )
 
     # Training/DataLoading args
@@ -183,12 +173,12 @@ def parse_args():
     parser.add_argument(
         "--batch_log_freq",
         default="10",
-        help="printing loss every n batches: setting to None " "means no logging.",
+        help="printing loss every n batches: setting to None means no logging.",
     )
     parser.add_argument(
         "--epoch_log_freq",
         default="1",
-        help="printing loss every n epochs: setting to None " "means no logging.",
+        help="printing loss every n epochs: setting to None means no logging.",
     )
     parser.add_argument(
         "--in_memory", type=bool, default=True, help="Loading on memory: true or false"

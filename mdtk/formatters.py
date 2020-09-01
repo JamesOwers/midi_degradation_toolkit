@@ -1,7 +1,7 @@
 """Tools to convert from the default acme csvs and metadata.csv to specific
 formats easy for the provided pytorch DataLoaders"""
+import logging
 import os
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -266,7 +266,7 @@ def double_pianoroll_to_df(
     """
 
     if max_pitch != pianoroll.shape[1] / 2 + min_pitch - 1:
-        warnings.warn(
+        logging.warning(
             "max_pitch doesn't match pianoroll shape and min_pitch. "
             "Setting max_pitch to "
             f"{int(pianoroll.shape[1] / 2 + min_pitch - 1)}."
@@ -367,9 +367,9 @@ def df_to_command_str(
         The string containing a space separated list of commands.
     """
     # Input validation
-    assert max_time_shift % time_increment == 0, (
-        "max_time_shift must be " "divisible by time_increment."
-    )
+    assert (
+        max_time_shift % time_increment == 0
+    ), "max_time_shift must be divisible by time_increment."
     assert max_pitch >= min_pitch, "max_pitch must be >= min_pitch."
     assert time_increment > 0, "time_increment must be positive."
     assert max_time_shift > 0, "max_time_shift must be positive."

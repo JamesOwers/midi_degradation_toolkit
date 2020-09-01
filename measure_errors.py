@@ -4,9 +4,9 @@ a degraded MIDI dataset with the given proportions of degradations."""
 import argparse
 import glob
 import json
+import logging
 import os
 import pickle
-import warnings
 
 import numpy as np
 from tqdm import tqdm
@@ -696,7 +696,7 @@ def get_proportions(
 
         # Check for validity
         if len(gt_excerpt) < min_notes and len(trans_excerpt) < min_notes:
-            warnings.warn(
+            logging.warning(
                 f"Skipping excerpt {gt} for too few notes. "
                 f"Time range = [{excerpt_start}, {excerpt_end}). "
                 f"Try lowering the minimum note count --min-notes "
@@ -732,7 +732,7 @@ def parse_args(args_input=None):
 
     parser.add_argument(
         "--json",
-        help="The file to write the degradation config" " json data out to.",
+        help="The file to write the degradation config json data out to.",
         default="config.json",
     )
     parser.add_argument(
@@ -760,7 +760,7 @@ def parse_args(args_input=None):
 
     parser.add_argument(
         "--trans",
-        help="The directory which contains the " "transcriptions.",
+        help="The directory which contains the transcriptions.",
         required=True,
     )
     parser.add_argument(
@@ -814,7 +814,7 @@ def parse_args(args_input=None):
         metavar="N",
         type=int,
         default=10,
-        help="The minimum number of notes required for an " "excerpt to be valid.",
+        help="The minimum number of notes required for an excerpt to be valid.",
     )
     args = parser.parse_args(args=args_input)
     return args
@@ -854,7 +854,7 @@ if __name__ == "__main__":
             )
 
         if len(gt_list) == 0:
-            warnings.warn(
+            logging.warning(
                 f"No ground truth found for transcription {file}. Check"
                 " that the file extension --gt_ext is correct (or not "
                 "given), and the dir --gt is correct. Searched for file"
@@ -862,7 +862,7 @@ if __name__ == "__main__":
             )
             continue
         elif len(gt_list) > 1:
-            warnings.warn(
+            logging.warning(
                 f"Multiple ground truths found for transcription {file}:"
                 f"{gt_list}. Defaulting to the first one. Try narrowing "
                 "down extensions with --gt_ext."

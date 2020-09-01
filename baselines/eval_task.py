@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import os
-import sys
-import warnings
 
 import torch
 import torch.nn as nn
@@ -12,15 +10,6 @@ from mdtk import pytorch_datasets, pytorch_trainers
 from mdtk.degradations import MAX_PITCH_DEFAULT, MIN_PITCH_DEFAULT
 from mdtk.formatters import FORMATTERS, CommandVocab, create_corpus_csvs
 from mdtk.pytorch_datasets import transform_to_torchtensor
-
-
-def print_warn_msg_only(message, category, filename, lineno, file=None, line=None):
-    print(message, file=sys.stderr)
-
-
-warnings.showwarning = print_warn_msg_only
-# TODO: This should ideally be 'once', but it doesn't work for some reason
-warnings.filterwarnings("ignore", message=".* exceeds given seq_len")
 
 
 # TODO: get formatter out of Trainer
@@ -33,13 +22,13 @@ def construct_parser():
         "-i",
         "--input",
         default="acme",
-        help="The " "base directory of the ACME dataset to use as input.",
+        help="The base directory of the ACME dataset to use as input.",
     )
     parser.add_argument(
         "-m",
         "--model",
         required=True,
-        help="The " "filename of the model to use in evaluation.",
+        help="The filename of the model to use in evaluation.",
     )
 
     # Basic task setup args
@@ -59,7 +48,7 @@ def construct_parser():
         "--task",
         required=True,
         choices=range(1, 5),
-        help="The " "task number to train a model for.",
+        help="The task number to train a model for.",
         type=int,
     )
 

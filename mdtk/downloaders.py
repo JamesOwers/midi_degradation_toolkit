@@ -46,14 +46,14 @@ class DataDownloader:
         """Downloads the MIDI data to output_path"""
         cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError(
-            "In order to download MIDI, you must " "implement the download_midi method."
+            "In order to download MIDI, you must implement the download_midi method."
         )
 
     def download_csv(self, output_path, cache_path=None, overwrite=None, verbose=False):
         """Downloads the csv data to output_path"""
         cache_path = self.cache_path if cache_path is None else cache_path
         raise NotImplementedError(
-            "In order to download CSV, you must " "implement the download_csv method."
+            "In order to download CSV, you must implement the download_csv method."
         )
 
 
@@ -74,7 +74,7 @@ class PPDDSep2018Monophonic(DataDownloader):
         super().__init__(cache_path=cache_path)
         self.dataset_name = self.__class__.__name__
         self.base_url = (
-            "http://tomcollinsresearch.net/research/data/mirex/" "ppdd/ppdd-sep2018"
+            "http://tomcollinsresearch.net/research/data/mirex/ppdd/ppdd-sep2018"
         )
         self.download_urls = [
             f"{self.base_url}/PPDD-Sep2018_sym_mono_{size}.zip" for size in sizes

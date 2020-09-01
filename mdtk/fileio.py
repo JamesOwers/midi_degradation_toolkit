@@ -1,6 +1,6 @@
 """Code to read/write note_dfs from/to midi and csv files."""
+import logging
 import os
-import warnings
 from glob import glob
 
 import pandas as pd
@@ -144,7 +144,7 @@ def midi_to_df(midi_path, single_track=False, non_overlapping=False):
     try:
         midi = pretty_midi.PrettyMIDI(midi_path)
     except Exception:
-        warnings.warn(f"Error parsing midi file {midi_path}. Skipping.")
+        logging.warning(f"Error parsing midi file {midi_path}. Skipping.")
         return None
 
     notes = []
@@ -160,10 +160,9 @@ def midi_to_df(midi_path, single_track=False, non_overlapping=False):
             )
 
     if len(notes) == 0:
-        warnings.warn(
-            f"WARNING: the midi file located at {midi_path} is "
-            "empty. Returning None.",
-            category=UserWarning,
+        logging.warning(
+            f"WARNING: the midi file located at {midi_path} is empty. "
+            "Returning None.",
         )
         return None
 

@@ -1,5 +1,4 @@
 import itertools
-import re
 
 import numpy as np
 import pandas as pd
@@ -34,6 +33,13 @@ UNSORTED_DF = BASIC_DF.iloc[[0, 2, 3, 1]]
 
 def assert_none(res, msg=""):
     assert res is None, f"{msg}\nExpected None, but got:\n{res}"
+
+
+def assert_warned(caplog, msg=None):
+    assert caplog.records[-1].levelname == "WARNING", "Warning not logged."
+    if msg:
+        assert msg in caplog.text, "Warning message incorrect."
+    caplog.clear()
 
 
 def test_pre_process():
@@ -89,6 +95,11 @@ def test_pre_process():
         f"Pre-processing \n{float_df}\n resulted in \n{res}\n"
         f"instead of \n{float_res}"
     )
+
+    # Check not correct columns raises ValueError
+    invalid_df = pd.DataFrame({"track": [0, 1], "onset": [0, 50], "pitch": [10, 20]})
+    with pytest.raises(ValueError):
+        deg.pre_process(invalid_df)
 
 
 def test_post_process():
@@ -167,29 +178,25 @@ def test_overlaps():
     ), f"Overlaps incorrectly returned False for:\n{fixed_basic}."
 
 
-def test_unsorted():
+def test_unsorted(caplog):
     global BASIC_DF
     BASIC_DF = UNSORTED_DF
 
-    test_pitch_shift()
-    test_time_shift()
-    test_onset_shift()
-    test_offset_shift()
-    test_remove_note()
-    test_add_note()
-    test_split_note()
+    test_pitch_shift(caplog)
+    test_time_shift(caplog)
+    test_onset_shift(caplog)
+    test_offset_shift(caplog)
+    test_remove_note(caplog)
+    test_add_note(caplog)
+    test_split_note(caplog)
 
     BASIC_DF = BASIC_DF_FINAL
 
 
-def test_pitch_shift():
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No notes to pitch" " shift. Returning None."),
-    ):
-        assert (
-            deg.pitch_shift(EMPTY_DF) is None
-        ), "Pitch shifting with empty data frame did not return None."
+def test_pitch_shift(caplog):
+    res = deg.pitch_shift(EMPTY_DF)
+    assert_none(res, msg="Pitch shifting with empty data frame did not return None.")
+    assert_warned(caplog)
 
     if BASIC_DF.equals(BASIC_DF_FINAL):
         # Deterministic testing
@@ -214,9 +221,9 @@ def test_pitch_shift():
 
     # Test if tries works
     df = pd.DataFrame({"onset": [0], "pitch": [10], "track": [0], "dur": [100]})
-    with pytest.warns(UserWarning, match=re.escape(deg.TRIES_WARN_MSG)):
-        res = deg.pitch_shift(df, min_pitch=10, max_pitch=10)
-        assert_none(res, msg="Pitch shift should run out of tries.")
+    res = deg.pitch_shift(df, min_pitch=10, max_pitch=10)
+    assert_none(res, msg="Pitch shift should run out of tries.")
+    assert_warned(caplog, msg=deg.TRIES_WARN_MSG)
 
     # Truly random testing
     for i in range(10):
@@ -270,27 +277,20 @@ def test_pitch_shift():
         )
 
     # Check for distribution warnings
-    with pytest.warns(
-        UserWarning,
-        match=re.escape(
-            "WARNING: distribution contains only 0s after "
-            "setting distribution[zero_idx] value to 0. "
-            "Returning None."
-        ),
-    ):
-        res = deg.pitch_shift(BASIC_DF, distribution=[0, 1, 0])
-        assert res is None, "Pitch shifting with distribution of 0s returned something."
+    res = deg.pitch_shift(BASIC_DF, distribution=[0, 1, 0])
+    assert_none(res, msg="Pitch shifting with distribution of 0s returned something.")
+    assert_warned(
+        caplog,
+        msg="distribution contains only 0s after "
+        "setting distribution[zero_idx] value to 0. "
+        "Returning None.",
+    )
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid pitches " "to shift given min_pitch"),
-    ):
-        res = deg.pitch_shift(
-            BASIC_DF, min_pitch=-50, max_pitch=-20, distribution=[1, 0, 1]
-        )
-        assert (
-            res is None
-        ), "Pitch shifting with invalid distribution returned something."
+    res = deg.pitch_shift(
+        BASIC_DF, min_pitch=-50, max_pitch=-20, distribution=[1, 0, 1]
+    )
+    assert_none(res, msg="Pitch shifting with invalid distribution returned something.")
+    assert_warned(caplog, msg="No valid pitches to shift given min_pitch")
 
     res = deg.pitch_shift(
         BASIC_DF,
@@ -300,17 +300,14 @@ def test_pitch_shift():
     )
     assert res is not None, "Valid shift down of 1 pitch returned None."
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid pitches to shift " "given min_pitch"),
-    ):
-        res = deg.pitch_shift(
-            BASIC_DF,
-            min_pitch=BASIC_DF["pitch"].min() - 2,
-            max_pitch=BASIC_DF["pitch"].min() - 2,
-            distribution=[1, 0, 0],
-        )
-        assert res is None, "Invalid shift down of 2 pitch returned something."
+    res = deg.pitch_shift(
+        BASIC_DF,
+        min_pitch=BASIC_DF["pitch"].min() - 2,
+        max_pitch=BASIC_DF["pitch"].min() - 2,
+        distribution=[1, 0, 0],
+    )
+    assert_none(res, msg="Invalid shift down of 2 pitch returned something.")
+    assert_warned(caplog, msg="No valid pitches to shift given min_pitch")
 
     res = deg.pitch_shift(
         BASIC_DF,
@@ -320,27 +317,22 @@ def test_pitch_shift():
     )
     assert res is not None, "Valid shift up of 1 pitch returned None."
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid pitches to shift " "given min_pitch"),
-    ):
-        res = deg.pitch_shift(
-            BASIC_DF,
-            min_pitch=BASIC_DF["pitch"].max() + 2,
-            max_pitch=BASIC_DF["pitch"].max() + 2,
-            distribution=[0, 0, 1],
-        )
-        assert res is None, "Invalid shift up of 2 pitch returned something."
+    res = deg.pitch_shift(
+        BASIC_DF,
+        min_pitch=BASIC_DF["pitch"].max() + 2,
+        max_pitch=BASIC_DF["pitch"].max() + 2,
+        distribution=[0, 0, 1],
+    )
+    assert_none(res, msg="Invalid shift up of 2 pitch returned something.")
+    assert_warned(caplog, msg="No valid pitches to shift given min_pitch")
 
 
-def test_time_shift():
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid notes to time " "shift. Returning None."),
-    ):
-        assert deg.time_shift(EMPTY_DF) is None, (
-            "Time shifting with empty data " "frame did not return None."
-        )
+def test_time_shift(caplog):
+    assert_none(
+        deg.time_shift(EMPTY_DF),
+        msg="Time shifting with empty data frame did not return None.",
+    )
+    assert_warned(caplog, "No valid notes to time shift. Returning None.")
 
     if BASIC_DF.equals(BASIC_DF_FINAL):
         # Deterministic testing
@@ -431,23 +423,21 @@ def test_time_shift():
                 min_shift <= shift <= max_shift
             ), f"Shift {shift} outside of range [{min_shift}, {max_shift}]."
         else:
-            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-                res = deg.time_shift(
-                    BASIC_DF, min_shift=min_shift, max_shift=max_shift, align_onset=True
-                )
+            res = deg.time_shift(
+                BASIC_DF, min_shift=min_shift, max_shift=max_shift, align_onset=True
+            )
+            assert_warned(caplog)
 
     # Check for range too large warning
-    with pytest.warns(
-        UserWarning, match=re.escape("WARNING: No valid notes to " "time shift.")
-    ):
-        res = deg.time_shift(BASIC_DF, min_shift=201, max_shift=202)
-        assert res is None, "Invalid time shift of 201 returned something."
+    res = deg.time_shift(BASIC_DF, min_shift=201, max_shift=202)
+    assert_none(res, msg="Invalid time shift of 201 returned something.")
+    assert_warned(caplog, msg="No valid notes to time shift.")
 
     res = deg.time_shift(BASIC_DF, min_shift=200, max_shift=201)
     assert res is not None, "Valid time shift of 200 returned None."
 
 
-def test_onset_shift():
+def test_onset_shift(caplog):
     def check_onset_shift_result(
         df, res, min_shift, max_shift, min_duration, max_duration
     ):
@@ -487,15 +477,11 @@ def test_onset_shift():
             changed_note.loc[0]["onset"] >= 0
         ), "Changed note given negative onset time."
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape(
-            "WARNING: No valid notes to" " onset shift. Returning " "None."
-        ),
-    ):
-        assert (
-            deg.onset_shift(EMPTY_DF) is None
-        ), "Onset shifting with empty data frame did not return None."
+    assert_none(
+        deg.onset_shift(EMPTY_DF),
+        msg="Onset shifting with empty data frame did not return None.",
+    )
+    assert_warned(caplog, msg="No valid notes to onset shift. Returning None.")
 
     if BASIC_DF.equals(BASIC_DF_FINAL):
         # Deterministic testing
@@ -543,22 +529,17 @@ def test_onset_shift():
         min_duration = 0
         max_duration = 100 - max_shift - 1
 
-        with pytest.warns(
-            UserWarning,
-            match=re.escape(
-                "WARNING: No valid notes to" " onset shift. Returning " "None."
-            ),
-        ):
-            res = deg.onset_shift(
-                BASIC_DF,
-                min_shift=min_shift,
-                max_shift=max_shift,
-                min_duration=min_duration,
-                max_duration=max_duration,
-            )
-            assert (
-                res is None
-            ), "Onset shift with max_duration too short didn't return None."
+        res = deg.onset_shift(
+            BASIC_DF,
+            min_shift=min_shift,
+            max_shift=max_shift,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        assert_none(
+            res, msg="Onset shift with max_duration too short didn't return None."
+        )
+        assert_warned(caplog, msg="No valid notes to onset shift. Returning None.")
 
         # Duration is barely short enough
         min_duration = 0
@@ -578,22 +559,17 @@ def test_onset_shift():
         min_duration = 100 + max_shift + 1
         max_duration = np.inf
 
-        with pytest.warns(
-            UserWarning,
-            match=re.escape(
-                "WARNING: No valid notes to" " onset shift. Returning " "None."
-            ),
-        ):
-            res = deg.onset_shift(
-                BASIC_DF,
-                min_shift=min_shift,
-                max_shift=max_shift,
-                min_duration=min_duration,
-                max_duration=max_duration,
-            )
-            assert (
-                res is None
-            ), "Onset shift with min_duration too long didn't return None."
+        res = deg.onset_shift(
+            BASIC_DF,
+            min_shift=min_shift,
+            max_shift=max_shift,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        assert_none(
+            res, msg="Onset shift with min_duration too long didn't return None."
+        )
+        assert_warned(caplog, msg="No valid notes to onset shift. Returning None.")
 
         # Duration is barely short enough
         min_duration = 100 + max_shift
@@ -656,18 +632,18 @@ def test_onset_shift():
             and res["dur"].isin([50, 100, 150]).all()
         ), "Onset with align_dur didn't align duration."
 
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
-            assert_none(res)
+        res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+        assert_none(res)
+        assert_warned(caplog)
 
         # Test with align_onset
         res = deg.onset_shift(align_df, align_onset=True)
@@ -678,18 +654,18 @@ def test_onset_shift():
             and len(set(res["onset"])) == 4
         ), "Onset with align_onset didn't align onset."
 
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, min_shift=201)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, min_duration=301)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
-            assert_none(res)
+        res = deg.onset_shift(align_df, align_dur=True, min_shift=201)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, min_duration=301)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+        assert_none(res)
+        assert_warned(caplog)
 
         # Test with align both
         res = deg.onset_shift(align_df, align_onset=True, align_dur=True)
@@ -705,33 +681,29 @@ def test_onset_shift():
             and len(set(res["onset"])) == 4
         ), "Onset with align_dur and align_onset didn't align onset."
 
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
-            assert_none(res)
-        with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-            res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
-            assert_none(res)
+        res = deg.onset_shift(align_df, align_dur=True, min_shift=101)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, max_shift=49)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, min_duration=151)
+        assert_none(res)
+        assert_warned(caplog)
+        res = deg.onset_shift(align_df, align_dur=True, max_duration=49)
+        assert_none(res)
+        assert_warned(caplog)
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape(
-            "WARNING: No valid notes to" " onset shift. Returning " "None."
-        ),
-    ):
-        res = deg.onset_shift(BASIC_DF, min_shift=300)
-        assert res is None, (
-            "Onset shifting with empty data min_shift greater than "
-            "possible additional duration did not return None."
-        )
+    res = deg.onset_shift(BASIC_DF, min_shift=300)
+    assert_none(
+        res,
+        msg="Onset shifting with empty data min_shift greater than "
+        "possible additional duration did not return None.",
+    )
+    assert_warned(caplog, msg="No valid notes to onset shift. Returning None.")
 
 
-def test_offset_shift():
+def test_offset_shift(caplog):
     def check_offset_shift_result(
         df, res, min_shift, max_shift, min_duration, max_duration
     ):
@@ -771,15 +743,11 @@ def test_offset_shift():
             <= df[["onset", "dur"]].sum(axis=1).max()
         ), "Changed note offset shifted past previous last offset."
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape(
-            "WARNING: No valid notes to" " offset shift. Returning " "None."
-        ),
-    ):
-        assert (
-            deg.offset_shift(EMPTY_DF) is None
-        ), "Offset shifting with empty data frame did not return None."
+    assert_none(
+        deg.offset_shift(EMPTY_DF),
+        msg="Offset shifting with empty data frame did not return None.",
+    )
+    assert_warned(caplog, msg="No valid notes to offset shift. Returning None.")
 
     if BASIC_DF.equals(BASIC_DF_FINAL):
         # Deterministic testing
@@ -800,12 +768,15 @@ def test_offset_shift():
             )
             assert not BASIC_DF.equals(res), "Note_df was not copied."
 
-            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-                res = deg.offset_shift(BASIC_DF, seed=1, align_dur=True)
-                assert res is None, (
-                    "Offset shift with align_dur doesn't "
-                    "fail on excerpt with only 1 duration."
-                )
+            res = deg.offset_shift(BASIC_DF, seed=1, align_dur=True)
+            assert_none(
+                res,
+                msg=(
+                    "Offset shift with align_dur doesn't fail on excerpt with "
+                    "only 1 duration."
+                ),
+            )
+            assert_warned(caplog)
 
     # Random testing
     for i in range(10):
@@ -832,22 +803,17 @@ def test_offset_shift():
         min_duration = 0
         max_duration = 100 - max_shift - 1
 
-        with pytest.warns(
-            UserWarning,
-            match=re.escape(
-                "WARNING: No valid notes to" " offset shift. Returning " "None."
-            ),
-        ):
-            res = deg.offset_shift(
-                BASIC_DF,
-                min_shift=min_shift,
-                max_shift=max_shift,
-                min_duration=min_duration,
-                max_duration=max_duration,
-            )
-            assert (
-                res is None
-            ), "Offset shift with max_duration too short didn't return None."
+        res = deg.offset_shift(
+            BASIC_DF,
+            min_shift=min_shift,
+            max_shift=max_shift,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        assert_none(
+            res, msg="Offset shift with max_duration too short didn't return None."
+        )
+        assert_warned(caplog, msg="No valid notes to offset shift. Returning None.")
 
         # Duration is barely short enough
         min_duration = 0
@@ -867,22 +833,17 @@ def test_offset_shift():
         min_duration = 100 + max_shift + 1
         max_duration = np.inf
 
-        with pytest.warns(
-            UserWarning,
-            match=re.escape(
-                "WARNING: No valid notes to" " offset shift. Returning " "None."
-            ),
-        ):
-            res = deg.offset_shift(
-                BASIC_DF,
-                min_shift=min_shift,
-                max_shift=max_shift,
-                min_duration=min_duration,
-                max_duration=max_duration,
-            )
-            assert (
-                res is None
-            ), "Offset shift with min_duration too long didn't return None."
+        res = deg.offset_shift(
+            BASIC_DF,
+            min_shift=min_shift,
+            max_shift=max_shift,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        assert_none(
+            res, msg="Offset shift with min_duration too long didn't return None."
+        )
+        assert_warned(caplog, msg="No valid notes to offset shift. Returning None.")
 
         # Duration is barely short enough
         min_duration = 100 + max_shift
@@ -948,33 +909,33 @@ def test_offset_shift():
             ), "Offset shift with align_dur doesn't properly align duration."
 
         else:
-            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-                res = deg.offset_shift(BASIC_DF, min_shift=300)
-                assert res is None, (
-                    "Offset shifting with align_dur but all durs outside "
-                    "valid range returns something."
-                )
+            res = deg.offset_shift(BASIC_DF, min_shift=300)
+            assert_none(
+                res,
+                msg=(
+                    "Offset shifting with align_dur but all durs outside valid "
+                    "range returns something."
+                ),
+            )
+            assert_warned(caplog)
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape(
-            "WARNING: No valid notes to" " offset shift. Returning " "None."
+    res = deg.offset_shift(BASIC_DF, min_shift=300)
+    assert_none(
+        res,
+        msg=(
+            "Offset shifting with empty data min_shift greater than possible "
+            "additional note duration did not return None."
         ),
-    ):
-        res = deg.offset_shift(BASIC_DF, min_shift=300)
-        assert res is None, (
-            "Offset shifting with empty data min_shift greater than "
-            "possible additional note duration did not return None."
-        )
+    )
+    assert_warned(caplog, msg="No valid notes to offset shift. Returning None.")
 
 
-def test_remove_note():
-    with pytest.warns(
-        UserWarning, match=re.escape("WARNING: No notes to " "remove. Returning None.")
-    ):
-        assert (
-            deg.remove_note(EMPTY_DF) is None
-        ), "Remove note with empty data frame did not return None."
+def test_remove_note(caplog):
+    assert_none(
+        deg.remove_note(EMPTY_DF),
+        msg="Remove note with empty data frame did not return None.",
+    )
+    assert_warned(caplog, "No notes to remove. Returning None.")
 
     if BASIC_DF.equals(BASIC_DF_FINAL):
         # Deterministic testing
@@ -1009,7 +970,7 @@ def test_remove_note():
         ), "Remove note did not remove exactly 1 note."
 
 
-def test_add_note():
+def test_add_note(caplog):
     assert (
         deg.add_note(EMPTY_DF) is not None
     ), "Add note to empty data frame returned None."
@@ -1052,9 +1013,9 @@ def test_add_note():
         )
 
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
-        assert diff.shape[0] == 1, (
-            "Adding a note changed an existing note, or added note is a " "duplicate."
-        )
+        assert (
+            diff.shape[0] == 1
+        ), "Adding a note changed an existing note, or added note is a duplicate."
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
 
         note = diff.iloc[0]
@@ -1082,16 +1043,16 @@ def test_add_note():
             or min_duration > BASIC_DF["dur"].max()
             or max_duration < BASIC_DF["dur"].min()
         ):
-            with pytest.warns(UserWarning, match=re.escape("WARNING:")):
-                res = deg.add_note(
-                    BASIC_DF,
-                    min_pitch=min_pitch,
-                    max_pitch=max_pitch,
-                    min_duration=min_duration,
-                    max_duration=max_duration,
-                    align_pitch=True,
-                    align_time=True,
-                )
+            res = deg.add_note(
+                BASIC_DF,
+                min_pitch=min_pitch,
+                max_pitch=max_pitch,
+                min_duration=min_duration,
+                max_duration=max_duration,
+                align_pitch=True,
+                align_time=True,
+            )
+            assert_warned(caplog)
             continue
 
         res = deg.add_note(
@@ -1132,13 +1093,12 @@ def test_add_note():
     )
 
 
-def test_split_note():
-    with pytest.warns(
-        UserWarning, match=re.escape("WARNING: No notes to " "split. Returning None.")
-    ):
-        assert (
-            deg.split_note(EMPTY_DF) is None
-        ), "Split note with empty data frame did not return None."
+def test_split_note(caplog):
+    assert_none(
+        deg.split_note(EMPTY_DF),
+        msg="Split note with empty data frame did not return None.",
+    )
+    assert_warned(caplog, msg="No notes to split. Returning None.")
 
     if BASIC_DF.equals(BASIC_DF_FINAL):
         # Deterministic testing
@@ -1222,30 +1182,25 @@ def test_split_note():
         ), "Duration changed when splitting."
 
     # Test min_duration too large for num_splits
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid notes to" " split. Returning None."),
-    ):
-        assert (
-            deg.split_note(BASIC_DF, min_duration=10, num_splits=10) is None
-        ), "Splitting note into too many pieces didn't return None."
+    assert_none(
+        deg.split_note(BASIC_DF, min_duration=10, num_splits=10),
+        msg="Splitting note into too many pieces didn't return None.",
+    )
+    assert_warned(caplog, msg="No valid notes to split. Returning None.")
 
 
-def test_join_notes():
-    with pytest.warns(
-        UserWarning, match=re.escape("WARNING: No notes to " "join. Returning None.")
-    ):
-        assert (
-            deg.join_notes(EMPTY_DF) is None
-        ), "Join notes with empty data frame did not return None."
+def test_join_notes(caplog):
+    assert_none(
+        deg.join_notes(EMPTY_DF),
+        msg="Join notes with empty data frame did not return None.",
+    )
+    assert_warned(caplog, msg="No notes to join. Returning None.")
 
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid notes to" " join. Returning None."),
-    ):
-        assert (
-            deg.join_notes(BASIC_DF) is None
-        ), "Joining notes with none back-to-back didn't return None."
+    assert_none(
+        deg.join_notes(BASIC_DF),
+        msg="Joining notes with none back-to-back didn't return None.",
+    )
+    assert_warned(caplog, msg="No valid notes to join. Returning None.")
 
     # Create a garbled df with indices: [0, 2, 2, 4]
     join_df = pd.DataFrame(
@@ -1292,23 +1247,19 @@ def test_join_notes():
 
     # Check different pitch and track
     join_df.iloc[1]["pitch"] = 20
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid notes to" " join. Returning None."),
-    ):
-        assert (
-            deg.join_notes(join_df) is None
-        ), "Joining notes with different pitches didn't return None."
+    assert_none(
+        deg.join_notes(join_df),
+        msg="Joining notes with different pitches didn't return None.",
+    )
+    assert_warned(caplog, msg="No valid notes to join. Returning None.")
 
     join_df.iloc[1]["pitch"] = 10
     join_df.iloc[1]["track"] = 1
-    with pytest.warns(
-        UserWarning,
-        match=re.escape("WARNING: No valid notes to" " join. Returning None."),
-    ):
-        assert (
-            deg.join_notes(join_df) is None
-        ), "Joining notes with different tracks didn't return None."
+    assert_none(
+        deg.join_notes(join_df),
+        msg="Joining notes with different tracks didn't return None.",
+    )
+    assert_warned(caplog, msg="No valid notes to join. Returning None.")
 
     # Test real example which erred (because it had multiple possible notes)
     excerpt = pd.DataFrame(
@@ -1538,10 +1489,8 @@ def test_join_notes():
         join_df.iloc[1]["dur"] -= 1
 
         # Gap too large
-        with pytest.warns(
-            UserWarning,
-            match=re.escape("WARNING: No valid notes to" " join. Returning None."),
-        ):
-            assert (
-                deg.join_notes(join_df, max_gap=max_gap) is None
-            ), "Joining notes with too large of a gap didn't return None."
+        assert_none(
+            deg.join_notes(join_df, max_gap=max_gap),
+            msg="Joining notes with too large of a gap didn't return None.",
+        )
+        assert_warned(caplog, msg="No valid notes to join. Returning None.")
