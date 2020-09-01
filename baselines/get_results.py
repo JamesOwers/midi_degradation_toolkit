@@ -227,7 +227,7 @@ def construct_parser():
     parser.add_argument(
         "--in_dir",
         default="acme",
-        help="location of the pianoroll and command " "corpus datasets",
+        help="location of the pianoroll and command corpus datasets",
     )
     parser.add_argument(
         "--task_names",

@@ -246,9 +246,9 @@ def pitch_shift(
     # A distribution [0, 0, 1] always shifts up one semitone; a note with
     # pitch equal to max_pitch can't be shifted with this distribution.
     if distribution is not None:
-        assert all([dd >= 0 for dd in distribution]), (
-            "A value in supplied " "distribution is negative."
-        )
+        assert all(
+            [dd >= 0 for dd in distribution]
+        ), "A value in supplied distribution is negative."
         zero_idx = len(distribution) // 2
         distribution[zero_idx] = 0
 

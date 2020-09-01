@@ -732,7 +732,7 @@ def parse_args(args_input=None):
 
     parser.add_argument(
         "--json",
-        help="The file to write the degradation config" " json data out to.",
+        help="The file to write the degradation config json data out to.",
         default="config.json",
     )
     parser.add_argument(
@@ -760,7 +760,7 @@ def parse_args(args_input=None):
 
     parser.add_argument(
         "--trans",
-        help="The directory which contains the " "transcriptions.",
+        help="The directory which contains the transcriptions.",
         required=True,
     )
     parser.add_argument(
@@ -814,7 +814,7 @@ def parse_args(args_input=None):
         metavar="N",
         type=int,
         default=10,
-        help="The minimum number of notes required for an " "excerpt to be valid.",
+        help="The minimum number of notes required for an excerpt to be valid.",
     )
     args = parser.parse_args(args=args_input)
     return args

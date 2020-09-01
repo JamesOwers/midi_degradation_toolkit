@@ -367,9 +367,9 @@ def df_to_command_str(
         The string containing a space separated list of commands.
     """
     # Input validation
-    assert max_time_shift % time_increment == 0, (
-        "max_time_shift must be " "divisible by time_increment."
-    )
+    assert (
+        max_time_shift % time_increment == 0
+    ), "max_time_shift must be divisible by time_increment."
     assert max_pitch >= min_pitch, "max_pitch must be >= min_pitch."
     assert time_increment > 0, "time_increment must be positive."
     assert max_time_shift > 0, "max_time_shift must be positive."

@@ -22,13 +22,13 @@ def construct_parser():
         "-i",
         "--input",
         default="acme",
-        help="The " "base directory of the ACME dataset to use as input.",
+        help="The base directory of the ACME dataset to use as input.",
     )
     parser.add_argument(
         "-m",
         "--model",
         required=True,
-        help="The " "filename of the model to use in evaluation.",
+        help="The filename of the model to use in evaluation.",
     )
 
     # Basic task setup args
@@ -48,7 +48,7 @@ def construct_parser():
         "--task",
         required=True,
         choices=range(1, 5),
-        help="The " "task number to train a model for.",
+        help="The task number to train a model for.",
         type=int,
     )
 

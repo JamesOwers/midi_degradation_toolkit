@@ -63,15 +63,13 @@ class Degrader:
             "Given degradation_dist is not the same length as degradations:"
             f"\nlen({degradation_dist}) != len({degradations})"
         )
-        assert min(degradation_dist) >= 0, (
-            "degradation_dist values must " "not be negative."
-        )
-        assert sum(degradation_dist) > 0, (
-            "Some degradation_dist value " "must be positive."
-        )
-        assert 0 <= clean_prop <= 1, (
-            "clean_prop must be between 0 and 1 " "(inclusive)."
-        )
+        assert (
+            min(degradation_dist) >= 0
+        ), "degradation_dist values must not be negative."
+        assert (
+            sum(degradation_dist) > 0
+        ), "Some degradation_dist value must be positive."
+        assert 0 <= clean_prop <= 1, "clean_prop must be between 0 and 1 (inclusive)."
 
         self.degradations = degradations
         self.degradation_dist = degradation_dist
