@@ -11,8 +11,8 @@ This directory contains documentation with examples for the toolkit. This includ
 3. [Degradation functions](./03_degradation_functions.ipynb)
     * an introduction to the available functions, and
     * their parameters
-4. [Data providers and the degrader class](./04_data_provider_and_degrader.ipynb)
-    * How to provide data to, for example, pytorch models
+4. [Data parsers and the degrader class](./04_data_parsers_and_degrader.ipynb)
+    * How to parse data and provide it to, for example, pytorch models
     * How to augment a dataset with degradations on-the-fly
 5. [Matching errors with your AMT system](./05_AMT_error_matching.ipynb)
     * How to generate data which matches the output of your AMT system
