@@ -2,10 +2,12 @@
 
 This directory contains documentation with examples for the toolkit. This includes:
 
-1. [Dataset creation](./01_dataset_creation.ipynb)
-    * how to create your own ACME datasets
-2. [The ACME dataset](./02_the_ACME_dataset.ipynb)
+
+1. [The ACME dataset](./01_the_ACME_dataset.ipynb)
+    * an introduction and
     * a description of the dataset used in our paper
+2. [Dataset creation](./02_dataset_creation.ipynb)
+    * how to create your own ACME datasets
 3. [Degradation functions](./03_degradation_functions.ipynb)
     * an introduction to the available functions, and
     * their parameters
