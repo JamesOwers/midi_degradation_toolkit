@@ -1,5 +1,5 @@
+import logging
 import sys
-import warnings
 from collections import defaultdict
 
 import numpy as np
@@ -883,26 +883,26 @@ class ErrorCorrectionTrainer(BaseTrainer):
                 for in_data, out_data, clean_data in zip(
                     input_data, model_output, labels
                 ):
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        deg_df = self.formatter["model_to_df"](
-                            in_data.cpu().data.numpy(),
-                            min_pitch=MIN_PITCH_DEFAULT,
-                            max_pitch=MAX_PITCH_DEFAULT,
-                            time_increment=40,
-                        )
-                        model_out_df = self.formatter["model_to_df"](
-                            out_data.round().cpu().data.numpy(),
-                            min_pitch=MIN_PITCH_DEFAULT,
-                            max_pitch=MAX_PITCH_DEFAULT,
-                            time_increment=40,
-                        )
-                        clean_df = self.formatter["model_to_df"](
-                            clean_data.cpu().data.numpy(),
-                            min_pitch=MIN_PITCH_DEFAULT,
-                            max_pitch=MAX_PITCH_DEFAULT,
-                            time_increment=40,
-                        )
+                    logging.disable(logging.WARNING)
+                    deg_df = self.formatter["model_to_df"](
+                        in_data.cpu().data.numpy(),
+                        min_pitch=MIN_PITCH_DEFAULT,
+                        max_pitch=MAX_PITCH_DEFAULT,
+                        time_increment=40,
+                    )
+                    model_out_df = self.formatter["model_to_df"](
+                        out_data.round().cpu().data.numpy(),
+                        min_pitch=MIN_PITCH_DEFAULT,
+                        max_pitch=MAX_PITCH_DEFAULT,
+                        time_increment=40,
+                    )
+                    clean_df = self.formatter["model_to_df"](
+                        clean_data.cpu().data.numpy(),
+                        min_pitch=MIN_PITCH_DEFAULT,
+                        max_pitch=MAX_PITCH_DEFAULT,
+                        time_increment=40,
+                    )
+                    logging.disable(logging.NOTSET)
                     h, f = helpfulness(model_out_df, deg_df, clean_df)
                     total_help += h
                     total_fm += f

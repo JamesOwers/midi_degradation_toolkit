@@ -2,10 +2,10 @@
 """Script to generate Altered and Corrupted Midi Excerpt (ACME) datasets"""
 import argparse
 import json
+import logging
 import os
 import shutil
 import sys
-import warnings
 from glob import glob
 from zipfile import BadZipfile
 
@@ -15,14 +15,6 @@ from tqdm import tqdm
 from mdtk import degradations, downloaders, fileio
 from mdtk.df_utils import get_random_excerpt
 from mdtk.formatters import FORMATTERS, create_corpus_csvs
-
-
-def print_warn_msg_only(message, category, filename, lineno, file=None, line=None):
-    print(message, file=sys.stderr)
-
-
-warnings.showwarning = print_warn_msg_only
-
 
 with open(os.path.join("img", "logo.txt"), "r") as ff:
     LOGO = ff.read()
@@ -67,9 +59,7 @@ def parse_degradation_kwargs(kwarg_dict):
         try:
             func_name, kwarg_name = kk.split("__", 1)
         except ValueError:
-            raise ValueError(
-                f"Supplied keyword [{kk}] must have a double " "underscore"
-            )
+            raise ValueError(f"Supplied keyword [{kk}] must have a double underscore")
         assert func_name in func_names, f"{func_name} not in {func_names}"
         func_kwargs[func_name][kwarg_name] = kwarg_value
     return func_kwargs
@@ -148,7 +138,7 @@ def parse_args(args_input=None):
         metavar="midi_dir",
         type=str,
         nargs="*",
-        help="directories containing midi files to " "include in the dataset",
+        help="directories containing midi files to include in the dataset",
         default=[],
     )
     parser.add_argument(
@@ -156,7 +146,7 @@ def parse_args(args_input=None):
         metavar="csv_dir",
         type=str,
         nargs="*",
-        help="directories containing csv files to " "include in the dataset",
+        help="directories containing csv files to include in the dataset",
         default=[],
     )
     parser.add_argument(
@@ -202,7 +192,7 @@ def parse_args(args_input=None):
         metavar="N",
         type=int,
         default=10,
-        help="The minimum number of notes required for an " "excerpt to be valid.",
+        help="The minimum number of notes required for an excerpt to be valid.",
     )
     parser.add_argument(
         "--degradation-kwargs",
@@ -230,7 +220,7 @@ def parse_args(args_input=None):
     parser.add_argument(
         "--clean-prop",
         type=float,
-        help="The proportion of " "excerpts in the final dataset that should be clean.",
+        help="The proportion of excerpts in the final dataset that should be clean.",
         default=1 / (1 + len(degradations.DEGRADATIONS)),
     )
     parser.add_argument(
@@ -246,7 +236,7 @@ def parse_args(args_input=None):
         "--seed",
         type=int,
         default=None,
-        help="The numpy seed" " to use when creating the dataset.",
+        help="The numpy seed to use when creating the dataset.",
     )
     parser.add_argument(
         "--clean",
@@ -256,7 +246,7 @@ def parse_args(args_input=None):
         " (and do nothing else).",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Verbose " "printing."
+        "-v", "--verbose", action="store_true", help="Verbose printing."
     )
     args = parser.parse_args(args=args_input)
     return args
@@ -305,10 +295,8 @@ if __name__ == "__main__":
     # Warn user they specified kwargs for degradation not being used
     for deg, args in degradation_kwargs.items():
         if deg not in ARGS.degradations and len(args) > 0:
-            warnings.warn(
-                "--degradation_kwargs contains args for unused "
-                f'degradation "{deg}".',
-                UserWarning,
+            logging.warning(
+                f'--degradation_kwargs contains args for unused degradation "{deg}".'
             )
 
     # Exit if degradation-dist is a diff length to degradations
@@ -320,15 +308,15 @@ if __name__ == "__main__":
     )
 
     # Check that no probabilities are invalid
-    assert min(ARGS.degradation_dist) >= 0, (
-        "--degradation-dist values must " "not be negative."
-    )
-    assert sum(ARGS.degradation_dist) > 0, (
-        "Some --degradation-dist value " "must be positive."
-    )
-    assert 0 <= ARGS.clean_prop <= 1, (
-        "--clean-prop must be between 0 and 1 " "(inclusive)."
-    )
+    assert (
+        min(ARGS.degradation_dist) >= 0
+    ), "--degradation-dist values must not be negative."
+    assert (
+        sum(ARGS.degradation_dist) > 0
+    ), "Some --degradation-dist value must be positive."
+    assert (
+        0 <= ARGS.clean_prop <= 1
+    ), "--clean-prop must be between 0 and 1 (inclusive)."
     assert min(ARGS.splits) >= 0, "--splits values must not be negative."
     assert sum(ARGS.splits) > 0, "Some --splits value must be positive."
 
@@ -514,9 +502,7 @@ if __name__ == "__main__":
     deg_counts = np.zeros(nr_degs)
     split_counts = np.zeros(nr_splits)
 
-    meta_file.write(
-        "altered_csv_path,degraded,degradation_id," "clean_csv_path,split\n"
-    )
+    meta_file.write("altered_csv_path,degraded,degradation_id,clean_csv_path,split\n")
     for i, data in enumerate(tqdm(input_data, desc="Degrading data")):
         dataset, rel_path, file_path, note_df = data
         rel_path = f"{rel_path[:-3]}csv"
@@ -540,11 +526,10 @@ if __name__ == "__main__":
 
         # If no valid excerpt was found, skip this piece
         if excerpt is None:
-            warnings.warn(
+            logging.warning(
                 "Unable to find valid excerpt from file "
                 f"{file_path}. Lengthen --excerpt-length or "
                 "lower --min-notes. Skipping.",
-                UserWarning,
             )
             continue
 
@@ -577,9 +562,9 @@ if __name__ == "__main__":
             deg_fun = degradations.DEGRADATIONS[deg_name]
             deg_fun_kwargs = degradation_kwargs[deg_name]  # degradation_kwargs
             # at top of main call
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                degraded = deg_fun(excerpt, **deg_fun_kwargs)
+            logging.disable(logging.WARNING)
+            degraded = deg_fun(excerpt, **deg_fun_kwargs)
+            logging.disable(logging.NOTSET)
 
             if degraded is not None:
                 # Update labels
@@ -606,11 +591,10 @@ if __name__ == "__main__":
                 f"{altered_path},{deg_binary},{deg_num}," f"{clean_path},{split_name}\n"
             )
         else:
-            warnings.warn(
+            logging.warning(
                 "Unable to degrade chosen excerpt from "
                 f"{file_path} and no clean excerpts requested."
                 " Skipping.",
-                UserWarning,
             )
 
     meta_file.close()
@@ -633,7 +617,7 @@ if __name__ == "__main__":
         "described in metadata.csv"
     )
     print("\nmetadata.csv describes:")
-    print("\t* (the id number for) the type of degradation used for the " "alteration")
+    print("\t* (the id number for) the type of degradation used for the alteration")
     print("\t* the path for the altered and clean files")
     print("\t* which split (train, valid, test) the file should be used in")
     print("\t* in which corpus and on what line the file is located")

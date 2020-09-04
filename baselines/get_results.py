@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import argparse
-import warnings
+import logging
 from glob import glob
 
 import matplotlib.pyplot as plt
@@ -227,7 +227,7 @@ def construct_parser():
     parser.add_argument(
         "--in_dir",
         default="acme",
-        help="location of the pianoroll and command " "corpus datasets",
+        help="location of the pianoroll and command corpus datasets",
     )
     parser.add_argument(
         "--task_names",
@@ -413,9 +413,9 @@ def main(args):
             #         f"--splits test"
         )
         eval_args = eval_parser.parse_args(eval_args_str.split())
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            log_info = eval_main(eval_args)
+        logging.disable(logging.WARNING)
+        log_info = eval_main(eval_args)
+        logging.disable(logging.NOTSET)
         task_eval_log[task_name] = log_info
 
     dict_of_df = {k: pd.DataFrame(v).T for k, v in task_eval_log.items()}

@@ -17,7 +17,7 @@ def parse_args():
         "-i",
         "--input",
         default="acme",
-        help="The " "base directory of the ACME dataset to use as input.",
+        help="The base directory of the ACME dataset to use as input.",
     )
     parser.add_argument(
         "-s",
