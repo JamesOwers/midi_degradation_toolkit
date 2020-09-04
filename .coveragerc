@@ -2,9 +2,9 @@
 source=mdtk
 [report]
 exclude_lines =
-    pragma: no cover
-    raise
-    except
-    register_parameter
-    warn
-    pass
+  pragma: no cover
+  raise
+  except
+  register_parameter
+  warn
+  pass
