@@ -8,6 +8,7 @@ import requests
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Patch, Rectangle
 from matplotlib.ticker import MaxNLocator, MultipleLocator
+from tqdm import tqdm
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +40,8 @@ def unzip_file(zipfile_path):
         LOGGER.error("%s exists. Delete and retry.", stem)
         return
     with zipfile.ZipFile(zipfile_path, "r") as zz:
-        zz.extractall(path=stem)
+        for file in tqdm(zz.namelist(), total=len(zz.namelist())):
+            zz.extract(member=file)
 
 
 # Plotting =============================================================================
