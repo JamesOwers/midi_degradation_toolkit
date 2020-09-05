@@ -114,7 +114,7 @@ def plot_from_df(
     plt.legend(handles=legend_elements, loc="best")
     if axes_labels is not False:
         xlabel, ylabel = axes_labels
-        ax.set_xlabel("onset")
+        ax.set_xlabel("time (ms)")
         ax.set_ylabel("pitch")
 
 
