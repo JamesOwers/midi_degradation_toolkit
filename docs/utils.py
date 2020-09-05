@@ -41,7 +41,7 @@ def unzip_file(zipfile_path):
         return
     with zipfile.ZipFile(zipfile_path, "r") as zz:
         for file in tqdm(zz.namelist(), total=len(zz.namelist())):
-            zz.extract(member=file)
+            zz.extract(member=file, path=stem)
 
 
 # Plotting =============================================================================
