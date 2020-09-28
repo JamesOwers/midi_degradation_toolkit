@@ -937,7 +937,7 @@ def add_note(
             durations.between(min_dur, end_time - onset, inclusive=True)
         ].unique()
         duration = choice(dur_unique)
-    elif min_duration > end_time:
+    elif min_duration >= end_time:
         onset = 0
         duration = min_duration
     elif excerpt.shape[0] == 0:

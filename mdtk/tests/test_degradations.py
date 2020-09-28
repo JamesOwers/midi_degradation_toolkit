@@ -1001,8 +1001,8 @@ def test_add_note(caplog):
 
         min_pitch = i * 10
         max_pitch = (i + 1) * 10
-        min_duration = i * 10
-        max_duration = (i + 1) * 10
+        min_duration = i * 50
+        max_duration = (i + 1) * 50
 
         res = deg.add_note(
             BASIC_DF,
@@ -1027,14 +1027,22 @@ def test_add_note(caplog):
             f"Added note's duration ({note.dur}) not within range "
             f"[{min_duration}, {max_duration}]."
         )
-        assert (
-            note["onset"] >= 0
-            and note["onset"] + note["dur"]
-            <= BASIC_DF[["onset", "dur"]].sum(axis=1).max()
-        ), (
-            "Added note's onset and duration do not lie within "
-            "bounds of given dataframe."
-        )
+
+        end_time = BASIC_DF[["onset", "dur"]].sum(axis=1).max()
+        if min_duration >= end_time:
+            assert note["onset"] == 0 and note["dur"] == min_duration, (
+                "min_duration > df length, but note[['onset', 'dur']] != 0, "
+                "min_duration"
+            )
+        else:
+            assert (
+                note["onset"] >= 0
+                and note["onset"] + note["dur"]
+                <= BASIC_DF[["onset", "dur"]].sum(axis=1).max()
+            ), (
+                "Added note's onset and duration do not lie within "
+                "bounds of given dataframe."
+            )
 
         # Test align_pitch and align_time
         if (
@@ -1064,14 +1072,12 @@ def test_add_note(caplog):
             align_pitch=True,
             align_time=True,
         )
-
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert diff.shape[0] == 1, (
             "Adding a note changed an existing note, or added note is a duplicate.\n"
             f"{BASIC_DF}\n{res}"
         )
         assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
-
         note = diff.iloc[0]
         assert note["pitch"] in list(
             BASIC_DF["pitch"]
