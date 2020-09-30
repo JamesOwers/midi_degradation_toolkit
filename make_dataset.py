@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 from glob import glob
+from pathlib import Path
 from zipfile import BadZipfile
 
 import numpy as np
@@ -16,7 +17,8 @@ from mdtk import degradations, downloaders, fileio
 from mdtk.df_utils import get_random_excerpt
 from mdtk.formatters import FORMATTERS, create_corpus_csvs
 
-with open(os.path.join("img", "logo.txt"), "r") as ff:
+logo_path = Path(__file__, "..", "img", "logo.txt").resolve()
+with open(logo_path, "r") as ff:
     LOGO = ff.read()
 
 
