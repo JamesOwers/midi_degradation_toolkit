@@ -7,6 +7,11 @@
 [pypi-image]: https://badge.fury.io/py/midi_degradation_toolkit.svg
 [pypi-url]: https://pypi.python.org/pypi/midi_degradation_toolkit -->
 
+<p align="center">
+  <img width="90%" src="https://raw.githubusercontent.com/JamesOwers/midi_degradation_toolkit/master/img/mdtk_logo.png?sanitize=true" />
+</p>
+
+----------------------------------------------------------------------------------------
 
 # mdtk - The MIDI Degradation Toolkit
 
