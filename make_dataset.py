@@ -133,7 +133,6 @@ def parse_args(args_input=None):
         "creation",
         nargs="*",
         default=list(FORMATTERS.keys()),
-        choices=FORMATTERS.keys(),
     )
     parser.add_argument(
         "--local-midi-dirs",
