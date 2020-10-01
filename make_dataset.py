@@ -165,8 +165,8 @@ def parse_args(args_input=None):
         default=downloaders.DATASETS,
         help="datasets to download and use. Must match names "
         "of classes in the downloaders module. By default, "
-        "will use cached downloaded data if available, see "
-        "--download-cache-dir and --clear-download-cache. To "
+        "will use cached downloaded data if available. To clear "
+        "the cache, run the script with the --clean flag. To "
         'download no data, provide an input of "None"',
     )
     parser.add_argument(
@@ -358,6 +358,11 @@ if __name__ == "__main__":
             f"all provided dataset names {ds_names} must be in the "
             "list of available datasets for download "
             f"{downloaders.DATASETS}"
+        )
+
+    if not ds_names and not ARGS.local_csv_dirs and not ARGS.local_midi_dirs:
+        raise ValueError(
+            "You must provide one of --datasets, --local-csv-dirs, or --local-midi-dirs"
         )
     # Instantiated downloader classes
     downloader_dict = {
