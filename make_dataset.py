@@ -271,9 +271,10 @@ if __name__ == "__main__":
         with open(ARGS.config, "r") as file:
             config = json.load(file)
             print(config)
-        config_args, unk_args = parser.parse_known_args(
-            [item for pair in config.items() for item in pair]
-        )
+        # flattening to a string and splitting by space solves multi arg issue...
+        # ...but introduces the new issue of messing up valid paths with spaces in them
+        cmd_line_str = " ".join([item for pair in config.items() for item in pair])
+        config_args, unk_args = parser.parse_known_args(cmd_line_str.split())
         config_vars = vars(config_args)
         args_vars = vars(ARGS)
         if unk_args:
