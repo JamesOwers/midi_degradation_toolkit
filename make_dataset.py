@@ -102,8 +102,9 @@ def clean_download_cache(dir_path=downloaders.DEFAULT_CACHE_PATH, prompt=True):
     return True
 
 
-def parse_args(args_input=None):
-    """Convenience function for parsing user supplied command line args"""
+def construct_parser(args_input=None):
+    """Convenience function for constructing parser for user supplied command line args.
+    """
     parser = argparse.ArgumentParser(
         description=DESCRIPTION, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -119,9 +120,11 @@ def parse_args(args_input=None):
         "--config",
         default=None,
         help="Load a json config "
-        "file, in the format created by measure_errors.py. "
-        "This will override --degradations, --degradation-"
-        "dist, and --clean-prop.",
+        "file for the arguments of this script. If any other arguments "
+        "are specified on the command line, they will be overwritten by this. "
+        "The output from measure_errors.py can be used directly as the input "
+        "to this argument to specify which degradataions and their "
+        "relative proportions to use.",
     )
     parser.add_argument(
         "--formats",
@@ -250,16 +253,36 @@ def parse_args(args_input=None):
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Verbose printing."
     )
-    args = parser.parse_args(args=args_input)
-    return args
+    return parser
 
 
 if __name__ == "__main__":
-    ARGS = parse_args()
+    parser = construct_parser()
+    ARGS = parser.parse_args()
 
     if ARGS.clean:
         clean_ok = clean_download_cache(downloaders.DEFAULT_CACHE_PATH)
         sys.exit(0 if clean_ok else 1)
+
+    # Load config
+    if ARGS.config is not None:
+        if ARGS.verbose:
+            print(f"Loading from config file {ARGS.config}.")
+        with open(ARGS.config, "r") as file:
+            config = json.load(file)
+            print(config)
+        config_vars = {k.replace("-", "_"): v for k, v in config.items()}
+        args_vars = vars(ARGS)
+        invalid_keys = [key for key in config_vars.keys() if key not in args_vars]
+        if invalid_keys:
+            raise ValueError(
+                f"Some keys in the config supplied are not valid: {invalid_keys}\n"
+                f"Choose from: {list(args_vars.keys())}"
+            )
+        args_vars.update(config_vars)
+    #         if "degradation_dist" in config_vars:
+    #             ARGS.degradation_dist = np.array(config_vars["degradation_dist"])
+    #             ARGS.degradations = list(degradations.DEGRADATIONS.keys())
 
     if ARGS.seed is None:
         seed = np.random.randint(0, 2 ** 32)
@@ -272,28 +295,21 @@ if __name__ == "__main__":
     # Load given degradation_kwargs
     degradation_kwargs = {}
     if ARGS.degradation_kwargs is not None:
-        if os.path.exists(ARGS.degradation_kwargs):
-            # If file exists, assume that is what was passed
-            with open(ARGS.degradation_kwargs, "r") as json_file:
-                degradation_kwargs = json.load(json_file)
+        if isinstance(ARGS.degradation_kwargs, dict):
+            # This was obtained from a config as a dict
+            degradation_kwargs = ARGS.degradation_kwargs
         else:
-            # File doesn't exist, assume json string was passed
-            degradation_kwargs = json.loads(ARGS.degradation_kwargs)
-    degradation_kwargs = parse_degradation_kwargs(degradation_kwargs)
+            try:
+                # If file exists, assume that is what was passed
+                with open(ARGS.degradation_kwargs, "r") as json_file:
+                    degradation_kwargs = json.load(json_file)
+            except TypeError:
+                # File doesn't exist, assume json string was passed
+                degradation_kwargs = json.loads(str(ARGS.degradation_kwargs))
+        degradation_kwargs = parse_degradation_kwargs(degradation_kwargs)
     if ARGS.verbose:
         print(f"Using degradation kwargs: {degradation_kwargs}")
 
-    # Load config
-    if ARGS.config is not None:
-        with open(ARGS.config, "r") as file:
-            config = json.load(file)
-        if ARGS.verbose:
-            print(f"Loading from config file {ARGS.config}.")
-        if "degradation_dist" in config:
-            ARGS.degradation_dist = np.array(config["degradation_dist"])
-            ARGS.degradations = list(degradations.DEGRADATIONS.keys())
-        if "clean_prop" in config:
-            ARGS.clean_prop = config["clean_prop"]
     # Warn user they specified kwargs for degradation not being used
     for deg, args in degradation_kwargs.items():
         if deg not in ARGS.degradations and len(args) > 0:
