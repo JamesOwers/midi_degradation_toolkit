@@ -888,7 +888,10 @@ if __name__ == "__main__":
 
     with open(args.json, "w") as file:
         json.dump(
-            {"degradation_dist": proportion.tolist(), "clean_prop": clean},
+            {
+                "--degradation-dist": " ".join(proportion.tolist()),
+                "--clean-prop": str(clean),
+            },
             file,
             indent=4,
         )

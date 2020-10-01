@@ -271,12 +271,14 @@ if __name__ == "__main__":
         with open(ARGS.config, "r") as file:
             config = json.load(file)
             print(config)
-        config_vars = {k.replace("-", "_"): v for k, v in config.items()}
+        config_args, unk_args = parser.parse_known_args(
+            [item for pair in config.items() for item in pair]
+        )
+        config_vars = vars(config_args)
         args_vars = vars(ARGS)
-        invalid_keys = [key for key in config_vars.keys() if key not in args_vars]
-        if invalid_keys:
+        if unk_args:
             raise ValueError(
-                f"Some keys in the config supplied are not valid: {invalid_keys}\n"
+                f"Some keys in the config supplied are not valid: {unk_args}\n"
                 f"Choose from: {list(args_vars.keys())}"
             )
         args_vars.update(config_vars)
@@ -295,18 +297,14 @@ if __name__ == "__main__":
     # Load given degradation_kwargs
     degradation_kwargs = {}
     if ARGS.degradation_kwargs is not None:
-        if isinstance(ARGS.degradation_kwargs, dict):
-            # This was obtained from a config as a dict
-            degradation_kwargs = ARGS.degradation_kwargs
+        if os.path.exists(ARGS.degradation_kwargs):
+            # If file exists, assume that is what was passed
+            with open(ARGS.degradation_kwargs, "r") as json_file:
+                degradation_kwargs = json.load(json_file)
         else:
-            try:
-                # If file exists, assume that is what was passed
-                with open(ARGS.degradation_kwargs, "r") as json_file:
-                    degradation_kwargs = json.load(json_file)
-            except TypeError:
-                # File doesn't exist, assume json string was passed
-                degradation_kwargs = json.loads(str(ARGS.degradation_kwargs))
-        degradation_kwargs = parse_degradation_kwargs(degradation_kwargs)
+            # File doesn't exist, assume json string was passed
+            degradation_kwargs = json.loads(ARGS.degradation_kwargs)
+    degradation_kwargs = parse_degradation_kwargs(degradation_kwargs)
     if ARGS.verbose:
         print(f"Using degradation kwargs: {degradation_kwargs}")
 
