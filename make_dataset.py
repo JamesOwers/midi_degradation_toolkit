@@ -7,6 +7,7 @@ import os
 import shutil
 import sys
 from glob import glob
+from pathlib import Path
 from zipfile import BadZipfile
 
 import numpy as np
@@ -16,7 +17,8 @@ from mdtk import degradations, downloaders, fileio
 from mdtk.df_utils import get_random_excerpt
 from mdtk.formatters import FORMATTERS, create_corpus_csvs
 
-with open(os.path.join("img", "logo.txt"), "r") as ff:
+logo_path = Path(__file__, "..", "img", "logo.txt").resolve()
+with open(logo_path, "r") as ff:
     LOGO = ff.read()
 
 
@@ -131,7 +133,6 @@ def parse_args(args_input=None):
         "creation",
         nargs="*",
         default=list(FORMATTERS.keys()),
-        choices=FORMATTERS.keys(),
     )
     parser.add_argument(
         "--local-midi-dirs",
@@ -163,8 +164,8 @@ def parse_args(args_input=None):
         default=downloaders.DATASETS,
         help="datasets to download and use. Must match names "
         "of classes in the downloaders module. By default, "
-        "will use cached downloaded data if available, see "
-        "--download-cache-dir and --clear-download-cache. To "
+        "will use cached downloaded data if available. To clear "
+        "the cache, run the script with the --clean flag. To "
         'download no data, provide an input of "None"',
     )
     parser.add_argument(
@@ -248,6 +249,9 @@ def parse_args(args_input=None):
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Verbose printing."
     )
+    parser.add_argument(
+        "--no-prompt", action="store_true", help="Dont prompt user for response."
+    )
     args = parser.parse_args(args=args_input)
     return args
 
@@ -256,7 +260,9 @@ if __name__ == "__main__":
     ARGS = parse_args()
 
     if ARGS.clean:
-        clean_ok = clean_download_cache(downloaders.DEFAULT_CACHE_PATH)
+        clean_ok = clean_download_cache(
+            downloaders.DEFAULT_CACHE_PATH, prompt=not ARGS.no_prompt
+        )
         sys.exit(0 if clean_ok else 1)
 
     if ARGS.seed is None:
@@ -357,6 +363,11 @@ if __name__ == "__main__":
             "list of available datasets for download "
             f"{downloaders.DATASETS}"
         )
+
+    if not ds_names and not ARGS.local_csv_dirs and not ARGS.local_midi_dirs:
+        raise ValueError(
+            "You must provide one of --datasets, --local-csv-dirs, or --local-midi-dirs"
+        )
     # Instantiated downloader classes
     downloader_dict = {
         ds_name: getattr(downloaders, ds_name)(
@@ -369,7 +380,24 @@ if __name__ == "__main__":
     if os.path.exists(ARGS.output_dir):
         if ARGS.verbose:
             print(f"Clearing stale data from {ARGS.output_dir}.")
-        shutil.rmtree(ARGS.output_dir)
+
+        response = None
+        if not ARGS.no_prompt:
+            response = input(f"Delete output_dir ({ARGS.output_dir})? [y/N]: ")
+
+        if (ARGS.no_prompt) or response in ["y", "ye", "yes"]:
+            try:
+                shutil.rmtree(ARGS.output_dir)
+            except Exception:
+                print("Could not delete output dir. Please do so manually.")
+                sys.exit(1)
+        else:
+            print(
+                "You must specify an empty directory as --output-dir, or specify a "
+                "path which doesn't yet exist"
+            )
+            sys.exit(1)
+
     os.makedirs(ARGS.output_dir, exist_ok=True)
     for out_subdir in ["clean", "altered"]:
         output_dirs = [
@@ -382,7 +410,6 @@ if __name__ == "__main__":
     print("Loading data from downloaders, this could take a while...")
     for dataset in downloader_dict:
         downloader = downloader_dict[dataset]
-
         dataset_base = os.path.join(downloaders.DEFAULT_CACHE_PATH, dataset)
         dataset_base_len = len(dataset_base) + len(os.path.sep)
         output_path = os.path.join(dataset_base, "data")
