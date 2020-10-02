@@ -249,6 +249,9 @@ def parse_args(args_input=None):
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Verbose printing."
     )
+    parser.add_argument(
+        "--no-prompt", action="store_true", help="Dont prompt user for response."
+    )
     args = parser.parse_args(args=args_input)
     return args
 
@@ -257,7 +260,9 @@ if __name__ == "__main__":
     ARGS = parse_args()
 
     if ARGS.clean:
-        clean_ok = clean_download_cache(downloaders.DEFAULT_CACHE_PATH)
+        clean_ok = clean_download_cache(
+            downloaders.DEFAULT_CACHE_PATH, prompt=not ARGS.no_prompt
+        )
         sys.exit(0 if clean_ok else 1)
 
     if ARGS.seed is None:
@@ -375,7 +380,24 @@ if __name__ == "__main__":
     if os.path.exists(ARGS.output_dir):
         if ARGS.verbose:
             print(f"Clearing stale data from {ARGS.output_dir}.")
-        shutil.rmtree(ARGS.output_dir)
+
+        response = None
+        if not ARGS.no_prompt:
+            response = input(f"Delete output_dir ({ARGS.output_dir})? [y/N]: ")
+
+        if (ARGS.no_prompt) or response in ["y", "ye", "yes"]:
+            try:
+                shutil.rmtree(ARGS.output_dir)
+            except Exception:
+                print("Could not delete output dir. Please do so manually.")
+                sys.exit(1)
+        else:
+            print(
+                "You must specify an empty directory as --output-dir, or specify a "
+                "path which doesn't yet exist"
+            )
+            sys.exit(1)
+
     os.makedirs(ARGS.output_dir, exist_ok=True)
     for out_subdir in ["clean", "altered"]:
         output_dirs = [
@@ -388,7 +410,6 @@ if __name__ == "__main__":
     print("Loading data from downloaders, this could take a while...")
     for dataset in downloader_dict:
         downloader = downloader_dict[dataset]
-
         dataset_base = os.path.join(downloaders.DEFAULT_CACHE_PATH, dataset)
         dataset_base_len = len(dataset_base) + len(os.path.sep)
         output_path = os.path.join(dataset_base, "data")

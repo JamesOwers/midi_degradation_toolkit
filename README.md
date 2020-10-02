@@ -4,6 +4,8 @@
 [coverage-url]: https://codecov.io/github/JamesOwers/midi_degradation_toolkit?branch=master
 [license-image]: https://img.shields.io/github/license/JamesOwers/midi_degradation_toolkit
 [license-url]: https://github.com/JamesOwers/midi_degradation_toolkit/blob/master/LICENSE
+[arxiv-image]: http://img.shields.io/badge/cs.SD-arXiv%3A2010.00059-B31B1B.svg
+[arxiv-url]: https://arxiv.org/abs/2010.00059
 <!-- [docs-image]: https://readthedocs.org/projects/midi_degradation_toolkit/badge/?version=latest
 [docs-url]: https://midi_degradation_toolkit.readthedocs.io/en/latest/?badge=latest
 [pypi-image]: https://badge.fury.io/py/midi_degradation_toolkit.svg
@@ -20,6 +22,7 @@
 [![Build Status][build-image]][build-url]
 [![Code Coverage][coverage-image]][coverage-url]
 [![GitHub license][license-image]][license-url]
+[![ArXiv Paper][arxiv-image]][arxiv-url]
 <!-- [![PyPI Version][pypi-image]][pypi-url] -->
 <!-- [![Docs Status][docs-image]][docs-url] -->
 
