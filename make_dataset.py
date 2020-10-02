@@ -96,7 +96,7 @@ def clean_download_cache(dir_path=downloaders.DEFAULT_CACHE_PATH, prompt=True):
     if (not prompt) or response in ["y", "ye", "yes"]:
         try:
             shutil.rmtree(dir_path)
-        except FileNotFoundError:
+        except Exception:
             print("Could not delete download cache. Please do so manually.")
             return False
     return True
@@ -388,7 +388,7 @@ if __name__ == "__main__":
         if (ARGS.no_prompt) or response in ["y", "ye", "yes"]:
             try:
                 shutil.rmtree(ARGS.output_dir)
-            except FileNotFoundError:
+            except Exception:
                 print("Could not delete output dir. Please do so manually.")
                 sys.exit(1)
         else:
