@@ -1,6 +1,7 @@
 """Code to perform the degradations i.e. edits to the midi data"""
 import logging
 import sys
+from functools import wraps
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,7 @@ def set_random_seed(func, seed=None):
         seed keyword argument.
     """
 
+    @wraps(func)
     def seeded_func(*args, seed=seed, **kwargs):
         if seed is not None:
             np.random.seed(seed)
@@ -1051,7 +1053,7 @@ def split_note(
         durs[i] = int(round(next_onset)) - int(round(this_onset))
 
     degraded = excerpt.copy()
-    degraded.loc[note_index]["dur"] = int(round(short_duration_float))
+    degraded.loc[note_index, "dur"] = int(round(short_duration_float))
     new_df = pd.DataFrame(
         {"onset": onsets, "track": tracks, "pitch": pitches, "dur": durs}
     )

@@ -21,7 +21,7 @@
 
 [![Build Status][build-image]][build-url]
 [![Code Coverage][coverage-image]][coverage-url]
-[![GitHub Picense][license-image]][license-url]
+[![GitHub license][license-image]][license-url]
 [![ArXiv Paper][arxiv-image]][arxiv-url]
 <!-- [![PyPI Version][pypi-image]][pypi-url] -->
 <!-- [![Docs Status][docs-image]][docs-url] -->
