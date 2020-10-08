@@ -1053,7 +1053,7 @@ def split_note(
         durs[i] = int(round(next_onset)) - int(round(this_onset))
 
     degraded = excerpt.copy()
-    degraded.loc[note_index]["dur"] = int(round(short_duration_float))
+    degraded.loc[note_index, "dur"] = int(round(short_duration_float))
     new_df = pd.DataFrame(
         {"onset": onsets, "track": tracks, "pitch": pitches, "dur": durs}
     )
