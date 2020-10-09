@@ -9,13 +9,13 @@ import mdtk.degradations as degs
 
 
 class Degrader:
-    """A Degrade object can be used to easily degrade musical excerpts
+    """A Degrader object can be used to easily degrade musical excerpts
     on the fly."""
 
     def __init__(
         self,
         seed=None,
-        degradations=list(degs.DEGRADATIONS.keys()),
+        degradations=tuple(degs.DEGRADATIONS.keys()),
         degradation_dist=np.ones(len(degs.DEGRADATIONS)),
         clean_prop=1 / (len(degs.DEGRADATIONS) + 1),
         config=None,
@@ -72,7 +72,7 @@ class Degrader:
         assert 0 <= clean_prop <= 1, "clean_prop must be between 0 and 1 (inclusive)."
 
         self.degradations = degradations
-        self.degradation_dist = degradation_dist
+        self.degradation_dist = np.array(degradation_dist)
         self.clean_prop = clean_prop
         self.failed = np.zeros(len(degradations))
 
