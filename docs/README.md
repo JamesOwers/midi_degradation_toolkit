@@ -17,10 +17,6 @@ This directory contains documentation with examples for the toolkit. This includ
 5. [Matching errors with your AMT system](./05_AMT_error_matching.ipynb)
     * How to generate data which matches the output of your AMT system
 6. [Reproducing results from the paper](./06_training_and_evalutation.ipynb)
-    * loads the fitted parameters
-    * describes the models
-    * outlines the training procedure
-    * describes evaluation
     * script to perform training & evaluation to reproduce paper results provided
 
 ## Augmenting your AMT system
