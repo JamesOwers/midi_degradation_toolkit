@@ -306,8 +306,12 @@ def pitch_shift(
         distribution[zero_idx] = 0
         distribution = np.where(pitches < min_pitch, 0, distribution)
         distribution = np.where(pitches > max_pitch, 0, distribution)
-        distribution = distribution / np.sum(distribution)
-        degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
+
+        # Only degrade if some of the allowed pitches are in range [min_pitch, max_pitch)
+        sum_dist = np.sum(distribution)
+        if sum_dist > 0:
+            distribution = distribution / np.sum(distribution)
+            degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
 
     # Check if overlaps
     if overlaps(degraded, note_index) or degraded.loc[note_index, "pitch"] == pitch:
