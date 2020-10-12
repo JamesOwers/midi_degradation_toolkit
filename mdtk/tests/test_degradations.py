@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 import mdtk.degradations as deg
+from mdtk.degradations import TRIES_WARN_MSG
 
 EMPTY_DF = pd.DataFrame({"onset": [], "track": [], "pitch": [], "dur": []})
 
@@ -325,6 +326,39 @@ def test_pitch_shift(caplog):
     )
     assert_none(res, msg="Invalid shift up of 2 pitch returned something.")
     assert_warned(caplog, msg="No valid pitches to shift given min_pitch")
+
+    # Test invalid distribution given sampled note (GH issue #155)
+    pitches = [64, 64, 65, 67, 67, 65, 64, 62, 60, 60, 62, 64, 64, 62, 62]
+    excerpt = pd.DataFrame(
+        {
+            "onset": 0,
+            "pitch": pitches,
+            "dur": 0,
+            "track": 0,
+        }
+    )
+
+    res = deg.pitch_shift(
+        excerpt,
+        min_pitch=60,
+        max_pitch=68,
+        distribution=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        seed=42,
+        tries=1,
+    )
+    assert_none(res, msg="Distribution returned df outside of pitch range.")
+    assert_warned(caplog, msg=TRIES_WARN_MSG)
+
+    # Test it works given more tries
+    res = deg.pitch_shift(
+        excerpt,
+        min_pitch=60,
+        max_pitch=68,
+        distribution=[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        seed=42,
+        tries=10,
+    )
+    assert res is not None
 
 
 def test_time_shift(caplog):

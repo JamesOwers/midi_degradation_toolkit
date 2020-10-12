@@ -199,13 +199,15 @@ def pianoroll_str_to_df(pr_str, time_increment=40):
         note_pitches, onset_pitches = frame.split("_")
         if note_pitches != "":
             note_pitches = list(map(int, note_pitches.split(" ")))
+        else:
+            note_pitches = []
 
-            # Check that all pitches continue
-            for pitch, idx in enumerate(active):
-                if idx >= 0 and pitch not in note_pitches:
-                    # Pitch doesn't continue
-                    notes[idx]["dur"] = time - notes[idx]["onset"]
-                    active[pitch] = -1
+        # Check that all pitches continue
+        for pitch, idx in enumerate(active):
+            if idx >= 0 and pitch not in note_pitches:
+                # Pitch doesn't continue
+                notes[idx]["dur"] = time - notes[idx]["onset"]
+                active[pitch] = -1
 
         if onset_pitches == "":
             continue
