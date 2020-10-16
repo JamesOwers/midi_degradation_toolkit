@@ -156,6 +156,7 @@ def midi_to_df(midi_path, single_track=False, non_overlapping=False):
                     "track": index,
                     "pitch": note.pitch,
                     "dur": int(round(note.end * 1000) - round(note.start * 1000)),
+                    "velocity": note.velocity,
                 }
             )
 
@@ -201,9 +202,12 @@ def csv_to_df(csv_path, single_track=False, non_overlapping=False):
             track (int): the track of the note.
             pitch (int): the MIDI pitch of the note.
             dur (int): the duration of the note, in ms.
-        Sorting will be first by onset, then track, then pitch, then duration.
+            velocity (int, optional): the velocity of the note. Defaults to 100.
+        Sorting will be first by onset, then track, then pitch, then duration,
+        then velocity.
     """
     df = pd.read_csv(csv_path, names=NOTE_DF_SORT_ORDER)
+    df["velocity"] = df["velocity"].fillna(100).astype(int)
 
     df = clean_df(df, single_track=single_track, non_overlapping=non_overlapping)
 
@@ -283,6 +287,7 @@ def df_to_csv(df, csv_path):
             track: The track number of the instrument the note is from.
             pitch: The MIDI pitch number for the note.
             dur: The duration of the note (offset - onset), in milliseconds.
+            velocity: The velocity of the note.
 
     csv_path : string
         The filename of the csv to which to print the data. No header or index
@@ -384,7 +389,7 @@ def df_to_midi(
     # Add df notes to midi object
     for note in df.itertuples():
         midi_note = pretty_midi.Note(
-            velocity=100, pitch=note.pitch, start=note.start, end=note.end
+            velocity=note.velocity, pitch=note.pitch, start=note.start, end=note.end
         )
         instruments[int(note.track)].notes.append(midi_note)
 

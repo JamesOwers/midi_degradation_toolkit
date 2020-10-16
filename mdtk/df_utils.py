@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-NOTE_DF_SORT_ORDER = ["onset", "track", "pitch", "dur"]
+NOTE_DF_SORT_ORDER = ["onset", "track", "pitch", "dur", "velocity"]
 
 
 def clean_df(df, single_track=False, non_overlapping=False):
@@ -88,7 +88,7 @@ def remove_pitch_overlaps(df):
 
     # Fix dur based on offsets and remove offset column
     df["dur"] = offset - df["onset"]
-    df = df.loc[df["dur"] != 0, ["onset", "track", "pitch", "dur"]]
+    df = df.loc[df["dur"] != 0, NOTE_DF_SORT_ORDER]
     df = df.reset_index(drop=True)
 
     return df
