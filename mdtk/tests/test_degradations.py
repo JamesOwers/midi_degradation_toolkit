@@ -1026,8 +1026,8 @@ def test_add_note(caplog):
     ), "Add note to empty data frame returned None."
 
     assert (
-        deg.add_note(EMPTY_DF).iloc[0]["velocity"] == 100
-    ), "Add note to empty data frame didn't default to velocity 100."
+        deg.add_note(EMPTY_DF, align_velocity=True).iloc[0]["velocity"] == 100
+    ), "Add note to empty data frame with align_velocity had bad velocity."
 
     # Deterministic testing
     for i in range(2):
@@ -1039,7 +1039,7 @@ def test_add_note(caplog):
                 "track": [0, 1, 0, 1, 0],
                 "pitch": [10, 20, 30, 40, 58],
                 "dur": [100, 100, 100, 100, 62],
-                "velocity": [1, 10, 3, 5, 10],
+                "velocity": [1, 10, 3, 5, 100],
             }
         )
 
@@ -1058,6 +1058,8 @@ def test_add_note(caplog):
         max_pitch = (i + 1) * 10
         min_duration = i * 50
         max_duration = (i + 1) * 50
+        min_velocity = i * 50
+        max_velocity = (i + 1) * 50
 
         res = deg.add_note(
             BASIC_DF,
@@ -1065,6 +1067,8 @@ def test_add_note(caplog):
             max_pitch=max_pitch,
             min_duration=min_duration,
             max_duration=max_duration,
+            min_velocity=min_velocity,
+            max_velocity=max_velocity,
         )
 
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
@@ -1082,9 +1086,10 @@ def test_add_note(caplog):
             f"Added note's duration ({note.dur}) not within range "
             f"[{min_duration}, {max_duration}]."
         )
-        assert (
-            note.velocity in BASIC_DF["velocity"].values
-        ), "Velocity not taken from existing velocities."
+        assert min_velocity <= note["velocity"] <= max_velocity, (
+            f"Added note's velocity ({note.velocity}) not within range "
+            f"[{min_velocity}, {max_velocity}]."
+        )
         assert (
             note.track in BASIC_DF["track"].values
         ), "Track not taken from existing tracks."
@@ -1122,39 +1127,69 @@ def test_add_note(caplog):
                 align_time=True,
             )
             assert_warned(caplog)
-            continue
+            assert_none(res)
 
-        res = deg.add_note(
-            BASIC_DF,
-            min_pitch=min_pitch,
-            max_pitch=max_pitch,
-            min_duration=min_duration,
-            max_duration=max_duration,
-            align_pitch=True,
-            align_time=True,
-        )
-        diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
-        assert diff.shape[0] == 1, (
-            "Adding a note changed an existing note, or added note is a duplicate.\n"
-            f"{BASIC_DF}\n{res}"
-        )
-        assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
-        note = diff.iloc[0]
-        assert note["pitch"] in list(
-            BASIC_DF["pitch"]
-        ), f"Added note's pitch ({note.pitch}) not aligned to \n{BASIC_DF}"
-        assert note["dur"] in list(
-            BASIC_DF["dur"]
-        ), f"Added note's duration ({note.dur}) not aligned to \n{BASIC_DF}"
-        assert note["onset"] in list(
-            BASIC_DF["onset"]
-        ), f"Added note's onset ({note.onset}) not aligned to \n{BASIC_DF}"
-        assert (
-            note.velocity in BASIC_DF["velocity"].values
-        ), "Velocity not taken from existing velocities."
-        assert (
-            note.track in BASIC_DF["track"].values
-        ), "Track not taken from existing tracks."
+        else:
+            res = deg.add_note(
+                BASIC_DF,
+                min_pitch=min_pitch,
+                max_pitch=max_pitch,
+                min_duration=min_duration,
+                max_duration=max_duration,
+                align_pitch=True,
+                align_time=True,
+            )
+            diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+            assert diff.shape[0] == 1, (
+                "Adding a note changed an existing note, or added note is a duplicate."
+                f"\n{BASIC_DF}\n{res}"
+            )
+            assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
+            note = diff.iloc[0]
+            assert note["pitch"] in list(
+                BASIC_DF["pitch"]
+            ), f"Added note's pitch ({note.pitch}) not aligned to \n{BASIC_DF}"
+            assert note["dur"] in list(
+                BASIC_DF["dur"]
+            ), f"Added note's duration ({note.dur}) not aligned to \n{BASIC_DF}"
+            assert note["onset"] in list(
+                BASIC_DF["onset"]
+            ), f"Added note's onset ({note.onset}) not aligned to \n{BASIC_DF}"
+            assert (
+                note.track in BASIC_DF["track"].values
+            ), "Track not taken from existing tracks."
+
+        # Test align_velocity
+        if (
+            min_velocity > BASIC_DF["velocity"].max()
+            or max_velocity < BASIC_DF["velocity"].min()
+        ):
+            res = deg.add_note(
+                BASIC_DF,
+                min_velocity=min_velocity,
+                max_velocity=max_velocity,
+                align_velocity=True,
+            )
+            assert_warned(caplog)
+            assert_none(res)
+
+        else:
+            res = deg.add_note(
+                BASIC_DF,
+                min_velocity=min_velocity,
+                max_velocity=max_velocity,
+                align_velocity=True,
+            )
+            diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
+            assert diff.shape[0] == 1, (
+                "Adding a note changed an existing note, or added note is a duplicate."
+                f"\n{BASIC_DF}\n{res}"
+            )
+            assert res.shape[0] == BASIC_DF.shape[0] + 1, "No note was added."
+            note = diff.iloc[0]
+            assert note["velocity"] in list(
+                BASIC_DF["velocity"]
+            ), f"Added note's velocity ({note.velocity}) not aligned to \n{BASIC_DF}"
 
     # Test min_duration too large
     res = deg.add_note(BASIC_DF, min_duration=500)
