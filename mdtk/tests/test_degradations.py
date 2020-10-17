@@ -7,7 +7,9 @@ import pytest
 import mdtk.degradations as deg
 from mdtk.degradations import TRIES_WARN_MSG
 
-EMPTY_DF = pd.DataFrame({"onset": [], "track": [], "pitch": [], "dur": []})
+EMPTY_DF = pd.DataFrame(
+    {"onset": [], "track": [], "pitch": [], "dur": [], "velocity": []}
+)
 
 # test_join_notes() uses its own df, defined in the function
 # Create a garbled df with indices: [0, 2, 2, 4]
@@ -17,6 +19,7 @@ BASIC_DF = pd.DataFrame(
         "track": [0, 1, 0, 1, 1],
         "pitch": [10, 20, 30, 40, 40],
         "dur": [100, 100, 100, 100, 100],
+        "velocity": [1, 2, 3, 4, 5],
     }
 )
 BASIC_DF = pd.concat([BASIC_DF.iloc[[0, 2]], BASIC_DF.iloc[[2, 4]]])
@@ -24,6 +27,7 @@ BASIC_DF.iloc[1]["onset"] = 100
 BASIC_DF.iloc[1]["track"] = 1
 BASIC_DF.iloc[1]["pitch"] = 20
 BASIC_DF.iloc[1]["dur"] = 100
+BASIC_DF.iloc[1]["velocity"] = 10
 
 # This version will not change
 BASIC_DF_FINAL = BASIC_DF
@@ -50,6 +54,7 @@ def test_pre_process():
             "track": [0, 1, 0, 1],
             "pitch": [10, 20, 30, 40],
             "dur": [100, 100, 100, 100],
+            "velocity": [1, 10, 3, 5],
         }
     )
 
@@ -59,6 +64,7 @@ def test_pre_process():
             "track": [0, 0, 1, 1],
             "pitch": [10, 30, 40, 20],
             "dur": [100, 100, 100, 100],
+            "velocity": [1, 3, 5, 10],
         }
     )
 
@@ -81,6 +87,7 @@ def test_pre_process():
             "pitch": [10, 20, 30.5, 40],
             "dur": [100, 100, 100.5, 100],
             "extra": [5, 5, "apple", None],
+            "velocity": [1.0, 2.0, 3.0, 4.5],
         }
     )
     float_res = pd.DataFrame(
@@ -89,6 +96,7 @@ def test_pre_process():
             "track": [0, 1, 0, 2],
             "pitch": [10, 20, 30, 40],
             "dur": [100, 100, 100, 100],
+            "velocity": [1, 2, 3, 4],
         }
     )
     res = deg.pre_process(float_df)
@@ -110,6 +118,7 @@ def test_post_process():
             "track": [0, 1, 0, 1],
             "pitch": [10, 20, 30, 40],
             "dur": [100, 100, 100, 100],
+            "velocity": [1, 10, 3, 5],
         }
     )
 
@@ -119,6 +128,7 @@ def test_post_process():
             "track": [0, 0, 1, 1],
             "pitch": [10, 30, 40, 20],
             "dur": [100, 100, 100, 100],
+            "velocity": [1, 3, 5, 10],
         }
     )
 
@@ -210,6 +220,7 @@ def test_pitch_shift(caplog):
                     "track": [0, 1, 0, 1],
                     "pitch": [10, 33, 30, 40],
                     "dur": [100, 100, 100, 100],
+                    "velocity": [1, 10, 3, 5],
                 }
             )
 
@@ -221,7 +232,15 @@ def test_pitch_shift(caplog):
             assert not BASIC_DF.equals(res), "Note_df was not copied."
 
     # Test if tries works
-    df = pd.DataFrame({"onset": [0], "pitch": [10], "track": [0], "dur": [100]})
+    df = pd.DataFrame(
+        {
+            "onset": [0],
+            "pitch": [10],
+            "track": [0],
+            "dur": [100],
+            "velocity": [100],
+        }
+    )
     res = deg.pitch_shift(df, min_pitch=10, max_pitch=10)
     assert_none(res, msg="Pitch shift should run out of tries.")
     assert_warned(caplog, msg=deg.TRIES_WARN_MSG)
@@ -235,15 +254,10 @@ def test_pitch_shift(caplog):
         # Check that only things that should have changed have changed
         diff = pd.concat([res, BASIC_DF]).drop_duplicates(keep=False)
         assert diff.shape[0] == 2, "Pitch shift changed more than 1 note."
-        assert (
-            diff.iloc[0]["onset"] == diff.iloc[1]["onset"]
-        ), "Pitch shift changed some onset time."
-        assert (
-            diff.iloc[0]["track"] == diff.iloc[1]["track"]
-        ), "Pitch shift changed some track."
-        assert (
-            diff.iloc[0]["dur"] == diff.iloc[1]["dur"]
-        ), "Pitch shift changed some duration."
+        for col in ["track", "velocity", "dur", "onset"]:
+            assert (
+                diff.iloc[0][col] == diff.iloc[1][col]
+            ), f"Time shift changed some {col}."
         assert (
             diff.iloc[0]["pitch"] != diff.iloc[1]["pitch"]
         ), "Pitch shift did not change pitch."
@@ -335,6 +349,7 @@ def test_pitch_shift(caplog):
             "pitch": pitches,
             "dur": 0,
             "track": 0,
+            "velocity": 0,
         }
     )
 
@@ -379,6 +394,7 @@ def test_time_shift(caplog):
                     "track": [0, 0, 1, 1],
                     "pitch": [10, 30, 20, 40],
                     "dur": [100, 100, 100, 100],
+                    "velocity": [1, 3, 10, 5],
                 }
             )
 
@@ -403,15 +419,10 @@ def test_time_shift(caplog):
         assert (
             diff.iloc[0]["onset"] != diff.iloc[1]["onset"]
         ), "Time shift did not change any onset time."
-        assert (
-            diff.iloc[0]["track"] == diff.iloc[1]["track"]
-        ), "Time shift changed some track."
-        assert (
-            diff.iloc[0]["dur"] == diff.iloc[1]["dur"]
-        ), "Time shift changed some duration."
-        assert (
-            diff.iloc[0]["pitch"] == diff.iloc[1]["pitch"]
-        ), "Time shift changed some pitch."
+        for col in ["track", "velocity", "dur", "pitch"]:
+            assert (
+                diff.iloc[0][col] == diff.iloc[1][col]
+            ), f"Time shift changed some {col}."
 
         # Check that changed onset is within given range
         changed_onset = diff.iloc[0]["onset"]
@@ -436,15 +447,10 @@ def test_time_shift(caplog):
             assert (
                 diff.iloc[0]["onset"] != diff.iloc[1]["onset"]
             ), "Time shift did not change any onset time."
-            assert (
-                diff.iloc[0]["track"] == diff.iloc[1]["track"]
-            ), "Time shift changed some track."
-            assert (
-                diff.iloc[0]["dur"] == diff.iloc[1]["dur"]
-            ), "Time shift changed some duration."
-            assert (
-                diff.iloc[0]["pitch"] == diff.iloc[1]["pitch"]
-            ), "Time shift changed some pitch."
+            for col in ["track", "velocity", "dur", "pitch"]:
+                assert (
+                    diff.iloc[0][col] == diff.iloc[1][col]
+                ), f"Time shift changed some {col}."
             assert (
                 diff.iloc[0]["onset"] in BASIC_DF["onset"].unique()
             ), "Time shift didn't change to an aligned onset."
@@ -510,6 +516,9 @@ def test_onset_shift(caplog):
         assert (
             changed_note.loc[0]["onset"] >= 0
         ), "Changed note given negative onset time."
+        assert (
+            changed_note.loc[0]["velocity"] == new_note.loc[0]["velocity"]
+        ), "Veclocity changed when onset shifting."
 
     assert_none(
         deg.onset_shift(EMPTY_DF),
@@ -528,6 +537,7 @@ def test_onset_shift(caplog):
                     "track": [0, 0, 1, 1],
                     "pitch": [10, 30, 20, 40],
                     "dur": [100, 228, 100, 100],
+                    "velocity": [1, 3, 10, 5],
                 }
             )
 
@@ -654,6 +664,7 @@ def test_onset_shift(caplog):
                 "track": [0, 1, 0, 0, 1],
                 "pitch": [10, 20, 25, 30, 40],
                 "dur": [100, 100, 50, 150, 100],
+                "velocity": [1, 2, 10, 3, 5],
             }
         )
         # Test with align_dur
@@ -773,6 +784,9 @@ def test_offset_shift(caplog):
             changed_note.loc[0]["onset"] == new_note.loc[0]["onset"]
         ), "Onset changed when offset shifting."
         assert (
+            changed_note.loc[0]["velocity"] == new_note.loc[0]["velocity"]
+        ), "Velocity changed when offset shifting."
+        assert (
             changed_note.loc[0]["onset"] + changed_note.loc[0]["dur"]
             <= df[["onset", "dur"]].sum(axis=1).max()
         ), "Changed note offset shifted past previous last offset."
@@ -793,6 +807,7 @@ def test_offset_shift(caplog):
                     "track": [0, 1, 0, 1],
                     "pitch": [10, 20, 30, 40],
                     "dur": [100, 200, 100, 100],
+                    "velocity": [1, 10, 3, 5],
                 }
             )
 
@@ -982,6 +997,7 @@ def test_remove_note(caplog):
                     "track": [0, 0, 1],
                     "pitch": [10, 30, 40],
                     "dur": [100, 100, 100],
+                    "velocity": [1, 3, 5],
                 }
             )
 
@@ -1009,6 +1025,10 @@ def test_add_note(caplog):
         deg.add_note(EMPTY_DF) is not None
     ), "Add note to empty data frame returned None."
 
+    assert (
+        deg.add_note(EMPTY_DF).iloc[0]["velocity"] == 100
+    ), "Add note to empty data frame didn't default to velocity 100."
+
     # Deterministic testing
     for i in range(2):
         res = deg.add_note(BASIC_DF, seed=1)
@@ -1019,6 +1039,7 @@ def test_add_note(caplog):
                 "track": [0, 1, 0, 1, 0],
                 "pitch": [10, 20, 30, 40, 58],
                 "dur": [100, 100, 100, 100, 62],
+                "velocity": [1, 10, 3, 5, 10],
             }
         )
 
@@ -1061,6 +1082,12 @@ def test_add_note(caplog):
             f"Added note's duration ({note.dur}) not within range "
             f"[{min_duration}, {max_duration}]."
         )
+        assert (
+            note.velocity in BASIC_DF["velocity"].values
+        ), "Velocity not taken from existing velocities."
+        assert (
+            note.track in BASIC_DF["track"].values
+        ), "Track not taken from existing tracks."
 
         end_time = BASIC_DF[["onset", "dur"]].sum(axis=1).max()
         if min_duration >= end_time:
@@ -1122,6 +1149,12 @@ def test_add_note(caplog):
         assert note["onset"] in list(
             BASIC_DF["onset"]
         ), f"Added note's onset ({note.onset}) not aligned to \n{BASIC_DF}"
+        assert (
+            note.velocity in BASIC_DF["velocity"].values
+        ), "Velocity not taken from existing velocities."
+        assert (
+            note.track in BASIC_DF["track"].values
+        ), "Track not taken from existing tracks."
 
     # Test min_duration too large
     res = deg.add_note(BASIC_DF, min_duration=500)
@@ -1151,6 +1184,7 @@ def test_split_note(caplog):
                     "track": [0, 1, 1, 0, 1],
                     "pitch": [10, 20, 20, 30, 40],
                     "dur": [100, 50, 50, 100, 100],
+                    "velocity": [1, 10, 10, 3, 5],
                 }
             )
 
@@ -1249,6 +1283,7 @@ def test_join_notes(caplog):
             "track": [0, 0, 0, 1, 1],
             "pitch": [10, 10, 10, 40, 40],
             "dur": [100, 100, 100, 100, 100],
+            "velocity": [1, 2, 3, 4, 5],
         }
     )
     join_df = pd.concat([join_df.iloc[[0, 2]], join_df.iloc[[2, 4]]])
@@ -1256,6 +1291,7 @@ def test_join_notes(caplog):
     join_df.iloc[1]["track"] = 0
     join_df.iloc[1]["pitch"] = 10
     join_df.iloc[1]["dur"] = 100
+    join_df.iloc[1]["velocity"] = 10
 
     # Create an unsorted join_df
     unsorted_join_df = join_df.iloc[[0, 2, 3, 1]]
@@ -1270,6 +1306,7 @@ def test_join_notes(caplog):
                 "track": [0, 0, 1],
                 "pitch": [10, 10, 40],
                 "dur": [100, 200, 100],
+                "velocity": [1, 10, 5],
             }
         )
 
@@ -1354,6 +1391,7 @@ def test_join_notes(caplog):
                 43,
             ],
             "dur": [83] + [125] * 10 + [83] + [125] * 5 + [83] + [125] * 4,
+            "velocity": [0] * 22,
         }
     )
     correct = pd.DataFrame(
@@ -1406,6 +1444,7 @@ def test_join_notes(caplog):
                 43,
             ],
             "dur": [83] + [125] * 10 + [83] + [125] * 3 + [250, 83] + [125] * 4,
+            "velocity": [0] * 21,
         }
     )
     res = deg.join_notes(excerpt, seed=1)
@@ -1441,15 +1480,10 @@ def test_join_notes(caplog):
         ), "Joining notes changed too many notes."
         assert new_note.shape[0] == 1, "Joining notes resulted in more than 1 new note."
         assert joined_notes.shape[0] == 2, "Joining notes changed too many notes."
-        assert (
-            new_note.loc[0]["onset"] == joined_notes.loc[0]["onset"]
-        ), "Joined onset not equal to original onset."
-        assert (
-            new_note.loc[0]["pitch"] == joined_notes.loc[0]["pitch"]
-        ), "Joined pitch not equal to original pitch."
-        assert (
-            new_note.loc[0]["track"] == joined_notes.loc[0]["track"]
-        ), "Joined track not equal to original pitch."
+        for col in ["onset", "pitch", "track", "velocity"]:
+            assert (
+                new_note.loc[0][col] == joined_notes.loc[0][col]
+            ), f"Joined {col} not equal to original {col}."
         assert (
             new_note.loc[0]["dur"]
             == joined_notes.iloc[-1]["onset"]

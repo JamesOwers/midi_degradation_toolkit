@@ -307,7 +307,7 @@ def pitch_shift(
         distribution = np.where(pitches < min_pitch, 0, distribution)
         distribution = np.where(pitches > max_pitch, 0, distribution)
 
-        # Only degrade if some of the allowed pitches are in range [min_pitch, max_pitch)
+        # Degrade only if any allowed pitches are in range [min_pitch, max_pitch)
         sum_dist = np.sum(distribution)
         if sum_dist > 0:
             distribution = distribution / np.sum(distribution)
@@ -859,7 +859,9 @@ def add_note(
     tries=TRIES_DEFAULT,
 ):
     """
-    Add one note to the given excerpt.
+    Add one note to the given excerpt. The added note's track and velocity will be
+    equal to existing ones (if there are any). If the given excerpt is empty,
+    track=0 and velocity=100.
 
     Parameters
     ----------
@@ -961,8 +963,23 @@ def add_note(
     except ValueError:  # Empty dataframe
         track = 0
 
+    # Velocity is random one of existing velocities
+    try:
+        velocities = sorted(excerpt["velocity"].unique())
+        velocity = velocities[0] if len(velocities) == 1 else choice(velocities)
+    except KeyError:  # No velocity col in df
+        velocity = 100
+    except ValueError:  # Empty dataframe
+        velocity = 100
+
     # Create and add note
-    note = {"pitch": pitch, "onset": onset, "dur": duration, "track": track}
+    note = {
+        "pitch": pitch,
+        "onset": onset,
+        "dur": duration,
+        "track": track,
+        "velocity": velocity,
+    }
 
     degraded = excerpt.copy()
     degraded = degraded.append(note, ignore_index=True)
@@ -1041,6 +1058,7 @@ def split_note(
     short_duration_float = excerpt.loc[note_index, "dur"] / (num_splits + 1)
     pitch = excerpt.loc[note_index, "pitch"]
     track = excerpt.loc[note_index, "track"]
+    velocity = excerpt.loc[note_index, "velocity"]
     this_onset = excerpt.loc[note_index, "onset"]
     next_onset = this_onset + short_duration_float
 
@@ -1049,6 +1067,7 @@ def split_note(
     onsets = [0] * num_splits
     durs = [0] * num_splits
     tracks = [track] * num_splits
+    velocities = [velocity] * num_splits
     for i in range(num_splits):
         this_onset = next_onset
         next_onset += short_duration_float
@@ -1059,7 +1078,13 @@ def split_note(
     degraded = excerpt.copy()
     degraded.loc[note_index, "dur"] = int(round(short_duration_float))
     new_df = pd.DataFrame(
-        {"onset": onsets, "track": tracks, "pitch": pitches, "dur": durs}
+        {
+            "onset": onsets,
+            "track": tracks,
+            "pitch": pitches,
+            "dur": durs,
+            "velocity": velocities,
+        }
     )
     degraded = degraded.append(new_df, ignore_index=True)
 
