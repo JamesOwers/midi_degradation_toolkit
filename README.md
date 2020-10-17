@@ -40,10 +40,10 @@ Documentation for the components of the toolkit is provided in [`./docs`](./docs
 As a brief overview, the toolkit takes midi files as input and first converts
 them to a standard data structure like this:
 ```
-onset,track,pitch,dur
-0    ,0    ,100  ,250
-250  ,0    ,105  ,255
-250  ,1    ,100  ,100
+onset, track, pitch, dur, velocity
+0    , 0    , 100  , 250, 80
+250  , 0    , 105  , 255, 100
+250  , 1    , 100  , 100, 95
 ...
 ```
 where:
@@ -52,6 +52,7 @@ where:
 * `pitch` is the midinote pitch number ranging from 0 (C-2) to 127 (G9) (concert
   A4 is midinote 69), and
 * `dur` is how long the note is held in milliseconds.
+* `velocity` is the velocity of the note (defaults to 100 if not parsing from MIDI).
 
 There are then functions to alter these files, introducing un-musical
 degradations such as pitch shifts.
