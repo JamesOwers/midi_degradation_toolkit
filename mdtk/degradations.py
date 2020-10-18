@@ -1017,8 +1017,11 @@ def add_note(
             max_pitch=max_pitch,
             min_duration=min_duration,
             max_duration=max_duration,
+            min_velocity=min_velocity,
+            max_velocity=max_velocity,
             align_pitch=align_pitch,
             align_time=align_time,
+            align_velocity=align_velocity,
             tries=tries - 1,
         )
 
