@@ -9,6 +9,7 @@ import tqdm
 
 from mdtk.degradations import MAX_PITCH_DEFAULT, MIN_PITCH_DEFAULT
 from mdtk.df_utils import NOTE_DF_SORT_ORDER
+from mdtk.fileio import csv_to_df
 
 
 # Convenience function...
@@ -98,17 +99,9 @@ def create_corpus_csvs(acme_dir, format_dict):
     for idx, row in tqdm.tqdm(
         meta_df.iterrows(), total=meta_df.shape[0], desc=f"Creating {name} corpus"
     ):
-        alt_df = pd.read_csv(
-            os.path.join(acme_dir, row.altered_csv_path),
-            header=None,
-            names=["onset", "track", "pitch", "dur"],
-        )
+        alt_df = csv_to_df(os.path.join(acme_dir, row.altered_csv_path))
         alt_str = df_converter_func(alt_df)
-        clean_df = pd.read_csv(
-            os.path.join(acme_dir, row.clean_csv_path),
-            header=None,
-            names=["onset", "track", "pitch", "dur"],
-        )
+        clean_df = csv_to_df(os.path.join(acme_dir, row.clean_csv_path))
         clean_str = df_converter_func(clean_df)
         deg_num = row.degradation_id
         split = row.split
