@@ -867,7 +867,8 @@ def add_note(
     """
     Add one note to the given excerpt. The added note's track will be randomly
     set to an existing one (if there are any). If the given excerpt is empty,
-    track=0.
+    track=0. By default, the added note will have velocity 100, but this can
+    be changed with min_ and max_velocity.
 
     Parameters
     ----------
