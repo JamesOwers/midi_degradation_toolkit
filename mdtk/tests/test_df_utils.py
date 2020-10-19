@@ -11,6 +11,7 @@ CLEAN_INPUT_DF = pd.DataFrame(
         "onset": [0, 0, 0, 1, 1, 1, 2, 2, 2, 3],
         "extra": 40,
         "pitch": [30, 20, 20, 30, 20, 20, 30, 20, 20, 20],
+        "velocity": list(range(9)) + [8],
     }
 )
 
@@ -23,6 +24,7 @@ CLEAN_RES_DFS = {
                 "track": list(range(9)) + [8],
                 "pitch": [30, 20, 20, 30, 20, 20, 30, 20, 20, 20],
                 "dur": [50, 50, 40, 50, 50, 40, 50, 50, 40, 50],
+                "velocity": list(range(9)) + [8],
             }
         ),
         True: pd.DataFrame(
@@ -31,6 +33,7 @@ CLEAN_RES_DFS = {
                 "track": list(range(9)) + [8],
                 "pitch": [30, 20, 20, 30, 20, 20, 30, 20, 20, 20],
                 "dur": [50, 50, 40, 50, 50, 40, 50, 50, 1, 50],
+                "velocity": list(range(9)) + [8],
             }
         ),
     },
@@ -41,6 +44,7 @@ CLEAN_RES_DFS = {
                 "track": 0,
                 "pitch": [20, 20, 30, 20, 20, 30, 20, 20, 30, 20],
                 "dur": [40, 50, 50, 40, 50, 50, 40, 50, 50, 50],
+                "velocity": [2, 1, 0, 5, 4, 3, 8, 7, 6, 8],
             }
         ),
         True: pd.DataFrame(
@@ -49,6 +53,7 @@ CLEAN_RES_DFS = {
                 "track": 0,
                 "pitch": [20, 30, 20, 30, 20, 30, 20],
                 "dur": [1, 1, 1, 1, 1, 50, 50],
+                "velocity": [1, 0, 4, 3, 7, 6, 8],
             }
         ),
     },
@@ -80,6 +85,7 @@ def test_remove_pitch_overlaps():
             "track": [0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
             "pitch": [10, 10, 10, 20, 10, 20, 30, 30, 10, 10],
             "dur": [50, 300, 25, 100, 125, 50, 50, 100, 100, 100],
+            "velocity": list(range(10)),
         }
     )
     note_df_complex_overlap_fixed = pd.DataFrame(
@@ -88,6 +94,7 @@ def test_remove_pitch_overlaps():
             "track": [0, 0, 0, 0, 0, 0, 0, 1],
             "pitch": [10, 10, 10, 20, 10, 20, 30, 10],
             "dur": [50, 25, 125, 50, 150, 50, 100, 100],
+            "velocity": [0, 1, 2, 3, 4, 5, 7, 9],
         }
     )
 

@@ -20,6 +20,9 @@ MAX_DURATION_DEFAULT = np.inf
 
 MAX_GAP_DEFAULT = 50
 
+MIN_VELOCITY_DEFAULT = 100
+MAX_VELOCITY_DEFAULT = 100
+
 TRIES_DEFAULT = 10
 
 TRIES_WARN_MSG = (
@@ -307,7 +310,7 @@ def pitch_shift(
         distribution = np.where(pitches < min_pitch, 0, distribution)
         distribution = np.where(pitches > max_pitch, 0, distribution)
 
-        # Only degrade if some of the allowed pitches are in range [min_pitch, max_pitch)
+        # Degrade only if any allowed pitches are in range [min_pitch, max_pitch)
         sum_dist = np.sum(distribution)
         if sum_dist > 0:
             distribution = distribution / np.sum(distribution)
@@ -854,12 +857,18 @@ def add_note(
     max_pitch=MAX_PITCH_DEFAULT,
     min_duration=MIN_DURATION_DEFAULT,
     max_duration=MAX_DURATION_DEFAULT,
+    min_velocity=MIN_VELOCITY_DEFAULT,
+    max_velocity=MAX_VELOCITY_DEFAULT,
     align_pitch=False,
     align_time=False,
+    align_velocity=False,
     tries=TRIES_DEFAULT,
 ):
     """
-    Add one note to the given excerpt.
+    Add one note to the given excerpt. The added note's track will be randomly
+    set to an existing one (if there are any). If the given excerpt is empty,
+    track=0. By default, the added note will have velocity 100, but this can
+    be changed with min_ and max_velocity.
 
     Parameters
     ----------
@@ -880,17 +889,26 @@ def add_note(
         (The offset time will never go beyond the current last offset
         in the excerpt.)
 
+    min_velocity : int
+        The minimum velocity for the added note.
+
+    max_velocity : int
+        The maximum velocity for the added note.
+
     align_pitch : boolean
         True to force the added note to lie on the same pitch as an
-        existing note (if one exists). This ignores the given min and
-        max pitches. If excerpt contains only 1 note and align_time
-        is True, this is always set to False.
+        existing note (if one exists). If excerpt contains only 1
+        note and align_time is True, this is always set to False.
 
     align_time : boolean
         True to force the added note to have the same onset time and
         duration as an existing note (if one exists), though not
         necessarily the same (onset, duration) pair as an existing
-        note. If True, this ignores the min and max durations.
+        note.
+
+    align_velocity : boolean
+        True to force the added note to have the same velocity as an
+        existing note (if one exists in the given range).
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
@@ -912,6 +930,7 @@ def add_note(
     if len(excerpt) == 0:
         align_pitch = False
         align_time = False
+        align_velocity = False
 
     if len(excerpt) == 1 and align_pitch and align_time:
         align_pitch = False
@@ -961,8 +980,29 @@ def add_note(
     except ValueError:  # Empty dataframe
         track = 0
 
+    if align_velocity:
+        # Velocity is random one of existing velocities
+        velocity = excerpt["velocity"].between(
+            min_velocity,
+            max_velocity,
+            inclusive=True,
+        )
+        velocity = excerpt["velocity"][velocity].unique()
+        if len(velocity) == 0:
+            logging.warning("No valid aligned velocity in given range.")
+            return None
+        velocity = choice(velocity)
+    else:
+        velocity = randint(min_velocity, max_velocity + 1)
+
     # Create and add note
-    note = {"pitch": pitch, "onset": onset, "dur": duration, "track": track}
+    note = {
+        "pitch": pitch,
+        "onset": onset,
+        "dur": duration,
+        "track": track,
+        "velocity": velocity,
+    }
 
     degraded = excerpt.copy()
     degraded = degraded.append(note, ignore_index=True)
@@ -978,8 +1018,11 @@ def add_note(
             max_pitch=max_pitch,
             min_duration=min_duration,
             max_duration=max_duration,
+            min_velocity=min_velocity,
+            max_velocity=max_velocity,
             align_pitch=align_pitch,
             align_time=align_time,
+            align_velocity=align_velocity,
             tries=tries - 1,
         )
 
@@ -993,7 +1036,8 @@ def split_note(
 ):
     """
     Split one note from the excerpt into two or more notes of equal
-    duration.
+    duration. The resulting notes' velocites will be equal to the split note's
+    velocity.
 
     Parameters
     ----------
@@ -1041,6 +1085,7 @@ def split_note(
     short_duration_float = excerpt.loc[note_index, "dur"] / (num_splits + 1)
     pitch = excerpt.loc[note_index, "pitch"]
     track = excerpt.loc[note_index, "track"]
+    velocity = excerpt.loc[note_index, "velocity"]
     this_onset = excerpt.loc[note_index, "onset"]
     next_onset = this_onset + short_duration_float
 
@@ -1049,6 +1094,7 @@ def split_note(
     onsets = [0] * num_splits
     durs = [0] * num_splits
     tracks = [track] * num_splits
+    velocities = [velocity] * num_splits
     for i in range(num_splits):
         this_onset = next_onset
         next_onset += short_duration_float
@@ -1059,7 +1105,13 @@ def split_note(
     degraded = excerpt.copy()
     degraded.loc[note_index, "dur"] = int(round(short_duration_float))
     new_df = pd.DataFrame(
-        {"onset": onsets, "track": tracks, "pitch": pitches, "dur": durs}
+        {
+            "onset": onsets,
+            "track": tracks,
+            "pitch": pitches,
+            "dur": durs,
+            "velocity": velocities,
+        }
     )
     degraded = degraded.append(new_df, ignore_index=True)
 

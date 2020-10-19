@@ -6,7 +6,7 @@ import pandas as pd
 import pretty_midi
 
 import mdtk.fileio as fileio
-from mdtk.df_utils import clean_df
+from mdtk.df_utils import NOTE_DF_SORT_ORDER, clean_df
 from mdtk.tests.test_df_utils import CLEAN_INPUT_DF, CLEAN_RES_DFS
 
 USER_HOME = os.path.expanduser("~")
@@ -34,12 +34,21 @@ def test_csv_to_df():
 
         assert res.equals(correct), f"csv_to_df result incorrect with args={kwargs}"
 
+    # Check inducing velocity = 100 if not present in csv
+    CLEAN_INPUT_DF[NOTE_DF_SORT_ORDER[:-1]].to_csv(csv_path, index=None, header=False)
+
+    res = fileio.csv_to_df(csv_path)
+    correct = CLEAN_RES_DFS[False][False]
+    assert res[NOTE_DF_SORT_ORDER[:-1]].equals(correct[NOTE_DF_SORT_ORDER[:-1]])
+    assert all(res["velocity"] == 100)
+    assert res["velocity"].dtype == "int64"
+
 
 def test_df_to_csv():
     notes = []
-    notes.append({"onset": 0, "track": 1, "pitch": 42, "dur": 1})
-    notes.append({"onset": 0, "track": 1, "pitch": 40, "dur": 1})
-    notes.append({"onset": 1, "track": 2, "pitch": 56, "dur": 5})
+    notes.append({"onset": 0, "track": 1, "pitch": 42, "dur": 1, "velocity": 10})
+    notes.append({"onset": 0, "track": 1, "pitch": 40, "dur": 1, "velocity": 20})
+    notes.append({"onset": 1, "track": 2, "pitch": 56, "dur": 5, "velocity": 30})
 
     df = pd.DataFrame(notes)
 
@@ -79,6 +88,11 @@ def test_df_to_csv():
                 f"note {i} ({notes[i]}) not equal to csv's written "
                 f"duration of {int(split[3])}"
             )
+            assert int(split[4]) == notes[i]["velocity"], (
+                "Velocity of "
+                f"note {i} ({notes[i]}) not equal to csv's written "
+                f"velocity of {int(split[4])}"
+            )
 
     # Check writing without any directory
     fileio.df_to_csv(df, "test.csv")
@@ -107,6 +121,7 @@ def test_midi_to_df():
                     "track": i,
                     "pitch": note.pitch,
                     "dur": int(round(note.end * 1000) - round(note.start * 1000)),
+                    "velocity": note.velocity,
                 }
             )
     midi_df = pd.DataFrame(midi_notes)
@@ -162,6 +177,7 @@ def test_midi_to_csv():
                     "track": i,
                     "pitch": note.pitch,
                     "dur": int(round(note.end * 1000) - round(note.start * 1000)),
+                    "velocity": note.velocity,
                 }
             )
 
@@ -174,6 +190,7 @@ def test_midi_to_csv():
                 "track": int(split[1]),
                 "pitch": int(split[2]),
                 "dur": int(split[3]),
+                "velocity": int(split[4]),
             }
             assert note in midi_notes, (
                 f"csv note {note} not in list "
@@ -241,6 +258,7 @@ def test_midi_dir_to_csv():
                     "track": i,
                     "pitch": note.pitch,
                     "dur": int(round(note.end * 1000) - round(note.start * 1000)),
+                    "velocity": note.velocity,
                 }
             )
             midi_notes2.append(midi_notes[-1])
@@ -255,6 +273,7 @@ def test_midi_dir_to_csv():
                     "track": int(split[1]),
                     "pitch": int(split[2]),
                     "dur": int(split[3]),
+                    "velocity": int(split[4]),
                 }
                 assert note in notes, (
                     f"csv note {note} not in list "
@@ -287,7 +306,13 @@ def test_midi_dir_to_csv():
 
 def test_df_to_midi():
     df = pd.DataFrame(
-        {"onset": 0, "track": [0, 0, 1], "pitch": [10, 20, 30], "dur": 1000}
+        {
+            "onset": 0,
+            "track": [0, 0, 1],
+            "pitch": [10, 20, 30],
+            "dur": 1000,
+            "velocity": 50,
+        }
     )
 
     # Test basic writing
@@ -313,6 +338,7 @@ def test_df_to_midi():
             "track": [0, 0, 1, 0, 0, 1],
             "pitch": [10, 20, 30, 20, 30, 40],
             "dur": 1000,
+            "velocity": 50,
         }
     )
     assert fileio.midi_to_df("test2.mid").equals(
@@ -329,6 +355,7 @@ def test_df_to_midi():
             "track": [0, 0, 1, 0, 0, 1],
             "pitch": [20, 30, 40, 20, 30, 40],
             "dur": 1000,
+            "velocity": 50,
         }
     )
     assert fileio.midi_to_df("test.mid").equals(
@@ -345,6 +372,7 @@ def test_df_to_midi():
             "track": [2, 2, 2, 0, 0, 1],
             "pitch": [20, 30, 40, 20, 30, 40],
             "dur": 1000,
+            "velocity": 50,
         }
     )
     assert fileio.midi_to_df("test.mid").equals(
@@ -409,7 +437,13 @@ def test_df_to_midi():
 
 def test_csv_to_midi():
     df = pd.DataFrame(
-        {"onset": 0, "track": [0, 0, 1], "pitch": [10, 20, 30], "dur": 1000}
+        {
+            "onset": 0,
+            "track": [0, 0, 1],
+            "pitch": [10, 20, 30],
+            "dur": 1000,
+            "velocity": 50,
+        }
     )
     fileio.df_to_csv(df, "test.csv")
 
@@ -437,6 +471,7 @@ def test_csv_to_midi():
             "track": [0, 0, 1, 0, 0, 1],
             "pitch": [10, 20, 30, 20, 30, 40],
             "dur": 1000,
+            "velocity": 50,
         }
     )
     assert fileio.midi_to_df("test2.mid").equals(
@@ -453,6 +488,7 @@ def test_csv_to_midi():
             "track": [0, 0, 1, 0, 0, 1],
             "pitch": [20, 30, 40, 20, 30, 40],
             "dur": 1000,
+            "velocity": 50,
         }
     )
     assert fileio.midi_to_df("test.mid").equals(
@@ -470,6 +506,7 @@ def test_csv_to_midi():
             "track": [2, 2, 2, 0, 0, 1],
             "pitch": [20, 30, 40, 20, 30, 40],
             "dur": 1000,
+            "velocity": 50,
         }
     )
     assert fileio.midi_to_df("test.mid").equals(

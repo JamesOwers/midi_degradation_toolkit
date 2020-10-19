@@ -9,6 +9,7 @@ import tqdm
 
 from mdtk.degradations import MAX_PITCH_DEFAULT, MIN_PITCH_DEFAULT
 from mdtk.df_utils import NOTE_DF_SORT_ORDER
+from mdtk.fileio import DEFAULT_VELOCITY, csv_to_df
 
 
 # Convenience function...
@@ -98,17 +99,9 @@ def create_corpus_csvs(acme_dir, format_dict):
     for idx, row in tqdm.tqdm(
         meta_df.iterrows(), total=meta_df.shape[0], desc=f"Creating {name} corpus"
     ):
-        alt_df = pd.read_csv(
-            os.path.join(acme_dir, row.altered_csv_path),
-            header=None,
-            names=["onset", "track", "pitch", "dur"],
-        )
+        alt_df = csv_to_df(os.path.join(acme_dir, row.altered_csv_path))
         alt_str = df_converter_func(alt_df)
-        clean_df = pd.read_csv(
-            os.path.join(acme_dir, row.clean_csv_path),
-            header=None,
-            names=["onset", "track", "pitch", "dur"],
-        )
+        clean_df = csv_to_df(os.path.join(acme_dir, row.clean_csv_path))
         clean_str = df_converter_func(clean_df)
         deg_num = row.degradation_id
         split = row.split
@@ -220,7 +213,15 @@ def pianoroll_str_to_df(pr_str, time_increment=40):
 
             # Start new note
             active[pitch] = len(notes)
-            notes.append({"onset": time, "pitch": pitch, "track": 0, "dur": None})
+            notes.append(
+                {
+                    "onset": time,
+                    "pitch": pitch,
+                    "track": 0,
+                    "dur": None,
+                    "velocity": DEFAULT_VELOCITY,
+                }
+            )
 
     # Close any still open notes
     for idx in active:
@@ -415,7 +416,7 @@ def command_str_to_df(cmd_str):
     Returns
     -------
     df : pd.DataFrame
-        The pandas DataFrame representing the note data
+        The pandas DataFrame representing the note data.
     """
     commands = cmd_str.split()
     note_on_pitch = []
@@ -436,14 +437,15 @@ def command_str_to_df(cmd_str):
             curr_time += value
         else:
             raise ValueError(f"Invalid command {cmd}")
-    df = pd.DataFrame(columns=["onset", "track", "pitch", "dur"], dtype=int)
+    df = pd.DataFrame(columns=NOTE_DF_SORT_ORDER, dtype=int)
     for ii, (pitch, onset) in enumerate(zip(note_on_pitch, note_on_time)):
         note_off_idx = note_off_pitch.index(pitch)  # gets first instance
         note_off_pitch.pop(note_off_idx)
         off = note_off_time.pop(note_off_idx)
         dur = off - onset
         track = 0
-        df.loc[ii] = [onset, track, pitch, dur]
+        velocity = DEFAULT_VELOCITY
+        df.loc[ii] = [onset, track, pitch, dur, velocity]
 
     return df
 
