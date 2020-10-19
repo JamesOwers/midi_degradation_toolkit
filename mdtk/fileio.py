@@ -11,6 +11,8 @@ from mdtk.df_utils import NOTE_DF_SORT_ORDER, clean_df
 
 COLNAMES = NOTE_DF_SORT_ORDER
 
+DEFAULT_VELOCITY = 100
+
 
 def midi_dir_to_csv(
     midi_dir_path,
@@ -207,7 +209,7 @@ def csv_to_df(csv_path, single_track=False, non_overlapping=False):
         then velocity.
     """
     df = pd.read_csv(csv_path, names=NOTE_DF_SORT_ORDER)
-    df["velocity"] = df["velocity"].fillna(100).astype(int)
+    df["velocity"] = df["velocity"].fillna(DEFAULT_VELOCITY).astype(int)
 
     df = clean_df(df, single_track=single_track, non_overlapping=non_overlapping)
 

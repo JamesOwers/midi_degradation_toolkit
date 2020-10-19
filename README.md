@@ -39,13 +39,13 @@ Documentation for the components of the toolkit is provided in [`./docs`](./docs
 ## Overview
 As a brief overview, the toolkit takes midi files as input and first converts
 them to a standard data structure like this:
-```
-onset, track, pitch, dur, velocity
-0    , 0    , 100  , 250, 80
-250  , 0    , 105  , 255, 100
-250  , 1    , 100  , 100, 95
-...
-```
+
+onset|track|pitch|dur|velocity
+---|---|---|---|---
+0|0|100|250|80
+250|0|105|255|100
+250|1|100|100|95
+
 where:
 * `onset` is the time in milliseconds when a note began,
 * `track` is the identifier for a distinct track in the midi file,

@@ -9,7 +9,7 @@ import tqdm
 
 from mdtk.degradations import MAX_PITCH_DEFAULT, MIN_PITCH_DEFAULT
 from mdtk.df_utils import NOTE_DF_SORT_ORDER
-from mdtk.fileio import csv_to_df
+from mdtk.fileio import DEFAULT_VELOCITY, csv_to_df
 
 
 # Convenience function...
@@ -219,7 +219,7 @@ def pianoroll_str_to_df(pr_str, time_increment=40):
                     "pitch": pitch,
                     "track": 0,
                     "dur": None,
-                    "velocity": 100,
+                    "velocity": DEFAULT_VELOCITY,
                 }
             )
 
@@ -444,7 +444,7 @@ def command_str_to_df(cmd_str):
         off = note_off_time.pop(note_off_idx)
         dur = off - onset
         track = 0
-        velocity = 100
+        velocity = DEFAULT_VELOCITY
         df.loc[ii] = [onset, track, pitch, dur, velocity]
 
     return df
