@@ -204,6 +204,195 @@ def test_unsorted(caplog):
     BASIC_DF = BASIC_DF_FINAL
 
 
+def test_tries(caplog):
+    # Test that re-calling with (tries - 1) passes args through
+    # Calls will be with strange params
+
+    # pitch_shift
+    note_df = pd.DataFrame(
+        {
+            "onset": 0,
+            "track": 0,
+            "pitch": [1050, 1051],
+            "dur": 100,
+            "velocity": 100,
+        }
+    )
+    res = [
+        deg.pitch_shift(
+            note_df,
+            min_pitch=1048,
+            max_pitch=1052,
+            distribution=[0, 0, 0, 0, 0.5, 0.5, 0],
+            tries=tries,
+            seed=51,
+        )
+        for tries in [2, 3]
+    ]
+    assert_warned(caplog)
+    assert_none(res[0])
+
+    assert res[1].loc[0].equals(note_df.loc[1])
+    for col in ["onset", "track", "dur", "velocity"]:
+        assert res[1].loc[1, col] == note_df.loc[0, col]
+    assert res[1].loc[1, "pitch"] == 1052
+
+    # onset_shift
+    note_df = pd.DataFrame(
+        {
+            "onset": [0, 0, 10000, 10000],
+            "track": 0,
+            "pitch": [49, 50, 51, 50],
+            "dur": [10100, 100, 100, 100],
+            "velocity": 100,
+        }
+    )
+
+    res = [
+        deg.onset_shift(
+            note_df,
+            min_shift=10000,
+            max_shift=10000,
+            min_duration=10000,
+            max_duration=10100,
+            align_onset=True,
+            align_dur=True,
+            seed=1,
+            tries=tries,
+        )
+        for tries in [2, 3]
+    ]
+    assert_warned(caplog)
+    assert_none(res[0])
+
+    correct = pd.DataFrame(
+        {
+            "onset": [0, 0, 0, 10000],
+            "track": 0,
+            "pitch": [49, 50, 51, 50],
+            "dur": [10100, 100, 10100, 100],
+            "velocity": 100,
+        }
+    )
+    assert correct.equals(res[1])
+
+    # offset_shift
+    note_df = pd.DataFrame(
+        {
+            "onset": [0, 0, 10000, 10000],
+            "track": 0,
+            "pitch": [49, 50, 51, 50],
+            "dur": [100, 100, 10100, 100],
+            "velocity": 100,
+        }
+    )
+
+    res = [
+        deg.offset_shift(
+            note_df,
+            min_shift=10000,
+            max_shift=10000,
+            min_duration=10000,
+            max_duration=10100,
+            align_dur=True,
+            seed=10,
+            tries=tries,
+        )
+        for tries in [2, 3]
+    ]
+    assert_warned(caplog)
+    assert_none(res[0])
+
+    correct = pd.DataFrame(
+        {
+            "onset": [0, 0, 10000, 10000],
+            "track": 0,
+            "pitch": [49, 50, 50, 51],
+            "dur": [10100, 100, 100, 10100],
+            "velocity": 100,
+        }
+    )
+    assert correct.equals(res[1])
+
+    # time_shift
+    note_df = pd.DataFrame(
+        {
+            "onset": [0, 0, 10000],
+            "track": 0,
+            "pitch": [49, 50, 50],
+            "dur": 100,
+            "velocity": 100,
+        }
+    )
+
+    res = [
+        deg.time_shift(
+            note_df,
+            min_shift=10000,
+            max_shift=10000,
+            align_onset=True,
+            seed=1,
+            tries=tries,
+        )
+        for tries in [2, 3]
+    ]
+    assert_warned(caplog)
+    assert_none(res[0])
+
+    correct = pd.DataFrame(
+        {
+            "onset": [0, 10000, 10000],
+            "track": 0,
+            "pitch": [50, 49, 50],
+            "dur": 100,
+            "velocity": 100,
+        }
+    )
+    assert correct.equals(res[1])
+
+    # add_note
+    note_df = pd.DataFrame(
+        {
+            "onset": [300, 500, 1000],
+            "track": 0,
+            "pitch": [1050, 1051, 1052],
+            "dur": [10000, 10000, 100],
+            "velocity": 1000,
+        }
+    )
+    res = [
+        deg.add_note(
+            note_df,
+            min_pitch=1052,
+            max_pitch=1052,
+            min_duration=100,
+            max_duration=10000,
+            min_velocity=1000,
+            max_velocity=8000,
+            align_pitch=True,
+            align_time=True,
+            align_velocity=True,
+            tries=tries,
+            seed=4,
+        )
+        for tries in [2, 3]
+    ]
+    assert_warned(caplog)
+    assert_none(res[0])
+
+    correct = pd.DataFrame(
+        {
+            "onset": [300, 500, 500, 1000],
+            "track": 0,
+            "pitch": [1050, 1051, 1052, 1052],
+            "dur": [10000, 10000, 100, 100],
+            "velocity": 1000,
+        }
+    )
+
+    assert correct.equals(res[1])
+
+
 def test_pitch_shift(caplog):
     res = deg.pitch_shift(EMPTY_DF)
     assert_none(res, msg="Pitch shifting with empty data frame did not return None.")
