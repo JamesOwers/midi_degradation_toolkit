@@ -195,6 +195,7 @@ def pitch_shift(
     excerpt,
     min_pitch=MIN_PITCH_DEFAULT,
     max_pitch=MAX_PITCH_DEFAULT,
+    align_pitch=False,
     distribution=None,
     tries=TRIES_DEFAULT,
 ):
@@ -211,6 +212,10 @@ def pitch_shift(
 
     max_pitch : int
         The maximum pitch to which a note may be shifted.
+
+    align_pitch : bool
+        Align the note's new pitch to an existing pitch of another note.
+        If the given excerpt has only 1 note, align_pitch is set to False.
 
     distribution : list(float)
         If given, a list describing the distribution of pitch shifts.
@@ -238,6 +243,9 @@ def pitch_shift(
     if len(excerpt) == 0:
         logging.warning("No notes to pitch shift. Returning None.")
         return None
+
+    if len(excerpt) == 1:
+        align_pitch = False
 
     excerpt = pre_process(excerpt)
     orig_dist = distribution
@@ -298,9 +306,20 @@ def pitch_shift(
     # Shift its pitch
     if distribution is None:
         # Uniform distribution
-        if min_pitch != max_pitch or min_pitch != pitch:
-            while degraded.loc[note_index, "pitch"] == pitch:
-                degraded.loc[note_index, "pitch"] = randint(min_pitch, max_pitch + 1)
+        if align_pitch:
+            valid_pitches = excerpt.loc[
+                excerpt["pitch"].between(min_pitch, max_pitch)
+                & (excerpt["pitch"] != pitch),
+                "pitch",
+            ].unique()
+            if len(valid_pitches) > 0:
+                degraded.loc[note_index, "pitch"] = choice(valid_pitches)
+        else:
+            if min_pitch != max_pitch or min_pitch != pitch:
+                while degraded.loc[note_index, "pitch"] == pitch:
+                    degraded.loc[note_index, "pitch"] = randint(
+                        min_pitch, max_pitch + 1
+                    )
     else:
         zero_idx = len(distribution) // 2
         pitches = np.array(
@@ -309,6 +328,10 @@ def pitch_shift(
         distribution[zero_idx] = 0
         distribution = np.where(pitches < min_pitch, 0, distribution)
         distribution = np.where(pitches > max_pitch, 0, distribution)
+        if align_pitch:
+            distribution = np.where(
+                np.isin(pitches, excerpt["pitch"].unique()), distribution, 0
+            )
 
         # Degrade only if any allowed pitches are in range [min_pitch, max_pitch)
         sum_dist = np.sum(distribution)
@@ -325,6 +348,7 @@ def pitch_shift(
             excerpt,
             min_pitch=min_pitch,
             max_pitch=max_pitch,
+            align_pitch=align_pitch,
             distribution=orig_dist,
             tries=tries - 1,
         )
