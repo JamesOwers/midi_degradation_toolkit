@@ -564,6 +564,42 @@ def test_pitch_shift(caplog):
     )
     assert res is not None
 
+    # Test align_pitch
+    for _ in range(10):
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True)
+        assert len(res["pitch"].unique()) == len(BASIC_DF["pitch"].unique()) - 1
+
+        max_pitch = BASIC_DF["pitch"].max()
+        res = deg.pitch_shift(
+            BASIC_DF,
+            align_pitch=True,
+            min_pitch=max_pitch,
+        )
+        assert (
+            len(res.loc[res["pitch"] == max_pitch])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == max_pitch]) + 1
+        )
+
+        min_pitch = BASIC_DF["pitch"].min()
+        res = deg.pitch_shift(
+            BASIC_DF, align_pitch=True, min_pitch=0, max_pitch=min_pitch
+        )
+        assert (
+            len(res.loc[res["pitch"] == min_pitch])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == min_pitch]) + 1
+        )
+
+        distribution = np.zeros(21)
+        distribution[1] = 1
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, distribution=distribution)
+        assert_none(res, msg="pitch_shift with align_pitch and distribution wrong")
+        assert_warned(caplog)
+
+        distribution[0] = 1
+        distribution[-1] = 1
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, distribution=distribution)
+        assert len(res["pitch"].unique()) == len(BASIC_DF["pitch"].unique()) - 1
+
 
 def test_time_shift(caplog):
     assert_none(
