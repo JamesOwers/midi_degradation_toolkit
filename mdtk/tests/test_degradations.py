@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 import mdtk.degradations as deg
-from mdtk.degradations import TRIES_WARN_MSG
+from mdtk.degradations import MIN_PITCH_DEFAULT, TRIES_WARN_MSG
 
 EMPTY_DF = pd.DataFrame(
     {"onset": [], "track": [], "pitch": [], "dur": [], "velocity": []}
@@ -599,6 +599,47 @@ def test_pitch_shift(caplog):
         distribution[-1] = 1
         res = deg.pitch_shift(BASIC_DF, align_pitch=True, distribution=distribution)
         assert len(res["pitch"].unique()) == len(BASIC_DF["pitch"].unique()) - 1
+
+    # Test abs_distribution
+    for _ in range(10):
+        dist = np.zeros(40)
+        dist[29] = 10
+
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=dist)
+        assert len(res.loc[res["pitch"] == 29]) == 1
+
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, abs_distribution=dist)
+        assert_none(res)
+        assert_warned(caplog)
+
+        dist[30] = 10
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, abs_distribution=dist)
+        assert (
+            len(res.loc[res["pitch"] == 30])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == 30]) + 1
+        )
+
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=np.ones(MIN_PITCH_DEFAULT))
+        assert_none(res)
+        assert_warned(caplog)
+
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=np.zeros(100))
+        assert_none(res)
+        assert_warned(caplog)
+
+        rel_dist = np.array([0, 0, 1])
+        dist[31] = 1
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=dist, distribution=rel_dist)
+        assert len(res.loc[res["pitch"] == 31]) == 1
+
+        rel_dist = np.zeros(21)
+        rel_dist[0] = 1
+        rel_dist[1] = 10
+        dist[30] = 0.1
+        res = deg.pitch_shift(
+            BASIC_DF, abs_distribution=dist, align_pitch=True, distribution=rel_dist
+        )
+        assert len(res.loc[res["pitch"] == 30]) == 2
 
 
 def test_time_shift(caplog):

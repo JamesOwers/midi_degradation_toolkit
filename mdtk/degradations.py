@@ -197,6 +197,7 @@ def pitch_shift(
     max_pitch=MAX_PITCH_DEFAULT,
     align_pitch=False,
     distribution=None,
+    abs_distribution=None,
     tries=TRIES_DEFAULT,
 ):
     """
@@ -225,6 +226,16 @@ def pitch_shift(
         will then be normalized to sum to 1, and used to generate a new
         pitch. None implies a uniform distribution.
 
+    abs_distribution : list(float)
+        If given, a list describing the distribution of pitch shifts in terms
+        of absolute pitch. Generally, abs_distribution[i] is the probability of
+        a pitch shift to pitch i. Pitches outside of the range [min_pitch,
+        max_pitch] will be set to 0, as well as the pitch of the note's
+        original pitch. The distribution will be normalized to sum to 1.
+        If distribution is also given, the two normalized distributions will be
+        multiplied by each other and then re-normalized. None implies a uniform
+        distribution.
+
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
@@ -248,7 +259,26 @@ def pitch_shift(
         align_pitch = False
 
     excerpt = pre_process(excerpt)
-    orig_dist = distribution
+    orig_dist = distribution if distribution is None else np.copy(distribution)
+    orig_abs_dist = abs_distribution
+
+    # Enforce min and max bounds
+    if abs_distribution is not None:
+        orig_abs_dist = np.copy(abs_distribution)
+        abs_distribution[:min_pitch] = 0
+        abs_distribution[max_pitch + 1 :] = 0
+        nonzero = np.nonzero(abs_distribution)[0]
+        if len(nonzero) == 0:
+            logging.warning(
+                "No valid pitches to shift to given min_pitch %s, max_pitch %s, and "
+                "abs_distribution %s. Returning None.",
+                min_pitch,
+                max_pitch,
+                abs_distribution,
+            )
+            return None
+        min_pitch = nonzero[0]
+        max_pitch = nonzero[-1]
 
     # Assume all notes can be shifted initially
     valid_notes = list(excerpt.index)
@@ -304,7 +334,7 @@ def pitch_shift(
     pitch = degraded.loc[note_index, "pitch"]
 
     # Shift its pitch
-    if distribution is None:
+    if distribution is None and abs_distribution is None:
         # Uniform distribution
         if align_pitch:
             valid_pitches = excerpt.loc[
@@ -321,6 +351,10 @@ def pitch_shift(
                         min_pitch, max_pitch + 1
                     )
     else:
+        if distribution is None:
+            max_range = max(abs(pitch - min_pitch), abs(pitch - max_pitch))
+            distribution = np.ones(max_range * 2 + 1)
+
         zero_idx = len(distribution) // 2
         pitches = np.array(
             range(pitch - zero_idx, pitch - zero_idx + len(distribution))
@@ -337,7 +371,23 @@ def pitch_shift(
         sum_dist = np.sum(distribution)
         if sum_dist > 0:
             distribution = distribution / np.sum(distribution)
-            degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
+
+            if abs_distribution is not None:
+                dist_mask = np.isin(pitches, np.arange(len(abs_distribution)))
+                abs_dist_mask = np.isin(np.arange(len(abs_distribution)), pitches)
+
+                abs_dist_relative = np.zeros(len(distribution))
+                if np.any(dist_mask):
+                    abs_dist_relative[dist_mask] = abs_distribution[abs_dist_mask]
+
+                distribution *= abs_dist_relative
+                sum_dist = np.sum(distribution)
+                if sum_dist > 0:
+                    distribution = distribution / np.sum(distribution)
+                    degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
+
+            else:
+                degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
 
     # Check if overlaps
     if overlaps(degraded, note_index) or degraded.loc[note_index, "pitch"] == pitch:
@@ -350,6 +400,7 @@ def pitch_shift(
             max_pitch=max_pitch,
             align_pitch=align_pitch,
             distribution=orig_dist,
+            abs_distribution=orig_abs_dist,
             tries=tries - 1,
         )
 
