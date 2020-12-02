@@ -259,8 +259,17 @@ def pitch_shift(
         align_pitch = False
 
     excerpt = pre_process(excerpt)
-    orig_dist = distribution if distribution is None else np.copy(distribution)
-    orig_abs_dist = abs_distribution
+
+    if distribution is None:
+        orig_dist = distribution
+    else:
+        orig_dist = np.copy(distribution)
+        distribution = np.copy(distribution)
+    if abs_distribution is None:
+        orig_abs_dist = abs_distribution
+    else:
+        orig_abs_dist = np.copy(abs_distribution)
+        abs_distribution = np.copy(abs_distribution)
 
     # Enforce min and max bounds
     if abs_distribution is not None:
@@ -937,6 +946,7 @@ def add_note(
     align_pitch=False,
     align_time=False,
     align_velocity=False,
+    pitch_distribution=None,
     tries=TRIES_DEFAULT,
 ):
     """
@@ -985,6 +995,12 @@ def add_note(
         True to force the added note to have the same velocity as an
         existing note (if one exists in the given range).
 
+    pitch_distribution : list(float)
+        If given, a distribution over the added note's pitch, where
+        pitch_distribution[i] is proportional to the probability of adding
+        a note at pitch i (after the range min_pitch to max_pitch is applied
+        and the list is normalized).
+
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
@@ -1010,6 +1026,16 @@ def add_note(
     if len(excerpt) == 1 and align_pitch and align_time:
         align_pitch = False
 
+    if pitch_distribution is not None:
+        if np.sum(pitch_distribution[min_pitch : max_pitch + 1]) == 0:
+            logging.warning(
+                "The pitch distribution lies entirely outside of the requested pitch "
+                "range [%s-%s]. Returning None.",
+                min_pitch,
+                max_pitch,
+            )
+            return None
+
     end_time = excerpt[["onset", "dur"]].sum(axis=1).max()
 
     if align_pitch:
@@ -1018,7 +1044,29 @@ def add_note(
         if len(pitch) == 0:
             logging.warning("No valid aligned pitch in given range.")
             return None
-        pitch = choice(pitch)
+
+        if pitch_distribution is None:
+            pitch = choice(pitch)
+        else:
+            dist = [
+                pitch_distribution[i] if 0 <= i < len(pitch_distribution) else 0
+                for i in pitch
+            ]
+            dist_sum = np.sum(dist)
+            if dist_sum == 0:
+                logging.warning(
+                    "No valid aligned pitch in the given range with the given "
+                    "pitch_distribution."
+                )
+                return None
+            dist = dist / dist_sum
+            pitch = choice(pitch, p=dist)
+
+    elif pitch_distribution is not None:
+        dist = pitch_distribution[min_pitch : max_pitch + 1]
+        dist = dist / np.sum(dist)
+        pitch = choice(np.arange(min_pitch, max_pitch + 1), p=dist)
+
     else:
         pitch = randint(min_pitch, max_pitch + 1)
 
@@ -1098,6 +1146,7 @@ def add_note(
             align_pitch=align_pitch,
             align_time=align_time,
             align_velocity=align_velocity,
+            pitch_distribution=pitch_distribution,
             tries=tries - 1,
         )
 

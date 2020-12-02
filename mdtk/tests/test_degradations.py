@@ -1466,6 +1466,36 @@ def test_add_note(caplog):
         "to full dataframe length."
     )
 
+    # Test pitch_distribution
+    for _ in range(10):
+        dist = np.zeros(500)
+        dist[1] = 1
+        dist[499] = 1
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist)
+        assert_none(res)
+        assert_warned(caplog)
+
+        res = deg.add_note(BASIC_DF, min_pitch=1, pitch_distribution=dist)
+        assert res["pitch"].min() == 1
+
+        res = deg.add_note(BASIC_DF, max_pitch=499, pitch_distribution=dist)
+        assert res["pitch"].max() == 499
+
+        dist[45] = 1
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist)
+        assert len(res.loc[res["pitch"] == 45]) == 1
+
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist, align_pitch=True)
+        assert_none(res)
+        assert_warned(caplog)
+
+        dist[40] = 1
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist, align_pitch=True)
+        assert (
+            len(res.loc[res["pitch"] == 40])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == 40]) + 1
+        )
+
 
 def test_split_note(caplog):
     assert_none(
