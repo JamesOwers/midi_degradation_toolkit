@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 import mdtk.degradations as deg
-from mdtk.degradations import TRIES_WARN_MSG
+from mdtk.degradations import MIN_PITCH_DEFAULT, TRIES_WARN_MSG
 
 EMPTY_DF = pd.DataFrame(
     {"onset": [], "track": [], "pitch": [], "dur": [], "velocity": []}
@@ -563,6 +563,83 @@ def test_pitch_shift(caplog):
         tries=10,
     )
     assert res is not None
+
+    # Test align_pitch
+    for _ in range(10):
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True)
+        assert len(res["pitch"].unique()) == len(BASIC_DF["pitch"].unique()) - 1
+
+        max_pitch = BASIC_DF["pitch"].max()
+        res = deg.pitch_shift(
+            BASIC_DF,
+            align_pitch=True,
+            min_pitch=max_pitch,
+        )
+        assert (
+            len(res.loc[res["pitch"] == max_pitch])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == max_pitch]) + 1
+        )
+
+        min_pitch = BASIC_DF["pitch"].min()
+        res = deg.pitch_shift(
+            BASIC_DF, align_pitch=True, min_pitch=0, max_pitch=min_pitch
+        )
+        assert (
+            len(res.loc[res["pitch"] == min_pitch])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == min_pitch]) + 1
+        )
+
+        distribution = np.zeros(21)
+        distribution[1] = 1
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, distribution=distribution)
+        assert_none(res, msg="pitch_shift with align_pitch and distribution wrong")
+        assert_warned(caplog)
+
+        distribution[0] = 1
+        distribution[-1] = 1
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, distribution=distribution)
+        assert len(res["pitch"].unique()) == len(BASIC_DF["pitch"].unique()) - 1
+
+    # Test abs_distribution
+    for _ in range(10):
+        dist = np.zeros(40)
+        dist[29] = 10
+
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=dist)
+        assert len(res.loc[res["pitch"] == 29]) == 1
+
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, abs_distribution=dist)
+        assert_none(res)
+        assert_warned(caplog)
+
+        dist[30] = 10
+        res = deg.pitch_shift(BASIC_DF, align_pitch=True, abs_distribution=dist)
+        assert (
+            len(res.loc[res["pitch"] == 30])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == 30]) + 1
+        )
+
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=np.ones(MIN_PITCH_DEFAULT))
+        assert_none(res)
+        assert_warned(caplog)
+
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=np.zeros(100))
+        assert_none(res)
+        assert_warned(caplog)
+
+        rel_dist = np.array([0, 0, 1])
+        dist[31] = 1
+        res = deg.pitch_shift(BASIC_DF, abs_distribution=dist, distribution=rel_dist)
+        assert len(res.loc[res["pitch"] == 31]) == 1
+
+        rel_dist = np.zeros(21)
+        rel_dist[0] = 1
+        rel_dist[1] = 10
+        dist[30] = 0.1
+        res = deg.pitch_shift(
+            BASIC_DF, abs_distribution=dist, align_pitch=True, distribution=rel_dist
+        )
+        assert len(res.loc[res["pitch"] == 30]) == 2
 
 
 def test_time_shift(caplog):
@@ -1388,6 +1465,36 @@ def test_add_note(caplog):
         "Adding note with large min_duration does not set duration "
         "to full dataframe length."
     )
+
+    # Test pitch_distribution
+    for _ in range(10):
+        dist = np.zeros(500)
+        dist[1] = 1
+        dist[499] = 1
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist)
+        assert_none(res)
+        assert_warned(caplog)
+
+        res = deg.add_note(BASIC_DF, min_pitch=1, pitch_distribution=dist)
+        assert res["pitch"].min() == 1
+
+        res = deg.add_note(BASIC_DF, max_pitch=499, pitch_distribution=dist)
+        assert res["pitch"].max() == 499
+
+        dist[45] = 1
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist)
+        assert len(res.loc[res["pitch"] == 45]) == 1
+
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist, align_pitch=True)
+        assert_none(res)
+        assert_warned(caplog)
+
+        dist[40] = 1
+        res = deg.add_note(BASIC_DF, pitch_distribution=dist, align_pitch=True)
+        assert (
+            len(res.loc[res["pitch"] == 40])
+            == len(BASIC_DF.loc[BASIC_DF["pitch"] == 40]) + 1
+        )
 
 
 def test_split_note(caplog):

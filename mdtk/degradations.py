@@ -195,7 +195,9 @@ def pitch_shift(
     excerpt,
     min_pitch=MIN_PITCH_DEFAULT,
     max_pitch=MAX_PITCH_DEFAULT,
+    align_pitch=False,
     distribution=None,
+    abs_distribution=None,
     tries=TRIES_DEFAULT,
 ):
     """
@@ -212,6 +214,10 @@ def pitch_shift(
     max_pitch : int
         The maximum pitch to which a note may be shifted.
 
+    align_pitch : bool
+        Align the note's new pitch to an existing pitch of another note.
+        If the given excerpt has only 1 note, align_pitch is set to False.
+
     distribution : list(float)
         If given, a list describing the distribution of pitch shifts.
         Element (len(distribution) // 2) refers to the note's original
@@ -219,6 +225,16 @@ def pitch_shift(
         range [min_pitch, max_pitch] will also be set to 0. The distribution
         will then be normalized to sum to 1, and used to generate a new
         pitch. None implies a uniform distribution.
+
+    abs_distribution : list(float)
+        If given, a list describing the distribution of pitch shifts in terms
+        of absolute pitch. Generally, abs_distribution[i] is the probability of
+        a pitch shift to pitch i. Pitches outside of the range [min_pitch,
+        max_pitch] will be set to 0, as well as the pitch of the note's
+        original pitch. The distribution will be normalized to sum to 1.
+        If distribution is also given, the two normalized distributions will be
+        multiplied by each other and then re-normalized. None implies a uniform
+        distribution.
 
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
@@ -239,8 +255,39 @@ def pitch_shift(
         logging.warning("No notes to pitch shift. Returning None.")
         return None
 
+    if len(excerpt) == 1:
+        align_pitch = False
+
     excerpt = pre_process(excerpt)
-    orig_dist = distribution
+
+    if distribution is None:
+        orig_dist = distribution
+    else:
+        orig_dist = np.copy(distribution)
+        distribution = np.copy(distribution)
+    if abs_distribution is None:
+        orig_abs_dist = abs_distribution
+    else:
+        orig_abs_dist = np.copy(abs_distribution)
+        abs_distribution = np.copy(abs_distribution)
+
+    # Enforce min and max bounds
+    if abs_distribution is not None:
+        orig_abs_dist = np.copy(abs_distribution)
+        abs_distribution[:min_pitch] = 0
+        abs_distribution[max_pitch + 1 :] = 0
+        nonzero = np.nonzero(abs_distribution)[0]
+        if len(nonzero) == 0:
+            logging.warning(
+                "No valid pitches to shift to given min_pitch %s, max_pitch %s, and "
+                "abs_distribution %s. Returning None.",
+                min_pitch,
+                max_pitch,
+                abs_distribution,
+            )
+            return None
+        min_pitch = nonzero[0]
+        max_pitch = nonzero[-1]
 
     # Assume all notes can be shifted initially
     valid_notes = list(excerpt.index)
@@ -296,12 +343,27 @@ def pitch_shift(
     pitch = degraded.loc[note_index, "pitch"]
 
     # Shift its pitch
-    if distribution is None:
+    if distribution is None and abs_distribution is None:
         # Uniform distribution
-        if min_pitch != max_pitch or min_pitch != pitch:
-            while degraded.loc[note_index, "pitch"] == pitch:
-                degraded.loc[note_index, "pitch"] = randint(min_pitch, max_pitch + 1)
+        if align_pitch:
+            valid_pitches = excerpt.loc[
+                excerpt["pitch"].between(min_pitch, max_pitch)
+                & (excerpt["pitch"] != pitch),
+                "pitch",
+            ].unique()
+            if len(valid_pitches) > 0:
+                degraded.loc[note_index, "pitch"] = choice(valid_pitches)
+        else:
+            if min_pitch != max_pitch or min_pitch != pitch:
+                while degraded.loc[note_index, "pitch"] == pitch:
+                    degraded.loc[note_index, "pitch"] = randint(
+                        min_pitch, max_pitch + 1
+                    )
     else:
+        if distribution is None:
+            max_range = max(abs(pitch - min_pitch), abs(pitch - max_pitch))
+            distribution = np.ones(max_range * 2 + 1)
+
         zero_idx = len(distribution) // 2
         pitches = np.array(
             range(pitch - zero_idx, pitch - zero_idx + len(distribution))
@@ -309,12 +371,32 @@ def pitch_shift(
         distribution[zero_idx] = 0
         distribution = np.where(pitches < min_pitch, 0, distribution)
         distribution = np.where(pitches > max_pitch, 0, distribution)
+        if align_pitch:
+            distribution = np.where(
+                np.isin(pitches, excerpt["pitch"].unique()), distribution, 0
+            )
 
         # Degrade only if any allowed pitches are in range [min_pitch, max_pitch)
         sum_dist = np.sum(distribution)
         if sum_dist > 0:
             distribution = distribution / np.sum(distribution)
-            degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
+
+            if abs_distribution is not None:
+                dist_mask = np.isin(pitches, np.arange(len(abs_distribution)))
+                abs_dist_mask = np.isin(np.arange(len(abs_distribution)), pitches)
+
+                abs_dist_relative = np.zeros(len(distribution))
+                if np.any(dist_mask):
+                    abs_dist_relative[dist_mask] = abs_distribution[abs_dist_mask]
+
+                distribution *= abs_dist_relative
+                sum_dist = np.sum(distribution)
+                if sum_dist > 0:
+                    distribution = distribution / np.sum(distribution)
+                    degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
+
+            else:
+                degraded.loc[note_index, "pitch"] = choice(pitches, p=distribution)
 
     # Check if overlaps
     if overlaps(degraded, note_index) or degraded.loc[note_index, "pitch"] == pitch:
@@ -325,7 +407,9 @@ def pitch_shift(
             excerpt,
             min_pitch=min_pitch,
             max_pitch=max_pitch,
+            align_pitch=align_pitch,
             distribution=orig_dist,
+            abs_distribution=orig_abs_dist,
             tries=tries - 1,
         )
 
@@ -862,6 +946,7 @@ def add_note(
     align_pitch=False,
     align_time=False,
     align_velocity=False,
+    pitch_distribution=None,
     tries=TRIES_DEFAULT,
 ):
     """
@@ -910,6 +995,12 @@ def add_note(
         True to force the added note to have the same velocity as an
         existing note (if one exists in the given range).
 
+    pitch_distribution : list(float)
+        If given, a distribution over the added note's pitch, where
+        pitch_distribution[i] is proportional to the probability of adding
+        a note at pitch i (after the range min_pitch to max_pitch is applied
+        and the list is normalized).
+
     seed : int
         A seed to be supplied to np.random.seed(). None leaves numpy's
         random state unchanged.
@@ -935,6 +1026,16 @@ def add_note(
     if len(excerpt) == 1 and align_pitch and align_time:
         align_pitch = False
 
+    if pitch_distribution is not None:
+        if np.sum(pitch_distribution[min_pitch : max_pitch + 1]) == 0:
+            logging.warning(
+                "The pitch distribution lies entirely outside of the requested pitch "
+                "range [%s-%s]. Returning None.",
+                min_pitch,
+                max_pitch,
+            )
+            return None
+
     end_time = excerpt[["onset", "dur"]].sum(axis=1).max()
 
     if align_pitch:
@@ -943,7 +1044,29 @@ def add_note(
         if len(pitch) == 0:
             logging.warning("No valid aligned pitch in given range.")
             return None
-        pitch = choice(pitch)
+
+        if pitch_distribution is None:
+            pitch = choice(pitch)
+        else:
+            dist = [
+                pitch_distribution[i] if 0 <= i < len(pitch_distribution) else 0
+                for i in pitch
+            ]
+            dist_sum = np.sum(dist)
+            if dist_sum == 0:
+                logging.warning(
+                    "No valid aligned pitch in the given range with the given "
+                    "pitch_distribution."
+                )
+                return None
+            dist = dist / dist_sum
+            pitch = choice(pitch, p=dist)
+
+    elif pitch_distribution is not None:
+        dist = pitch_distribution[min_pitch : max_pitch + 1]
+        dist = dist / np.sum(dist)
+        pitch = choice(np.arange(min_pitch, max_pitch + 1), p=dist)
+
     else:
         pitch = randint(min_pitch, max_pitch + 1)
 
@@ -1023,6 +1146,7 @@ def add_note(
             align_pitch=align_pitch,
             align_time=align_time,
             align_velocity=align_velocity,
+            pitch_distribution=pitch_distribution,
             tries=tries - 1,
         )
 
