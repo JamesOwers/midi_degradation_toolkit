@@ -9,6 +9,7 @@ import os
 import pickle
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 from mdtk import fileio, formatters
@@ -288,30 +289,11 @@ def get_shifts(
 
     Returns
     -------
-    onset : dict(int -> int)
-        A mapping of gt_index -> trans_index of each note that has been
-        onset shifted in the transcription.
-
-    offset : dict(int -> int)
-        A mapping of gt_index -> trans_index of each note that has been
-        offset shifted in the transcription.
-
-    time : dict(int -> int)
-        A mapping of gt_index -> trans_index of each note that has been
-        time shifted in the transcription.
-
-    pitch : dict(int -> int)
-        A mapping of gt_index -> trans_index of each note that has been
-        pitch shifted in the transcription.
-
-    also_offset : list(int)
-        A list of gt_indexes of pitch shifts which were also offset shifts.
+    shift_df : pd.DataFrame
+        A DataFrame containing information about each found shift, which
+        can be used to count each degradation or to calculate parameters.
     """
-    onset = dict()
-    offset = dict()
-    time = dict()
-    pitch = dict()
-    also_offset = []
+    shifts = []
 
     # Save fully merged df
     merged_df = merge_on_pitch(gt_df, trans_df, offset=True)
@@ -327,7 +309,8 @@ def get_shifts(
         match_df.index
         == match_df.groupby("index_gt")["onset_diff"].idxmin()[match_df.index_gt]
     ]
-    offset = dict(zip(match_df.index_gt, match_df.index_trans))
+    match_df["deg_type"] = "offset_shift"
+    shifts.extend(match_df.to_dict("records"))
 
     # Filter offset shifts out of base dfs
     merged_df = merged_df.loc[
@@ -347,7 +330,8 @@ def get_shifts(
         match_df.index
         == match_df.groupby("index_gt")["offset_diff"].idxmin()[match_df.index_gt]
     ]
-    onset = dict(zip(match_df.index_gt, match_df.index_trans))
+    match_df["deg_type"] = "onset_shift"
+    shifts.extend(match_df.to_dict("records"))
 
     # Filter onset shifts out of base dfs
     merged_df = merged_df.loc[
@@ -369,7 +353,8 @@ def get_shifts(
         match_df.index
         == match_df.groupby("index_gt")["onset_diff"].idxmin()[match_df.index_gt]
     ]
-    time = dict(zip(match_df.index_gt, match_df.index_trans))
+    match_df["deg_type"] = "time_shift"
+    shifts.extend(match_df.to_dict("records"))
 
     # Filter time shifts out of base dfs (merged is unused past here)
     gt_df = gt_df.drop(index=match_df.index_gt)
@@ -398,17 +383,36 @@ def get_shifts(
         pitch_df = gt_df.drop_duplicates(subset="closest_onset_idx")
 
         # Add to pitch shifts and also_offset
-        pitch.update(zip(pitch_df.index, pitch_df.closest_onset_idx))
-        offset_diff = (
-            pitch_df.offset - trans_df.loc[pitch_df.closest_onset_idx, "offset"]
-        )
-        also_offset.extend(pitch_df.loc[offset_diff.abs() > max_offset_err].index)
+        if len(pitch_df) > 0:
+            shifts.extend([
+                {
+                    "index_gt": row.index,
+                    "index_trans": row.closest_onset_idx,
+                    "pitch_gt": gt_df.loc[row.index, "pitch"],
+                    "pitch_trans": trans_df.loc[row.closest_onset_idx, "pitch"],
+                    "deg_type": "pitch_shift",
+                }
+            ] for _, row in pitch_df.iterrows())
 
-        # Remove matches from gt_df and trans_df
-        gt_df = gt_df.drop(index=pitch_df.index)
-        trans_df = trans_df.drop(index=pitch_df.closest_onset_idx)
+            offset_diff = (
+                pitch_df.offset - trans_df.loc[pitch_df.closest_onset_idx, "offset"]
+            )
+            also_offset_df = pitch_df.loc[offset_diff.abs() > max_offset_err]
+            shifts.extend([
+                {
+                    "index_gt": row.index,
+                    "index_trans": row.closest_onset_idx,
+                    "pitch_gt": gt_df.loc[row.index, "pitch"],
+                    "pitch_trans": trans_df.loc[row.closest_onset_idx, "pitch"],
+                    "deg_type": "pitch_shift",
+                }
+            ] for _, row in also_offset_df.iterrows())
 
-    return onset, offset, time, pitch, also_offset
+            # Remove matches from gt_df and trans_df
+            gt_df = gt_df.drop(index=pitch_df.index)
+            trans_df = trans_df.drop(index=pitch_df.closest_onset_idx)
+
+    return pd.DataFrame(shifts)
 
 
 def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
@@ -608,15 +612,11 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     )
 
     # Shift degredation estimation (onset, offset, time, pitch)
-    onset, offset, time, pitch, also_offset = get_shifts(gt_excerpt, trans_excerpt)
-    deg_counts[list(DEGRADATIONS).index("onset_shift")] += len(onset)
-    deg_counts[list(DEGRADATIONS).index("offset_shift")] += len(offset) + len(
-        also_offset
-    )
-    deg_counts[list(DEGRADATIONS).index("time_shift")] = len(time)
-    deg_counts[list(DEGRADATIONS).index("pitch_shift")] = len(pitch)
+    shift_df = get_shifts(gt_excerpt, trans_excerpt)
+    for deg_type in ["onset_shift", "offset_shift", "time_shift", "pitch_shift"]:
+        deg_counts[list(DEGRADATIONS).index(deg_type)] += len(shift_df.loc[shift_df.deg_type == deg_type])
 
-    total_shifts = len(onset) + len(offset) + len(time) + len(pitch)
+    total_shifts = len(set(shift_df.index_gt))
 
     # Remainder are all adds and removes
     deg_counts[list(DEGRADATIONS).index("add_note")] = len(trans_excerpt) - total_shifts
