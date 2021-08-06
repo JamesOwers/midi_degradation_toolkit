@@ -345,7 +345,7 @@ def get_shifts(
 
     # Third, check for time shifts
     # Dur is close enough
-    match_df = merged_df.loc[merged_df.dur_diff <= max_onset_err]
+    match_df = merged_df.loc[merged_df.dur_diff <= max_dur_err]
     # Shift is small enough (smaller than gt note duration)
     match_df = match_df.loc[match_df.onset_diff <= match_df.dur_gt]
     # Keep only match shortest shift
@@ -432,6 +432,105 @@ def get_shifts(
             trans_df = trans_df.drop(index=pitch_df.closest_onset_idx)
 
     return pd.DataFrame(shifts)
+
+
+def get_shift_params(shift_df, shift_params=None):
+    """
+    Get parameters for the *_shift degradations given the found shift errors
+    and the ground truth and transcription excerpts.
+
+    Parameters
+    ----------
+    shift_df : pd.DataFrame
+        A DataFrame containing information about each found shift, which
+        can be used to count each degradation or to calculate parameters.
+
+    shift_params : Dict(str -> float)
+        The current params, if any. This can be used to call this function
+        iteratively, which will update the values in the dict, rather than
+        overwriting them.
+
+    Returns
+    -------
+    shift_params : Dict(str -> float)
+        A dictionary containing parameters for the different *_shift degradations.
+    """
+
+    def update_value(params_dict, key, update_func, new_value):
+        """
+        Update a dictionary entry to either a new value, or a given function applied
+        to the old and new values.
+
+        Parameters
+        ----------
+        params_dict : dict
+            The dictionary to be updated.
+
+        key : string
+            The key whose value should be updated in the dictionary.
+
+        update_func : Func
+            A function taking 2 arguments. If the key already exists in the dictionary,
+            its new value will be this function called with the old value and
+            new_value.
+
+        new_value : Any
+            If the key doesn't exist in the dictionary, it will be set to this.
+        """
+        params_dict[key] = (
+            update_func(params_dict[key], new_value)
+            if key in params_dict
+            else new_value
+        )
+
+    if shift_params is None:
+        shift_params = dict()
+
+    # Onset shift
+    onset_df = shift_df.loc[shift_df.deg_type == "onset_shift"]
+    shift_amt = (onset_df["onset_gt"] - onset_df["onset_trans"]).abs()
+    update_value(shift_params, "onset_shift__min_shift", min, shift_amt.min())
+    update_value(shift_params, "onset_shift__max_shift", max, shift_amt.max())
+    update_value(
+        shift_params, "onset_shift__min_duration", min, onset_df.dur_trans.min()
+    )
+    update_value(
+        shift_params, "onset_shift__max_duration", max, onset_df.dur_trans.max()
+    )
+
+    # Offset shift
+    offset_df = shift_df.loc[shift_df.deg_type == "offset_shift"]
+    shift_amt = (
+        (offset_df["onset_gt"] + offset_df["dur_gt"])
+        - (offset_df["onset_trans"] + offset_df["dur_trans"])
+    ).abs()
+    update_value(shift_params, "offset_shift__min_shift", min, shift_amt.min())
+    update_value(shift_params, "offset_shift__max_shift", max, shift_amt.max())
+    update_value(
+        shift_params, "offset_shift__min_duration", min, offset_df.dur_trans.min()
+    )
+    update_value(
+        shift_params, "offset_shift__max_duration", max, offset_df.dur_trans.max()
+    )
+
+    # Time shift
+    time_df = shift_df.loc[shift_df.deg_type == "time_shift"]
+    shift_amt = (time_df["onset_gt"] - time_df["onset_trans"]).abs()
+    update_value(shift_params, "time_shift__min_shift", min, shift_amt.min())
+    update_value(shift_params, "time_shift__max_shift", max, shift_amt.max())
+
+    # Pitch shift
+    pitch_df = shift_df.loc[shift_df.deg_type == "pitch_shift"]
+    update_value(
+        shift_params, "pitch_shift__min_pitch", min, pitch_df.pitch_trans.min()
+    )
+    update_value(
+        shift_params, "pitch_shift__max_pitch", max, pitch_df.pitch_trans.max()
+    )
+
+    # TODO: How to do distribution?
+
+    return shift_params
 
 
 def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
@@ -637,7 +736,9 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
             shift_df.loc[shift_df.deg_type == deg_type]
         )
 
-    total_shifts = len(set(shift_df.index_gt))
+    # TODO: shift_params = get_shift_params(shift_df)
+
+    total_shifts = len(set(shift_df.index_gt))  # Only count unique gt notes in total
 
     # Remainder are all adds and removes
     deg_counts[list(DEGRADATIONS).index("add_note")] = len(trans_excerpt) - total_shifts
