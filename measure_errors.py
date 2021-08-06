@@ -384,29 +384,48 @@ def get_shifts(
 
         # Add to pitch shifts and also_offset
         if len(pitch_df) > 0:
-            shifts.extend([
-                {
-                    "index_gt": row.index,
-                    "index_trans": row.closest_onset_idx,
-                    "pitch_gt": gt_df.loc[row.index, "pitch"],
-                    "pitch_trans": trans_df.loc[row.closest_onset_idx, "pitch"],
-                    "deg_type": "pitch_shift",
-                }
-            ] for _, row in pitch_df.iterrows())
+            dict_of_lists = {
+                "index_gt": pitch_df.index.values,
+                "index_trans": pitch_df.closest_onset_idx.values,
+                "pitch_gt": gt_df.loc[pitch_df.index, "pitch"].values,
+                "pitch_trans": trans_df.loc[pitch_df.closest_onset_idx, "pitch"].values,
+                "deg_type": ["pitch_shift"] * len(pitch_df),
+            }
+            shifts.extend(
+                [
+                    {key: dict_of_lists[key][i] for key in dict_of_lists}
+                    for i in range(len(dict_of_lists["index_gt"]))
+                ]
+            )
 
             offset_diff = (
                 pitch_df.offset - trans_df.loc[pitch_df.closest_onset_idx, "offset"]
             )
             also_offset_df = pitch_df.loc[offset_diff.abs() > max_offset_err]
-            shifts.extend([
-                {
-                    "index_gt": row.index,
-                    "index_trans": row.closest_onset_idx,
-                    "pitch_gt": gt_df.loc[row.index, "pitch"],
-                    "pitch_trans": trans_df.loc[row.closest_onset_idx, "pitch"],
-                    "deg_type": "pitch_shift",
-                }
-            ] for _, row in also_offset_df.iterrows())
+
+            # Pre-indexed helper dfs to make calculation faster
+            tmp_trans_df = trans_df.loc[also_offset_df.closest_onset_idx]
+            tmp_gt_df = gt_df.loc[also_offset_df.index]
+
+            dict_of_lists = {
+                "index_gt": also_offset_df.index.values,
+                "index_trans": also_offset_df.closest_onset_idx.values,
+                "pitch_gt": tmp_gt_df["pitch"].values,
+                "pitch_trans": tmp_trans_df["pitch"].values,
+                "onset_gt": tmp_gt_df["onset"].values,
+                "onset_trans": tmp_trans_df["onset"].values,
+                "dur_gt": tmp_gt_df["dur"].values,
+                "dur_trans": tmp_trans_df["dur"].values,
+                "offset_gt": (tmp_gt_df["dur"] + tmp_gt_df["onset"]).values,
+                "offset_trans": (tmp_trans_df["dur"] + tmp_trans_df["onset"]).values,
+                "deg_type": ["pitch_shift"] * len(also_offset_df),
+            }
+            shifts.extend(
+                [
+                    {key: dict_of_lists[key][i] for key in dict_of_lists}
+                    for i in range(len(dict_of_lists["index_gt"]))
+                ]
+            )
 
             # Remove matches from gt_df and trans_df
             gt_df = gt_df.drop(index=pitch_df.index)
@@ -614,7 +633,9 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
     # Shift degredation estimation (onset, offset, time, pitch)
     shift_df = get_shifts(gt_excerpt, trans_excerpt)
     for deg_type in ["onset_shift", "offset_shift", "time_shift", "pitch_shift"]:
-        deg_counts[list(DEGRADATIONS).index(deg_type)] += len(shift_df.loc[shift_df.deg_type == deg_type])
+        deg_counts[list(DEGRADATIONS).index(deg_type)] += len(
+            shift_df.loc[shift_df.deg_type == deg_type]
+        )
 
     total_shifts = len(set(shift_df.index_gt))
 
