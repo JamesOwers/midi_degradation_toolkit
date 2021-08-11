@@ -434,7 +434,7 @@ def get_shifts(
     return pd.DataFrame(shifts)
 
 
-def get_shift_params(shift_df, shift_params=None):
+def update_shift_params(shift_df, params):
     """
     Get parameters for the *_shift degradations given the found shift errors
     and the ground truth and transcription excerpts.
@@ -445,18 +445,12 @@ def get_shift_params(shift_df, shift_params=None):
         A DataFrame containing information about each found shift, which
         can be used to count each degradation or to calculate parameters.
 
-    shift_params : Dict(str -> float)
-        The current params, if any. This can be used to call this function
-        iteratively, which will update the values in the dict, rather than
-        overwriting them.
-
-    Returns
-    -------
-    shift_params : Dict(str -> float)
-        A dictionary containing parameters for the different *_shift degradations.
+    params : Dict(str -> float)
+        A dictionary in which to store, update, and return (in place) parameters
+        for the degradation.
     """
 
-    def update_value(params_dict, key, update_func, new_value):
+    def update_value(params_dict, key, update_func, new_value, cast_func=None):
         """
         Update a dictionary entry to either a new value, or a given function applied
         to the old and new values.
@@ -476,61 +470,65 @@ def get_shift_params(shift_df, shift_params=None):
 
         new_value : Any
             If the key doesn't exist in the dictionary, it will be set to this.
+
+        cast_func : Func
+            A function that can be used to cast the result to a desired type.
         """
         params_dict[key] = (
             update_func(params_dict[key], new_value)
             if key in params_dict
             else new_value
         )
-
-    if shift_params is None:
-        shift_params = dict()
+        if cast_func is not None:
+            params_dict[key] = cast_func(params_dict[key])
 
     # Onset shift
     onset_df = shift_df.loc[shift_df.deg_type == "onset_shift"]
-    shift_amt = (onset_df["onset_gt"] - onset_df["onset_trans"]).abs()
-    update_value(shift_params, "onset_shift__min_shift", min, shift_amt.min())
-    update_value(shift_params, "onset_shift__max_shift", max, shift_amt.max())
-    update_value(
-        shift_params, "onset_shift__min_duration", min, onset_df.dur_trans.min()
-    )
-    update_value(
-        shift_params, "onset_shift__max_duration", max, onset_df.dur_trans.max()
-    )
+    if len(onset_df) > 0:
+        shift_amt = (onset_df["onset_gt"] - onset_df["onset_trans"]).abs()
+        update_value(params, "onset_shift__min_shift", min, shift_amt.min(), int)
+        update_value(params, "onset_shift__max_shift", max, shift_amt.max(), int)
+        update_value(
+            params, "onset_shift__min_duration", min, onset_df.dur_trans.min(), int
+        )
+        update_value(
+            params, "onset_shift__max_duration", max, onset_df.dur_trans.max(), int
+        )
 
     # Offset shift
     offset_df = shift_df.loc[shift_df.deg_type == "offset_shift"]
-    shift_amt = (
-        (offset_df["onset_gt"] + offset_df["dur_gt"])
-        - (offset_df["onset_trans"] + offset_df["dur_trans"])
-    ).abs()
-    update_value(shift_params, "offset_shift__min_shift", min, shift_amt.min())
-    update_value(shift_params, "offset_shift__max_shift", max, shift_amt.max())
-    update_value(
-        shift_params, "offset_shift__min_duration", min, offset_df.dur_trans.min()
-    )
-    update_value(
-        shift_params, "offset_shift__max_duration", max, offset_df.dur_trans.max()
-    )
+    if len(offset_df) > 0:
+        shift_amt = (
+            (offset_df["onset_gt"] + offset_df["dur_gt"])
+            - (offset_df["onset_trans"] + offset_df["dur_trans"])
+        ).abs()
+        update_value(params, "offset_shift__min_shift", min, shift_amt.min(), int)
+        update_value(params, "offset_shift__max_shift", max, shift_amt.max(), int)
+        update_value(
+            params, "offset_shift__min_duration", min, offset_df.dur_trans.min(), int
+        )
+        update_value(
+            params, "offset_shift__max_duration", max, offset_df.dur_trans.max(), int
+        )
 
     # Time shift
     time_df = shift_df.loc[shift_df.deg_type == "time_shift"]
-    shift_amt = (time_df["onset_gt"] - time_df["onset_trans"]).abs()
-    update_value(shift_params, "time_shift__min_shift", min, shift_amt.min())
-    update_value(shift_params, "time_shift__max_shift", max, shift_amt.max())
+    if len(time_df) > 0:
+        shift_amt = (time_df["onset_gt"] - time_df["onset_trans"]).abs()
+        update_value(params, "time_shift__min_shift", min, shift_amt.min(), int)
+        update_value(params, "time_shift__max_shift", max, shift_amt.max(), int)
 
     # Pitch shift
     pitch_df = shift_df.loc[shift_df.deg_type == "pitch_shift"]
-    update_value(
-        shift_params, "pitch_shift__min_pitch", min, pitch_df.pitch_trans.min()
-    )
-    update_value(
-        shift_params, "pitch_shift__max_pitch", max, pitch_df.pitch_trans.max()
-    )
+    if len(pitch_df) > 0:
+        update_value(
+            params, "pitch_shift__min_pitch", min, pitch_df.pitch_trans.min(), int
+        )
+        update_value(
+            params, "pitch_shift__max_pitch", max, pitch_df.pitch_trans.max(), int
+        )
 
-    # TODO: How to do distribution?
-
-    return shift_params
+        # TODO: How to do pitch distribution?
 
 
 def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
@@ -679,7 +677,7 @@ def get_splits(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
     return pre_split_notes, post_split_notes, shift_onset, shift_offset
 
 
-def get_excerpt_degs(gt_excerpt, trans_excerpt):
+def get_excerpt_degs(gt_excerpt, trans_excerpt, params):
     """
     Get the count of each degradation given a ground truth excerpt and a
     transcribed excerpt.
@@ -691,6 +689,10 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
 
     trans_excerpt : pd.DataFrame
         The corresponding transcribed dataframe.
+
+    params : dict
+        A dictionary to update, store, and return (in place) parameters for
+        the different degradations.
 
     Returns
     -------
@@ -731,14 +733,16 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
 
     # Shift degredation estimation (onset, offset, time, pitch)
     shift_df = get_shifts(gt_excerpt, trans_excerpt)
-    for deg_type in ["onset_shift", "offset_shift", "time_shift", "pitch_shift"]:
-        deg_counts[list(DEGRADATIONS).index(deg_type)] += len(
-            shift_df.loc[shift_df.deg_type == deg_type]
-        )
+    total_shifts = 0
+    if len(shift_df) > 0:
+        for deg_type in ["onset_shift", "offset_shift", "time_shift", "pitch_shift"]:
+            deg_counts[list(DEGRADATIONS).index(deg_type)] += len(
+                shift_df.loc[shift_df.deg_type == deg_type]
+            )
 
-    # TODO: shift_params = get_shift_params(shift_df)
+        update_shift_params(shift_df, params)
 
-    total_shifts = len(set(shift_df.index_gt))  # Only count unique gt notes in total
+        total_shifts = len(set(shift_df.index_gt))  # Only count unique gt notes
 
     # Remainder are all adds and removes
     deg_counts[list(DEGRADATIONS).index("add_note")] = len(trans_excerpt) - total_shifts
@@ -748,7 +752,7 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt):
 
 
 def get_proportions(
-    gt, trans, trans_start=0, trans_end=None, length=5000, min_notes=10
+    gt, trans, params, trans_start=0, trans_end=None, length=5000, min_notes=10
 ):
     """
     Get the proportion of each degradation given a ground truth file and
@@ -765,6 +769,10 @@ def get_proportions(
 
     trans : string
         The filename of a transciption of the given ground truth.
+
+    params : dict
+        A dictionary to store and return (in place) parameter settings
+        for the degradations.
 
     trans_start : int
         The starting time of the transcription, in ms.
@@ -830,7 +838,7 @@ def get_proportions(
             continue
 
         num_excerpts += 1
-        excerpt_degs = get_excerpt_degs(gt_excerpt, trans_excerpt)
+        excerpt_degs = get_excerpt_degs(gt_excerpt, trans_excerpt, params)
         deg_counts += excerpt_degs
         if np.sum(excerpt_degs) == 0:
             clean_count += 1
@@ -991,9 +999,12 @@ if __name__ == "__main__":
             )
         gt = gt_list[0]
 
+        params = {}
+
         prop, clean = get_proportions(
             gt,
             file,
+            params,
             trans_start=args.trans_start,
             trans_end=args.trans_end,
             length=args.excerpt_length,
@@ -1007,10 +1018,11 @@ if __name__ == "__main__":
     # We want the mean deg_count per file
     proportion = np.mean(proportion, axis=0)
     clean = np.mean(clean_prop)
+    params.update({"degradation_dist": proportion.tolist(), "clean_prop": clean})
 
     with open(args.json, "w") as file:
         json.dump(
-            {"degradation_dist": proportion.tolist(), "clean_prop": clean},
+            params,
             file,
             indent=4,
         )
