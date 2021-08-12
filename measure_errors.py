@@ -528,7 +528,34 @@ def update_shift_params(shift_df, params):
             params, "pitch_shift__max_pitch", max, pitch_df.pitch_trans.max(), int
         )
 
-        # TODO: How to do pitch distribution?
+        shifts = (pitch_df["pitch_trans"] - pitch_df["pitch_gt"]).astype(int)
+        max_shift = shifts.abs().max()
+
+        # Create a fresh distribution from these shifts only
+        new_dist = np.zeros(2 * max_shift + 1, dtype=int)
+        counts = (shifts + max_shift).value_counts()
+        for shift, count in zip(counts.index, counts.values):
+            new_dist[shift] = count
+
+        if "pitch_shift__distribution" in params:
+            # Merge new_dist with existing dist
+            old_dist = np.array(params["pitch_shift__distribution"])
+
+            if len(old_dist) >= len(new_dist):
+                long_dist = old_dist
+                short_dist = new_dist
+            else:
+                long_dist = new_dist
+                short_dist = old_dist
+
+            index = (len(long_dist) - len(short_dist)) // 2
+            long_dist[index:-index] += short_dist
+
+            params["pitch_shift__distribution"] = long_dist.tolist()
+
+        else:
+            # Store new_dist in params
+            params["pitch_shift__distribution"] = new_dist.tolist()
 
 
 def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
