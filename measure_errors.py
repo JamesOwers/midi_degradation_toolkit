@@ -541,6 +541,7 @@ def update_shift_params(shift_df, params):
             # Merge new_dist with existing dist
             old_dist = np.array(params["pitch_shift__distribution"])
 
+            # One of the distribution lists will be longer than the other
             if len(old_dist) >= len(new_dist):
                 long_dist = old_dist
                 short_dist = new_dist
@@ -549,7 +550,10 @@ def update_shift_params(shift_df, params):
                 short_dist = old_dist
 
             index = (len(long_dist) - len(short_dist)) // 2
-            long_dist[index:-index] += short_dist
+            if index == 0:
+                long_dist += short_dist
+            else:
+                long_dist[index:-index] += short_dist
 
             params["pitch_shift__distribution"] = long_dist.tolist()
 
