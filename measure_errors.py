@@ -1000,6 +1000,7 @@ if __name__ == "__main__":
 
     proportion = []
     clean_prop = []
+    params = {}
 
     for file in tqdm(trans):
         basename = os.path.splitext(os.path.basename(file))[0]
@@ -1029,8 +1030,6 @@ if __name__ == "__main__":
                 "down extensions with --gt_ext."
             )
         gt = gt_list[0]
-
-        params = {}
 
         prop, clean = get_proportions(
             gt,
