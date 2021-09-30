@@ -8,6 +8,48 @@ import numpy as np
 import mdtk.degradations as degs
 
 
+def parse_degradation_kwargs(kwarg_dict):
+    """Convenience function to parse a dictionary of keyword arguments for
+    the functions within the degradations module. All keys in the kwarg_dict
+    supplied should start with the function name and be followed by a double
+    underscore. For example: func_name__kwarg_name. An example supplied
+    dictionary:
+        {
+            'func1__kwarg1': 7,
+            'func2__kwarg1': "hello",
+            'func2__kwarg2': "world"
+        }
+    This results in the returned dictionary:
+        {
+            'func1': {'kwarg1': 7},
+            'func2': {'kwarg1': "hello", 'kwarg2': "world}
+        }
+
+    Parameters
+    ----------
+    kwarg_dict : dict
+        Dict containing keyword arguments to parse
+
+    Returns
+    -------
+    func_kwargs : dict
+        Dict with keys matching the names of the functions. The corresponding
+        value is a dictionary of the keyword arguments for the function.
+    """
+    func_names = degs.DEGRADATIONS.keys()
+    func_kwargs = {name: {} for name in func_names}
+    if kwarg_dict is None:
+        return func_kwargs
+    for kk, kwarg_value in kwarg_dict.items():
+        try:
+            func_name, kwarg_name = kk.split("__", 1)
+        except ValueError:
+            raise ValueError(f"Supplied keyword [{kk}] must have a double underscore")
+        assert func_name in func_names, f"{func_name} not in {func_names}"
+        func_kwargs[func_name][kwarg_name] = kwarg_value
+    return func_kwargs
+
+
 class Degrader:
     """A Degrader object can be used to easily degrade musical excerpts
     on the fly."""
@@ -75,6 +117,7 @@ class Degrader:
         self.degradation_dist = np.array(degradation_dist)
         self.clean_prop = clean_prop
         self.failed = np.zeros(len(degradations))
+        self.func_kwargs = parse_degradation_kwargs(config)
 
     def degrade(self, note_df):
         """
@@ -136,10 +179,11 @@ class Degrader:
                 self.failed[deg_index] += 1
                 continue
             deg_fun = degs.DEGRADATIONS[self.degradations[deg_index]]
+            deg_kwargs = self.func_kwargs[self.degradations[deg_index]]
 
             # Try to degrade
             logging.disable(logging.WARNING)
-            degraded_df = deg_fun(note_df)
+            degraded_df = deg_fun(note_df, **deg_kwargs)
             logging.disable(logging.NOTSET)
 
             # Check for success!

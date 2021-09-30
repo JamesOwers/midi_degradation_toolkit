@@ -14,6 +14,7 @@ import numpy as np
 from tqdm import tqdm
 
 from mdtk import degradations, downloaders, fileio
+from mdtk.degrader import parse_degradation_kwargs
 from mdtk.df_utils import get_random_excerpt
 from mdtk.formatters import FORMATTERS, create_corpus_csvs
 
@@ -23,48 +24,6 @@ with open(logo_path, "r") as ff:
 
 
 DESCRIPTION = "Make datasets of altered and corrupted midi excerpts."
-
-
-def parse_degradation_kwargs(kwarg_dict):
-    """Convenience function to parse a dictionary of keyword arguments for
-    the functions within the degradations module. All keys in the kwarg_dict
-    supplied should start with the function name and be followed by a double
-    underscore. For example: func_name__kwarg_name. An example supplied
-    dictionary:
-        {
-            'func1__kwarg1': 7,
-            'func2__kwarg1': "hello",
-            'func2__kwarg2': "world"
-        }
-    This results in the returned dictionary:
-        {
-            'func1': {'kwarg1': 7},
-            'func2': {'kwarg1': "hello", 'kwarg2': "world}
-        }
-
-    Parameters
-    ----------
-    kwarg_dict : dict
-        Dict containing keyword arguments to parse
-
-    Returns
-    -------
-    func_kwargs : dict
-        Dict with keys matching the names of the functions. The corresponding
-        value is a dictionary of the keyword arguments for the function.
-    """
-    func_names = degradations.DEGRADATIONS.keys()
-    func_kwargs = {name: {} for name in func_names}
-    if kwarg_dict is None:
-        return func_kwargs
-    for kk, kwarg_value in kwarg_dict.items():
-        try:
-            func_name, kwarg_name = kk.split("__", 1)
-        except ValueError:
-            raise ValueError(f"Supplied keyword [{kk}] must have a double underscore")
-        assert func_name in func_names, f"{func_name} not in {func_names}"
-        func_kwargs[func_name][kwarg_name] = kwarg_value
-    return func_kwargs
 
 
 def clean_download_cache(dir_path=downloaders.DEFAULT_CACHE_PATH, prompt=True):
