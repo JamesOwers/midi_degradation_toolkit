@@ -547,11 +547,18 @@ def update_shift_params(shift_df, params):
                     ),
                 ),
             )
+        else:
+            params["pitch_shift__abs_distribution"] = np.array(
+                params["pitch_shift__abs_distribution"]
+            )
 
         value_counts = pitch_df.pitch_trans.value_counts()
         params["pitch_shift__abs_distribution"][
             value_counts.index.astype(int)
         ] += value_counts
+        params["pitch_shift__abs_distribution"] = params[
+            "pitch_shift__abs_distribution"
+        ].tolist()
 
         shifts = (pitch_df["pitch_trans"] - pitch_df["pitch_gt"]).astype(int)
         max_shift = shifts.abs().max()
