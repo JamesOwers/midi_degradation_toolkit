@@ -434,6 +434,39 @@ def get_shifts(
     return pd.DataFrame(shifts)
 
 
+def update_value(params_dict, key, update_func, new_value, cast_func=None):
+    """
+    Update a dictionary entry to either a new value, or a given function applied
+    to the old and new values.
+
+    Parameters
+    ----------
+    params_dict : dict
+        The dictionary to be updated.
+
+    key : string
+        The key whose value should be updated in the dictionary.
+
+    update_func : Func
+        A function taking 2 arguments. If the key already exists in the dictionary,
+        its new value will be this function called with the old value and
+        new_value.
+
+    new_value : Any
+        If the key doesn't exist in the dictionary, it will be set to this. If it
+        does exist, the new value will be the result of:
+        `update_func(params_dict[key], new_value)`.
+
+    cast_func : Func
+        A function that can be used to cast the resulting value to a desired type.
+    """
+    params_dict[key] = (
+        update_func(params_dict[key], new_value) if key in params_dict else new_value
+    )
+    if cast_func is not None:
+        params_dict[key] = cast_func(params_dict[key])
+
+
 def update_shift_params(shift_df, params):
     """
     Get parameters for the *_shift degradations given the found shift errors
@@ -449,39 +482,6 @@ def update_shift_params(shift_df, params):
         A dictionary in which to store, update, and return (in place) parameters
         for the degradation.
     """
-
-    def update_value(params_dict, key, update_func, new_value, cast_func=None):
-        """
-        Update a dictionary entry to either a new value, or a given function applied
-        to the old and new values.
-
-        Parameters
-        ----------
-        params_dict : dict
-            The dictionary to be updated.
-
-        key : string
-            The key whose value should be updated in the dictionary.
-
-        update_func : Func
-            A function taking 2 arguments. If the key already exists in the dictionary,
-            its new value will be this function called with the old value and
-            new_value.
-
-        new_value : Any
-            If the key doesn't exist in the dictionary, it will be set to this.
-
-        cast_func : Func
-            A function that can be used to cast the result to a desired type.
-        """
-        params_dict[key] = (
-            update_func(params_dict[key], new_value)
-            if key in params_dict
-            else new_value
-        )
-        if cast_func is not None:
-            params_dict[key] = cast_func(params_dict[key])
-
     # Onset shift
     onset_df = shift_df.loc[shift_df.deg_type == "onset_shift"]
     if len(onset_df) > 0:
@@ -592,6 +592,60 @@ def update_shift_params(shift_df, params):
         else:
             # Store new_dist in params
             params["pitch_shift__distribution"] = new_dist.tolist()
+
+
+def update_add_params(trans_df, params):
+    """
+    Get parameters for the add_note degradation given the notes remaining in the
+    transcription DataFrame.
+
+    Parameters
+    ----------
+    trans_df : pd.DataFrame
+        A DataFrame containing the transcription once all matched notes are removed,
+        and any notes covered by other degradations are also removed.
+
+    params : Dict(str -> float)
+        A dictionary in which to store, update, and return (in place) parameters
+        for the degradation.
+    """
+    if len(trans_df) == 0:
+        return
+
+    update_value(params, "add_note__min_pitch", min, trans_df.pitch.min(), int)
+    update_value(params, "add_note__max_pitch", max, trans_df.pitch.max(), int)
+    update_value(params, "add_note__min_duration", min, trans_df.dur.min(), int)
+    update_value(params, "add_note__max_duration", max, trans_df.dur.max(), int)
+    update_value(params, "add_note__min_velocity", min, trans_df.velocity.min(), int)
+    update_value(params, "add_note__max_velocity", max, trans_df.velocity.max(), int)
+
+    max_pitch = params["add_note__max_pitch"]
+
+    # Ensure distribution array is long enough, and is a numpy array
+    if "add_note__pitch_distribution" not in params:
+        params["add_note__pitch_distribution"] = np.zeros(max_pitch + 1, dtype=int)
+
+    elif len(params["add_note__pitch_distribution"]) <= max_pitch:
+        params["add_note__pitch_distribution"] = np.pad(
+            params["add_note__pitch_distribution"],
+            (
+                0,
+                max_pitch + 1 - len(params["add_note__pitch_distribution"]),
+            ),
+        )
+    else:
+        params["add_note__pitch_distribution"] = np.array(
+            params["add_note__pitch_distribution"]
+        )
+
+    value_counts = trans_df.pitch.value_counts()
+    # This indexing requires a numpy array
+    params["add_note__pitch_distribution"][
+        value_counts.index.astype(int)
+    ] += value_counts
+    params["add_note__pitch_distribution"] = params[
+        "add_note__pitch_distribution"
+    ].tolist()
 
 
 def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
@@ -740,6 +794,100 @@ def get_splits(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
     return pre_split_notes, post_split_notes, shift_onset, shift_offset
 
 
+def update_join_params(
+    gt_df,
+    trans_df,
+    params,
+    pre_joined_notes,
+    post_joined_notes,
+    shift_onset,
+    shift_offset,
+):
+    """
+    Update the degradation parameters for the join_notes degradation.
+    The existing parameters should be passed in the params argument,
+    whose values will be changed in place.
+
+    Parameters
+    ----------
+    gt_df : pd.DataFrame
+        The ground truth data frame.
+
+    trans_df : pd.DataFrame
+        The transcribed data frame.
+
+    params : Dict(str -> float)
+        A dictionary in which to store, update, and return (in place) parameters
+        for the degradation.
+
+    pre_joined_notes : list
+        A list of lists, where each sub-list contains the gt_df indexes of
+        a group of ground truth notes that were found joined together in the
+        transcription.
+
+    post_joined_notes : list
+        A list of the trans_df indexes of transcribed notes that were the result
+        of a join_notes. post_joined_notes[i] corresponds to the joining of the
+        notes in pre_joined_notes[i].
+
+    shift_onset : list
+        A list of booleans, each indicating whether the given join notes degradation
+        (again corresponding to pre/post_joined_notes) was also onset shifted.
+
+    shift_offset : list
+        A list of booleans, each indicating whether the given join notes degradation
+        (again corresponding to pre/post_joined_notes) was also offset shifted.
+    """
+    # TODO
+
+
+def update_split_params(
+    gt_df,
+    trans_df,
+    params,
+    pre_split_notes,
+    post_split_notes,
+    shift_onset,
+    shift_offset,
+):
+    """
+    Update the degradation parameters for the split_notes degradation.
+    The existing parameters should be passed in the params argument,
+    whose values will be changed in place.
+
+    Parameters
+    ----------
+    gt_df : pd.DataFrame
+        The ground truth data frame.
+
+    trans_df : pd.DataFrame
+        The transcribed data frame.
+
+    params : Dict(str -> float)
+        A dictionary in which to store, update, and return (in place) parameters
+        for the degradation.
+
+    pre_split_notes : list
+        A list of the gt_df indexes of ground truth notes that were split apart
+        in the transcription.
+
+    post_split_notes : list
+        A list of lists, where each sub-list contains the trans_df indexes of
+        a group of transcribed notes that correspond to the splitting apart of a
+        single ground truth note. post_split_notes[i] corresponds to the splitting
+        of the note pre_split_notes[i].
+
+    shift_onset : list
+        A list of booleans, each indicating whether the given split notes degradation
+        (again corresponding to pre/post_split_notes) was also onset shifted.
+
+    shift_offset : list
+        A list of booleans, each indicating whether the given split notes degradation
+        (again corresponding to pre/post_split_notes) was also offset shifted.
+    """
+    # TODO
+
+
 def get_excerpt_degs(gt_excerpt, trans_excerpt, params):
     """
     Get the count of each degradation given a ground truth excerpt and a
@@ -777,6 +925,15 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt, params):
     deg_counts[list(DEGRADATIONS).index("join_notes")] = len(pre_joined_notes)
     deg_counts[list(DEGRADATIONS).index("onset_shift")] = sum(shift_onset)
     deg_counts[list(DEGRADATIONS).index("offset_shift")] = sum(shift_offset)
+    update_join_params(
+        gt_excerpt,
+        trans_excerpt,
+        params,
+        pre_joined_notes,
+        post_joined_notes,
+        shift_onset,
+        shift_offset,
+    )
     gt_excerpt = gt_excerpt.drop(
         index=[idx for join in pre_joined_notes for idx in join]
     )
@@ -789,6 +946,15 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt, params):
     deg_counts[list(DEGRADATIONS).index("split_note")] = len(pre_split_notes)
     deg_counts[list(DEGRADATIONS).index("onset_shift")] += sum(shift_onset)
     deg_counts[list(DEGRADATIONS).index("offset_shift")] += sum(shift_offset)
+    update_split_params(
+        gt_excerpt,
+        trans_excerpt,
+        params,
+        pre_split_notes,
+        post_split_notes,
+        shift_onset,
+        shift_offset,
+    )
     gt_excerpt = gt_excerpt.drop(index=pre_split_notes)
     trans_excerpt = trans_excerpt.drop(
         index=[idx for split in post_split_notes for idx in split]
@@ -796,7 +962,6 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt, params):
 
     # Shift degredation estimation (onset, offset, time, pitch)
     shift_df = get_shifts(gt_excerpt, trans_excerpt)
-    total_shifts = 0
     if len(shift_df) > 0:
         for deg_type in ["onset_shift", "offset_shift", "time_shift", "pitch_shift"]:
             deg_counts[list(DEGRADATIONS).index(deg_type)] += len(
@@ -805,11 +970,15 @@ def get_excerpt_degs(gt_excerpt, trans_excerpt, params):
 
         update_shift_params(shift_df, params)
 
-        total_shifts = len(set(shift_df.index_gt))  # Only count unique gt notes
+        # Remove shifted notes from gt and trans
+        gt_excerpt = gt_excerpt.drop(index=shift_df.index_gt)
+        trans_excerpt = trans_excerpt.drop(index=shift_df.index_trans)
 
     # Remainder are all adds and removes
-    deg_counts[list(DEGRADATIONS).index("add_note")] = len(trans_excerpt) - total_shifts
-    deg_counts[list(DEGRADATIONS).index("remove_note")] = len(gt_excerpt) - total_shifts
+    deg_counts[list(DEGRADATIONS).index("add_note")] = len(trans_excerpt)
+    deg_counts[list(DEGRADATIONS).index("remove_note")] = len(gt_excerpt)
+
+    update_add_params(trans_excerpt, params)
 
     return deg_counts
 
