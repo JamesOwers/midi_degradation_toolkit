@@ -692,11 +692,13 @@ def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
     merged_df = merge_on_pitch(gt_df, trans_df, offset=True)
 
     # Save only rows where notes overlap enough
-    # Must overlap at least half of gt_duration
+    # Must overlap at least half of max(max_gap, gt_duration)
     overlap_start = merged_df[["onset_trans", "onset_gt"]].max(axis=1)
     overlap_end = merged_df[["offset_trans", "offset_gt"]].min(axis=1)
     merged_df["overlap_length"] = overlap_end - overlap_start
-    merged_df = merged_df.loc[merged_df.overlap_length >= 0.5 * merged_df.dur_gt]
+    merged_df = merged_df.loc[
+        merged_df.overlap_length >= 0.5 * max(merged_df.dur_gt, max_gap)
+    ]
 
     # Keep only trans notes with multiple overlapping gt notes
     merged_df = merged_df.loc[merged_df.index_trans.duplicated(keep=False)].copy()
