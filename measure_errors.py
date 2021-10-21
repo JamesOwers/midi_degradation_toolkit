@@ -692,13 +692,11 @@ def get_joins(gt_df, trans_df, max_gap=MAX_GAP_DEFAULT):
     merged_df = merge_on_pitch(gt_df, trans_df, offset=True)
 
     # Save only rows where notes overlap enough
-    # Must overlap at least half of min(max gap, gt_duration)
+    # Must overlap at least half of gt_duration
     overlap_start = merged_df[["onset_trans", "onset_gt"]].max(axis=1)
     overlap_end = merged_df[["offset_trans", "offset_gt"]].min(axis=1)
     merged_df["overlap_length"] = overlap_end - overlap_start
-    merged_df = merged_df.loc[
-        merged_df.overlap_length >= 0.5 * merged_df.dur_gt.clip(upper=max_gap)
-    ]
+    merged_df = merged_df.loc[merged_df.overlap_length >= 0.5 * merged_df.dur_gt]
 
     # Keep only trans notes with multiple overlapping gt notes
     merged_df = merged_df.loc[merged_df.index_trans.duplicated(keep=False)].copy()
@@ -838,7 +836,42 @@ def update_join_params(
         A list of booleans, each indicating whether the given join notes degradation
         (again corresponding to pre/post_joined_notes) was also offset shifted.
     """
-    # TODO
+    for post_join_note_id, pre_join_note_id_list, onset, offset in zip(
+        post_joined_notes, pre_joined_notes, shift_onset, shift_offset
+    ):
+        post_join_note = trans_df.loc[post_join_note_id]
+        pre_join_notes_df = gt_df.loc[pre_join_note_id_list]
+
+        max_gap = (
+            pre_join_notes_df.onset.shift(-1)
+            - (pre_join_notes_df.onset + pre_join_notes_df.dur)
+        ).max()
+        update_value(params, "join_notes__max_gap", max, max_gap, cast_func=int)
+
+        update_value(
+            params, "join_notes__max_notes", max, len(pre_join_notes_df), cast_func=int
+        )
+
+        if onset:
+            shift_amt = abs(post_join_note.onset - pre_join_notes_df.onset.min())
+            update_value(
+                params, "onset_shift__min_shift", min, shift_amt, cast_func=int
+            )
+            update_value(
+                params, "onset_shift__max_shift", max, shift_amt, cast_func=int
+            )
+
+        if offset:
+            shift_amt = abs(
+                (post_join_note.onset + post_join_note.dur)
+                - (pre_join_notes_df.onset + pre_join_notes_df.dur).max()
+            )
+            update_value(
+                params, "offset_shift__min_shift", min, shift_amt, cast_func=int
+            )
+            update_value(
+                params, "offset_shift__max_shift", max, shift_amt, cast_func=int
+            )
 
 
 def update_split_params(
@@ -885,7 +918,40 @@ def update_split_params(
         A list of booleans, each indicating whether the given split notes degradation
         (again corresponding to pre/post_split_notes) was also offset shifted.
     """
-    # TODO
+    for post_split_note_id_list, pre_split_note_id, onset, offset in zip(
+        post_split_notes, pre_split_notes, shift_onset, shift_offset
+    ):
+        post_split_notes_df = trans_df.loc[post_split_note_id_list]
+        pre_split_note = gt_df.loc[pre_split_note_id]
+
+        update_value(
+            params,
+            "split_note__min_duration",
+            min,
+            post_split_notes_df.dur.min(),
+            cast_func=int,
+        )
+
+        if onset:
+            shift_amt = abs(pre_split_note.onset - post_split_notes_df.onset.min())
+            update_value(
+                params, "onset_shift__min_shift", min, shift_amt, cast_func=int
+            )
+            update_value(
+                params, "onset_shift__max_shift", max, shift_amt, cast_func=int
+            )
+
+        if offset:
+            shift_amt = abs(
+                (pre_split_note.onset + pre_split_note.dur)
+                - (post_split_notes_df.onset + post_split_notes_df.dur).max()
+            )
+            update_value(
+                params, "offset_shift__min_shift", min, shift_amt, cast_func=int
+            )
+            update_value(
+                params, "offset_shift__max_shift", max, shift_amt, cast_func=int
+            )
 
 
 def get_excerpt_degs(gt_excerpt, trans_excerpt, params):
