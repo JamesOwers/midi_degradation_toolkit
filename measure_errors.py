@@ -1124,15 +1124,14 @@ def get_proportions(
 
         # Check for validity
         if len(gt_excerpt) < min_notes and len(trans_excerpt) < min_notes:
-            logging.warning(
-                f"Skipping excerpt {gt} for too few notes. "
-                f"Time range = [{excerpt_start}, {excerpt_end}). "
-                f"Try lowering the minimum note count --min-notes "
-                f"(currently {min_notes}), or "
-                "ignore this if it is just due to a song length "
-                "not being divisible by the --excerpt-length "
-                f"(currently {length})."
-            )
+            if excerpt_end != end_time:
+                logging.warning(
+                    f"Skipping excerpt {gt} for too few notes. "
+                    f"Time range = [{excerpt_start}, {excerpt_end}). "
+                    "Try lowering the minimum note count --min-notes "
+                    f"(currently {min_notes}), or raising the --excerpt-length "
+                    f"(currently {length})."
+                )
             continue
 
         num_excerpts += 1
