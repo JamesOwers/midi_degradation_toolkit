@@ -97,8 +97,10 @@ class Degrader:
             if "degradation_dist" in config:
                 degradation_dist = np.array(config["degradation_dist"])
                 degradations = list(degs.DEGRADATIONS.keys())
+                del config["degradation_dist"]
             if "clean_prop" in config:
                 clean_prop = config["clean_prop"]
+                del config["clean_prop"]
 
         # Check arg validity
         assert len(degradation_dist) == len(degradations), (
