@@ -1128,7 +1128,7 @@ def add_note(
     }
 
     degraded = excerpt.copy()
-    degraded = degraded.append(note, ignore_index=True)
+    degraded = pd.concat([degraded, pd.DataFrame([note])], ignore_index=True)
 
     # Check if overlaps
     if overlaps(degraded, degraded.index[-1]):
@@ -1237,7 +1237,7 @@ def split_note(
             "velocity": velocities,
         }
     )
-    degraded = degraded.append(new_df, ignore_index=True)
+    degraded = pd.concat([degraded, new_df], ignore_index=True)
 
     # No need to check for overlap
     degraded = post_process(degraded)
@@ -1343,7 +1343,7 @@ def join_notes(
     degraded = excerpt.copy()
 
     # Extend first note
-    degraded.loc[start]["dur"] = (
+    degraded.loc[start, "dur"] = (
         degraded.loc[nexts[-1]]["onset"]
         + degraded.loc[nexts[-1]]["dur"]
         - degraded.loc[start]["onset"]
